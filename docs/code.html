@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>The Code</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+<P><H2><U><B><A NAME="TC">The Code</A></B></U></H2>
+
+<P>I'd rather people not skip to this section directly, since the previous sections explain so much of what we're trying to do and how we're going to do it.  A complete cut-and-paste job will simply not work well for mods with even moderate complexity.  There are quite a few little niggly things that you're likely to miss if you don't read the previous two sections.  So if you skipped directly to here, please do yourself a favor and go back.
+
+<P>Also, before you go on, make <I>sure</I> you have a project that builds both within your test environment (probably Visual C++ or Visual Studio) and for production (VMs). If you can't get it working, visit <A HREF="http://www.planetquake.com/code3arena" TARGET="_new">Code3Arena</A>, where there are some great tutorials on it.
+
+<P>Those of you working on a new mod have it easy.  Just drop these source files in the right places, overwriting the 1.29h source files.  Follow the directions in the next section (&ldquo;Importing&rdquo;), redefine <I>GAMEVERSION</I> in g_local.h, and you're good to go.
+
+<P><BR>
+
+<P><H3><B><A NAME="I">Importing</A></B></H3>
+
+<P>I've included two source files with this distribution, &ldquo;cg_unlagged.c&rdquo; and &ldquo;g_unlagged.c.&rdquo;
+
+<P>cg_unlagged.c contains all of the code for predicting instant-hit weapon effects (rail trails, bullet strikes), and a couple of miscellaneous functions.  g_unlagged.c contains the backward reconciliation logic and most of the skip correction logic.
+
+<P>To get one of them into a Visual C++ project, right-click the correct project in the FileView tab in the Workspace window, and choose &ldquo;Add Files to Project.&rdquo;  A file dialog will appear; select the file and click &ldquo;OK.&rdquo;  Now, when you build, the file should get compiled and linked into the final DLL.  Obviously, you'll want to put g_unlagged.c in the &ldquo;game&rdquo; project and cg_unlagged.c in the &ldquo;cgame&rdquo; project.
+
+<P>Now search in the Unlagged source for &ldquo;//unlagged - cg_unlagged.c&rdquo; and &ldquo;//unlagged - g_unlagged.c&rdquo;. Copy the lines those comments sandwich into the right places. Now you can use the functions in those source files.
+
+<P>The batch files that build the VMs will need to know about these new source files as well.  I can't be certain what your files will be named or look like, but I can take a guess.  Edit game.bat and add g_unlagged.c to it, copying whatever code there is in it that compiles other source files.  It doesn't matter what order the files are compiled.  Then add g_unlagged to game.q3asm.  Do the same for cg_unlagged.c in cgame.bat and cgame.q3asm.
+
+<P><BR>
+
+<P><H3><B><A NAME="M">Merging</A></B></H3>
+
+<P>First of all, back up all of your code.  You might need it to roll back changes, or for reference when debugging.
+
+<P>There are about 100 pieces of code to merge to get everything working like in Unlagged 2.01.  That's actually not too much, since a lot of them are one-liners at the beginnings of functions to define a variable.  Many more are one-liners that just need to be copied in &ndash; like the code that calls the function to &ldquo;time shift&rdquo; other players.  Still more are pieces of code that are commented out because they are no longer necessary.
+
+<P>Some of the features have either minor dependencies or no dependencies, making them quite simple to include.  Here they are:
+
+<UL>
+	<LI>&ldquo;notarget&rdquo; command works (look for &ldquo;//unlagged - misc&rdquo;)
+	<LI>True lightning works properly (&ldquo;//unlagged - true lightning&rdquo;)
+	<LI>cl_timenudge extrapolates (&ldquo;//unlagged - timenudge extrapolation&rdquo;)
+	<LI>True ping (&ldquo;//unlagged - true ping&rdquo;)
+	<LI>Lag simulation (&ldquo;//unlagged - connection simulation&rdquo;)
+	<LI>Optimization for player prediction (&ldquo;//unlagged - optimized prediction&rdquo;)
+</UL>
+
+<P>I've put them in order of difficulty.  Of those listed, the player prediction optimization, as well as being the most difficult, is the most invasive, and should be handled with the most care.  If you've never made a change to CG_PredictPlayerState() in cg_predict.c, though, you should be fine just  overwriting that whole function with Unlagged's version.  You'll have lucked out.
+
+<P>Be aware that true ping, lag simulation, and optimized prediction require some new cvars.
+
+<P>Since the rest have major dependencies, there really is a &ldquo;best&rdquo; order to do things in.  Here it is:
+
+<OL>
+	<LI>If you haven't done it already, merge the forward declarations for the functions in cg_unlagged.c (look for &ldquo;//unlagged - cg_unlagged.c&rdquo;)
+	<LI>Merge forward declarations for the functions in g_unlagged.c (&ldquo;//unlagged - g_unlagged.c&rdquo;)
+	<LI>New server cvars (&ldquo;//unlagged - server options&rdquo;)
+	<LI>New client cvars (&ldquo;//unlagged - client options&rdquo;)
+	<LI>All of the backward reconciliation code, even if you're <I>not</I> planning on doing the full lag compensation (&ldquo;//unlagged - backward reconciliation&rdquo;)
+	<LI>All of the attack prediction code, only if you <I>are</I> planning on doing the full lag compensation (&ldquo;//unlagged - attack prediction&rdquo;)
+	<LI>Lag-compensated grappling hook if your mod features the default grappling hook (&ldquo;//unlagged &ndash; grapple&rdquo;)
+	<LI>Projectile nudge (&ldquo;//unlagged - projectile nudge&rdquo;)
+	<LI>Early transitioning of missile entities (&ldquo;//unlagged - early transitioning&rdquo;)
+	<LI>Skip correction (&ldquo;//unlagged - smooth clients&rdquo;)
+</OL>
+
+<P>The last five can be done in any order without problems, so I've put them in order of difficulty.
+
+<P ALIGN=RIGHT><A HREF="walkthroughs.html">Next: Code Walk-throughs</A>
+
+</BODY>
+</HTML>

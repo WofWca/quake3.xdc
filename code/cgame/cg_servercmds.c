@@ -1,22 +1,24 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
-This file is part of Quake III Arena source code.
+This file is part of Unlagged and Quake III Arena source code.
 
-Quake III Arena source code is free software; you can redistribute it
-and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation; either version 2 of the License,
-or (at your option) any later version.
+Unlagged and Quake III Arena source code is free software; you can
+redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation; either version 2 of
+the License, or (at your option) any later version.
 
-Quake III Arena source code is distributed in the hope that it will be
-useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+Unlagged and Quake III Arena source code is distributed in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+along with Unlagged and Quake III Arena source code; if not, write to the
+Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+02110-1301  USA
 ===========================================================================
 */
 //
@@ -160,6 +162,12 @@ void CG_ParseServerinfo( void ) {
 	trap_Cvar_Set("g_redTeam", cgs.redTeam);
 	Q_strncpyz( cgs.blueTeam, Info_ValueForKey( info, "g_blueTeam" ), sizeof(cgs.blueTeam) );
 	trap_Cvar_Set("g_blueTeam", cgs.blueTeam);
+
+//unlagged - server options
+	// we'll need this for deciding whether or not to predict weapon effects
+	cgs.delagHitscan = atoi( Info_ValueForKey( info, "g_delagHitscan" ) );
+	trap_Cvar_Set("g_delagHitscan", va("%i", cgs.delagHitscan));
+//unlagged - server options
 }
 
 /*
@@ -520,7 +528,6 @@ int CG_ParseVoiceChats( const char *filename, voiceChatList_t *voiceChatList, in
 	char *token;
 	voiceChat_t *voiceChats;
 	qboolean compress;
-	sfxHandle_t sound;
 
 	compress = qtrue;
 	if (cg_buildScript.integer) {
@@ -588,16 +595,15 @@ int CG_ParseVoiceChats( const char *filename, voiceChatList_t *voiceChatList, in
 			}
 			if (!Q_stricmp(token, "}"))
 				break;
-			sound = trap_S_RegisterSound( token, compress );
-			voiceChats[voiceChatList->numVoiceChats].sounds[voiceChats[voiceChatList->numVoiceChats].numSounds] = sound;
+			voiceChats[voiceChatList->numVoiceChats].sounds[voiceChats[voiceChatList->numVoiceChats].numSounds] = 
+          trap_S_RegisterSound( token , compress );
 			token = COM_ParseExt(p, qtrue);
 			if (!token || token[0] == 0) {
 				return qtrue;
 			}
 			Com_sprintf(voiceChats[voiceChatList->numVoiceChats].chats[
 							voiceChats[voiceChatList->numVoiceChats].numSounds], MAX_CHATSIZE, "%s", token);
-			if (sound)
-				voiceChats[voiceChatList->numVoiceChats].numSounds++;
+			voiceChats[voiceChatList->numVoiceChats].numSounds++;
 			if (voiceChats[voiceChatList->numVoiceChats].numSounds >= MAX_VOICESOUNDS)
 				break;
 		}

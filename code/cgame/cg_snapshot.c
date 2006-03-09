@@ -1,22 +1,24 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
-This file is part of Quake III Arena source code.
+This file is part of Unlagged and Quake III Arena source code.
 
-Quake III Arena source code is free software; you can redistribute it
-and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation; either version 2 of the License,
-or (at your option) any later version.
+Unlagged and Quake III Arena source code is free software; you can
+redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation; either version 2 of
+the License, or (at your option) any later version.
 
-Quake III Arena source code is distributed in the hope that it will be
-useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+Unlagged and Quake III Arena source code is distributed in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+along with Unlagged and Quake III Arena source code; if not, write to the
+Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+02110-1301  USA
 ===========================================================================
 */
 //
@@ -55,7 +57,9 @@ CG_TransitionEntity
 cent->nextState is moved to cent->currentState and events are fired
 ===============
 */
-static void CG_TransitionEntity( centity_t *cent ) {
+//unlagged - early transitioning
+// used to be static, now needed to transition entities from within cg_ents.c
+void CG_TransitionEntity( centity_t *cent ) {
 	cent->currentState = cent->nextState;
 	cent->currentValid = qtrue;
 
@@ -185,7 +189,6 @@ static void CG_TransitionSnapshot( void ) {
 			CG_TransitionPlayerState( ps, ops );
 		}
 	}
-
 }
 
 
@@ -277,6 +280,24 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 		cgs.processedSnapshotNum++;
 		r = trap_GetSnapshot( cgs.processedSnapshotNum, dest );
 
+//unlagged - lag simulation #1
+		// the client wants latent snaps and the just-read snapshot is valid
+		if ( cg_latentSnaps.integer && r ) {
+			int i = 0, time = dest->serverTime;
+
+			// keep grabbing one snapshot earlier until we get to the right time
+			while ( dest->serverTime > time - cg_latentSnaps.integer * (1000 / sv_fps.integer) ) {
+				if ( !(r = trap_GetSnapshot( cgs.processedSnapshotNum - i, dest )) ) {
+					// the snapshot is not valid, so stop here
+					break;
+				}
+
+				// go back one more
+				i++;
+			}
+		}
+//unlagged - lag simulation #1
+
 		// FIXME: why would trap_GetSnapshot return a snapshot with the same server time
 		if ( cg.snap && r && dest->serverTime == cg.snap->serverTime ) {
 			//continue;
@@ -333,7 +354,15 @@ void CG_ProcessSnapshots( void ) {
 	if ( n != cg.latestSnapshotNum ) {
 		if ( n < cg.latestSnapshotNum ) {
 			// this should never happen
-			CG_Error( "CG_ProcessSnapshots: n < cg.latestSnapshotNum" );
+//unlagged - lag simulation #1
+			// this may actually happen with lag simulation going on
+			if ( cg_latentSnaps.integer ) {
+				CG_Printf( "WARNING: CG_ProcessSnapshots: n < cg.latestSnapshotNum\n" );
+			}
+			else {
+				CG_Error( "CG_ProcessSnapshots: n < cg.latestSnapshotNum" );
+			}
+//unlagged - lag simulation #1
 		}
 		cg.latestSnapshotNum = n;
 	}
@@ -374,7 +403,15 @@ void CG_ProcessSnapshots( void ) {
 
 			// if time went backwards, we have a level restart
 			if ( cg.nextSnap->serverTime < cg.snap->serverTime ) {
-				CG_Error( "CG_ProcessSnapshots: Server time went backwards" );
+//unlagged - lag simulation #1
+				// this may actually happen with lag simulation going on
+				if ( cg_latentSnaps.integer ) {
+					CG_Printf( "WARNING: CG_ProcessSnapshots: Server time went backwards\n" );
+				}
+				else {
+					CG_Error( "CG_ProcessSnapshots: Server time went backwards" );
+				}
+//unlagged - lag simulation #1
 			}
 		}
 

@@ -1,22 +1,24 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
-This file is part of Quake III Arena source code.
+This file is part of Unlagged and Quake III Arena source code.
 
-Quake III Arena source code is free software; you can redistribute it
-and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation; either version 2 of the License,
-or (at your option) any later version.
+Unlagged and Quake III Arena source code is free software; you can
+redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation; either version 2 of
+the License, or (at your option) any later version.
 
-Quake III Arena source code is distributed in the hope that it will be
-useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+Unlagged and Quake III Arena source code is distributed in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Foobar; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+along with Unlagged and Quake III Arena source code; if not, write to the
+Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+02110-1301  USA
 ===========================================================================
 */
 //
@@ -923,28 +925,77 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	case EV_RAILTRAIL:
 		DEBUGNAME("EV_RAILTRAIL");
 		cent->currentState.weapon = WP_RAILGUN;
-		// if the end was on a nomark surface, don't make an explosion
-		CG_RailTrail( ci, es->origin2, es->pos.trBase );
-		if ( es->eventParm != 255 ) {
-			ByteToDir( es->eventParm, dir );
-			CG_MissileHitWall( es->weapon, es->clientNum, position, dir, IMPACTSOUND_DEFAULT );
+//unlagged - attack prediction #2
+		// if the client is us, unlagged is on server-side, and we've got it client-side
+		if ( es->clientNum == cg.predictedPlayerState.clientNum && 
+				cgs.delagHitscan && (cg_delag.integer & 1 || cg_delag.integer & 16) ) {
+			// do nothing, because it was already predicted
+			//Com_Printf("Ignoring rail trail event\n");
 		}
+		else {
+			// draw a rail trail, because it wasn't predicted
+			CG_RailTrail( ci, es->origin2, es->pos.trBase );
+
+			// if the end was on a nomark surface, don't make an explosion
+			if ( es->eventParm != 255 ) {
+				ByteToDir( es->eventParm, dir );
+				CG_MissileHitWall( es->weapon, es->clientNum, position, dir, IMPACTSOUND_DEFAULT );
+			}
+			//Com_Printf("Non-predicted rail trail\n");
+		}
+//unlagged - attack prediction #2
 		break;
 
 	case EV_BULLET_HIT_WALL:
 		DEBUGNAME("EV_BULLET_HIT_WALL");
-		ByteToDir( es->eventParm, dir );
-		CG_Bullet( es->pos.trBase, es->otherEntityNum, dir, qfalse, ENTITYNUM_WORLD );
+//unlagged - attack prediction #2
+		// if the client is us, unlagged is on server-side, and we've got it client-side
+		if ( es->clientNum == cg.predictedPlayerState.clientNum && 
+				cgs.delagHitscan && (cg_delag.integer & 1 || cg_delag.integer & 2) ) {
+			// do nothing, because it was already predicted
+			//Com_Printf("Ignoring bullet event\n");
+		}
+		else {
+			// do the bullet, because it wasn't predicted
+			ByteToDir( es->eventParm, dir );
+			CG_Bullet( es->pos.trBase, es->otherEntityNum, dir, qfalse, ENTITYNUM_WORLD );
+			//Com_Printf("Non-predicted bullet\n");
+		}
+//unlagged - attack prediction #2
 		break;
 
 	case EV_BULLET_HIT_FLESH:
 		DEBUGNAME("EV_BULLET_HIT_FLESH");
-		CG_Bullet( es->pos.trBase, es->otherEntityNum, dir, qtrue, es->eventParm );
+//unlagged - attack prediction #2
+		// if the client is us, unlagged is on server-side, and we've got it client-side
+		if ( es->clientNum == cg.predictedPlayerState.clientNum && 
+				cgs.delagHitscan && (cg_delag.integer & 1 || cg_delag.integer & 2) ) {
+			// do nothing, because it was already predicted
+			//Com_Printf("Ignoring bullet event\n");
+		}
+		else {
+			// do the bullet, because it wasn't predicted
+			CG_Bullet( es->pos.trBase, es->otherEntityNum, dir, qtrue, es->eventParm );
+			//Com_Printf("Non-predicted bullet\n");
+		}
+//unlagged - attack prediction #2
 		break;
 
 	case EV_SHOTGUN:
 		DEBUGNAME("EV_SHOTGUN");
-		CG_ShotgunFire( es );
+//unlagged - attack prediction #2
+		// if the client is us, unlagged is on server-side, and we've got it client-side
+		if ( es->otherEntityNum == cg.predictedPlayerState.clientNum && 
+				cgs.delagHitscan && (cg_delag.integer & 1 || cg_delag.integer & 4) ) {
+			// do nothing, because it was already predicted
+			//Com_Printf("Ignoring shotgun event\n");
+		}
+		else {
+			// do the shotgun pattern, because it wasn't predicted
+			CG_ShotgunFire( es );
+			//Com_Printf("Non-predicted shotgun pattern\n");
+		}
+//unlagged - attack prediction #2
 		break;
 
 	case EV_GENERAL_SOUND:

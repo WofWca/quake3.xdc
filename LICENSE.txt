@@ -1,0 +1,6 @@
+All of the code in this distribution is distributed under the GPL. See COPYING.txt.
+
+The rest of it is public domain.
+
+Hereby declared, undersigned, legalese, etc.,
+Neil Toronto
