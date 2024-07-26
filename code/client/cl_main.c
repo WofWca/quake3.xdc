@@ -120,6 +120,8 @@ cvar_t	*cl_guidServerUniq;
 
 cvar_t	*cl_consoleKeys;
 
+cvar_t	*cl_autoAttack;
+
 cvar_t	*cl_rate;
 
 clientActive_t		cl;
@@ -3616,6 +3618,8 @@ void CL_Init( void ) {
 
 	// ~ and `, as keys and characters
 	cl_consoleKeys = Cvar_Get( "cl_consoleKeys", "~ ` 0x7e 0x60", CVAR_ARCHIVE);
+
+	cl_autoAttack = Cvar_Get( "cl_autoAttack", "0", CVAR_INIT);
 
 	// userinfo
 	Cvar_Get ("name", "UnnamedPlayer", CVAR_USERINFO | CVAR_ARCHIVE );
