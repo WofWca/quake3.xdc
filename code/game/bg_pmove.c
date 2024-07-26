@@ -1833,6 +1833,9 @@ PmoveSingle
 void trap_SnapVector( float *v );
 
 void PmoveSingle (pmove_t *pmove) {
+	vec3_t muzzle, end;
+	trace_t trace;
+
 	pm = pmove;
 
 	// this counter lets us debug movement problems with a journal
@@ -1859,14 +1862,6 @@ void PmoveSingle (pmove_t *pmove) {
 		pm->ps->eFlags |= EF_TALK;
 	} else {
 		pm->ps->eFlags &= ~EF_TALK;
-	}
-
-	// set the firing flag for continuous beam weapons
-	if ( !(pm->ps->pm_flags & PMF_RESPAWNED) && pm->ps->pm_type != PM_INTERMISSION && pm->ps->pm_type != PM_NOCLIP
-		&& ( pm->cmd.buttons & BUTTON_ATTACK ) && pm->ps->ammo[ pm->ps->weapon ] ) {
-		pm->ps->eFlags |= EF_FIRING;
-	} else {
-		pm->ps->eFlags &= ~EF_FIRING;
 	}
 
 	// clear the respawned flag if attack and use are cleared
@@ -1911,6 +1906,29 @@ void PmoveSingle (pmove_t *pmove) {
 	PM_UpdateViewAngles( pm->ps, &pm->cmd );
 
 	AngleVectors (pm->ps->viewangles, pml.forward, pml.right, pml.up);
+	
+	if ( pmove->cmd.buttons & BUTTON_AUTO_ATTACK ) {
+		// If there is a target under the crosshair, attack.
+		// Intended for use with touchscreen controls.
+		// TODO: make this fuzzier so it's not too overpowered. maybe add jitter to rays and/or delay before firing?
+		memcpy(muzzle, pm->ps->origin, sizeof(vec3_t));
+		muzzle[2] += pm->ps->viewheight;
+
+		VectorMA( muzzle, 8192, pml.forward, end );
+		pm->trace(&trace, muzzle, NULL, NULL, end, pm->ps->clientNum, MASK_PLAYERSOLID | CONTENTS_CORPSE);
+		if (trace.entityNum < MAX_CLIENTS && trace.entityNum != ENTITYNUM_NONE) {
+			pm->cmd.buttons = pm->cmd.buttons | BUTTON_ATTACK;
+		}
+	}
+
+	// set the firing flag for continuous beam weapons
+	if ( !(pm->ps->pm_flags & PMF_RESPAWNED) && pm->ps->pm_type != PM_INTERMISSION && pm->ps->pm_type != PM_NOCLIP
+		&& ( pm->cmd.buttons & BUTTON_ATTACK ) && pm->ps->ammo[ pm->ps->weapon ] ) {
+		pm->ps->eFlags |= EF_FIRING;
+	} else {
+		pm->ps->eFlags &= ~EF_FIRING;
+	}
+
 
 	if ( pm->cmd.upmove < 10 ) {
 		// not holding jump
