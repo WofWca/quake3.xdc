@@ -1107,7 +1107,8 @@ netField_t	playerStateFields[] =
 { PSF(grapplePoint[1]), 0 },
 { PSF(grapplePoint[2]), 0 },
 { PSF(jumppad_ent), GENTITYNUM_BITS },
-{ PSF(loopSound), 16 }
+{ PSF(loopSound), 16 },
+{ PSF(autoAttackTimer), 8 },
 };
 
 /*
