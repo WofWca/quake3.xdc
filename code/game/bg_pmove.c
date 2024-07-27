@@ -1833,8 +1833,21 @@ PmoveSingle
 void trap_SnapVector( float *v );
 
 void PmoveSingle (pmove_t *pmove) {
-	vec3_t muzzle, end;
+	vec3_t muzzle, start, end, movedEnd;
 	trace_t trace;
+	int i;
+	int hitSomething = 0;
+	float spreads[9][2] = {
+		{0.0f, 0.0f },
+		{1.f, 0.f },
+		{-1.f, 0.f },
+		{0.f, -1.f },
+		{0.f, 1.f},
+		{0.707f, 0.707f},
+		{-0.707f, 0.707f},
+		{0.707f, -0.707f},
+		{-0.707f, -0.707f},
+	};
 
 	pm = pmove;
 
@@ -1907,17 +1920,41 @@ void PmoveSingle (pmove_t *pmove) {
 
 	AngleVectors (pm->ps->viewangles, pml.forward, pml.right, pml.up);
 	
+	// If there is a target under the crosshair, attack.
+	// Intended for use with touchscreen controls.
+	// We trace a bunch of rays around the crosshair so that this isn't just a perfect aimbot.
+	// We start shooting when there's something roughly in the default crosshair circle.
+	// We add a small delay so that the user needs to have some aiming skill to keep opponents in their crosshairs for longer than one frame.
 	if ( pmove->cmd.buttons & BUTTON_AUTO_ATTACK ) {
-		// If there is a target under the crosshair, attack.
-		// Intended for use with touchscreen controls.
-		// TODO: make this fuzzier so it's not too overpowered. maybe add jitter to rays and/or delay before firing?
+		// TODO: different firing patterns for different weapons? e.g. rocket launcher activates if shooting below target's feet
+		// TODO: lead moving targets?
 		memcpy(muzzle, pm->ps->origin, sizeof(vec3_t));
 		muzzle[2] += pm->ps->viewheight;
+		memcpy(start, muzzle, sizeof(vec3_t));
+		VectorMA( start, 8192, pml.forward, end );
 
-		VectorMA( muzzle, 8192, pml.forward, end );
-		pm->trace(&trace, muzzle, NULL, NULL, end, pm->ps->clientNum, MASK_PLAYERSOLID | CONTENTS_CORPSE);
-		if (trace.entityNum < MAX_CLIENTS && trace.entityNum != ENTITYNUM_NONE) {
-			pm->cmd.buttons = pm->cmd.buttons | BUTTON_ATTACK;
+		for (i = 0; i < sizeof(spreads) / sizeof(spreads[0]); i++) {
+			memcpy(movedEnd, end, sizeof(vec3_t));
+			VectorMA( movedEnd, 500.f*spreads[i][0], pml.right, movedEnd );
+			VectorMA( movedEnd, 500.f*spreads[i][1], pml.up, movedEnd );
+			pm->trace(&trace, start, NULL, NULL, movedEnd, pm->ps->clientNum, MASK_PLAYERSOLID | CONTENTS_CORPSE);
+			if (trace.entityNum < MAX_CLIENTS && trace.entityNum != ENTITYNUM_NONE) {
+				hitSomething = 1;
+				if (pm->ps->autoAttackTimer == 0) {
+					// Start shooting 32 ms after we hit something
+					pm->ps->autoAttackTimer = 32;
+				}
+				break;
+			}
+		}
+	}
+
+	if (pm->ps->autoAttackTimer > 0) {
+		if (pm->ps->autoAttackTimer == 255 || (pm->ps->autoAttackTimer -= pml.msec) <= 0) {
+			// Shoot at least once when the timer expires. If there's still something in the
+			// crosshairs now, set timer to 255 to keep shooting until it's gone.
+			pm->cmd.buttons |= BUTTON_ATTACK;
+			pm->ps->autoAttackTimer = hitSomething ? 255 : 0;
 		}
 	}
 
