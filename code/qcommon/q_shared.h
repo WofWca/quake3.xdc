@@ -1232,6 +1232,8 @@ typedef struct playerState_s {
 	int			loopSound;
 	int			jumppad_ent;	// jumppad entity hit this frame
 
+	int 		autoAttackTimer;	// auto attack timer
+
 	// not communicated over the net at all
 	int			ping;			// server to game info for scoreboard
 	int			pmove_framecount;
