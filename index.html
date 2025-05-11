@@ -169,6 +169,7 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
 <script src="compression-streams-polyfill.0.1.7.js"></script>
 
 <script src="./override-webrtc.js" type="module"></script>
+<script src="./override-websocket-signaling.js" type="module"></script>
 
 <script type='module'>
 
@@ -407,7 +408,12 @@ let connectToServer = new Promise(r=>decideConnectToServer=r);
 if (server) {
     // sanitize to hopefully avoid command injection in autoexec.cfg
     server = server.replace(/"/g, '');
-    fetch(`${peerServerHTTP}/lookup/${server}`).then(r=>r.json()).then((r)=>decideConnectToServer(r.found)).catch(()=>{decideConnectToServer(false);});
+    amITheServerP.then(amITheServer => {
+        amITheServer
+            ? decideConnectToServer(false)
+            : decideConnectToServer(true)
+    })
+    // fetch(`${peerServerHTTP}/lookup/${server}`).then(r=>r.json()).then((r)=>decideConnectToServer(r.found)).catch(()=>{decideConnectToServer(false);});
 }
 
 let buildPath = '.';

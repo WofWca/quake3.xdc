@@ -30,6 +30,14 @@ function startDispatchingOnmessageEventsToDatachannel(dataChannel) {
   setInterval(() => {
     console.log("numOnMessages", numOnMessages);
   }, 5000);
+
+  setTimeout(() => {
+    const openEvent = new RTCDataChannelEvent("open", {
+      channel: dataChannel,
+    });
+    dataChannel.dispatchEvent(openEvent);
+    dataChannel.onopen?.(openEvent);
+  });
 }
 
 globalThis.RTCPeerConnection = new Proxy(RTCPeerConnection, {
@@ -41,6 +49,33 @@ globalThis.RTCPeerConnection = new Proxy(RTCPeerConnection, {
       console.log("Intercepted datachannel event:", event);
       startDispatchingOnmessageEventsToDatachannel(event.channel);
     });
+
+    // This only needs to be run on the server,
+    // but appears to be fine to also run it on the client.
+    setTimeout(() => {
+      const dc = originalCreateChannel.call(rtcpc, "test");
+      const event = new RTCDataChannelEvent("datachannel", {
+        channel: dc,
+      });
+      rtcpc.dispatchEvent(event);
+      rtcpc.ondatachannel?.(event)
+    }, 10);
+
+    setTimeout(() => {
+      console.log("Dispatching fake iceconnectionstatechange");
+
+      Object.defineProperty(rtcpc, "iceConnectionState", {
+        get() {
+          return "connected";
+        },
+      });
+
+      const iceConnectionStateChangeEvent = new Event(
+        "iceconnectionstatechange"
+      );
+      rtcpc.dispatchEvent(iceConnectionStateChangeEvent);
+      rtcpc.oniceconnectionstatechange?.(iceConnectionStateChangeEvent);
+    }, 10);
 
     return rtcpc;
   },
