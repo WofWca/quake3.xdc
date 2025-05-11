@@ -5,6 +5,11 @@ const amITheServerP = new Promise((resolve) => {
   // If not, we are the server.
 
   if (globalThis.webxdc) {
+    const resolveAndCleanUp = (resolveVal) => {
+      resolve(resolveVal);
+      clearInterval(intervalId);
+    };
+
     globalThis.globalWebxdcRealtimeListener = (uint8Array) => {
       // Yes, this is pretty stupid.
       // We probably want a proper "enum" value instead of these magic numbers.
@@ -14,13 +19,19 @@ const amITheServerP = new Promise((resolve) => {
         globalThis.webxdcRealtimeChannel.send(pongMessage);
       }
 
-      resolve(false);
+      resolveAndCleanUp(false);
     };
 
     globalThis.webxdcRealtimeChannel.send(new Uint8Array(42));
+    // For some reason Android won't discover other servers,
+    // probably because the first "ping" message doesn't get sent.
+    // Let's retry!
+    const intervalId = setInterval(() => {
+      globalThis.webxdcRealtimeChannel.send(new Uint8Array(42));
+    }, 300);
 
     setTimeout(() => {
-      resolve(true);
+      resolveAndCleanUp(true);
     }, 2000);
   } else {
     const pingChannel = new BroadcastChannel("pingChannel");
