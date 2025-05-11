@@ -1,28 +1,49 @@
 //@ts-check
 
-const pingChannel = new BroadcastChannel("pingChannel");
-pingChannel.addEventListener("message", (event) => {
-  if (event.data === "ping") {
-    pingChannel.postMessage("pong");
-  }
-});
 const amITheServerP = new Promise((resolve) => {
   // If someone responds within 2 seconds, there is a server already.
   // If not, we are the server.
 
-  const listener = () => {
-    // Someone is already present. They are the server.
-    resolve(false);
-    pingChannel.removeEventListener("message", listener);
-  };
-  pingChannel.addEventListener("message", listener, { once: true });
+  if (globalThis.webxdc) {
+    globalThis.globalWebxdcRealtimeListener = (uint8Array) => {
+      // Yes, this is pretty stupid.
+      // We probably want a proper "enum" value instead of these magic numbers.
+      const isPingMessage = uint8Array.length === 42;
+      if (isPingMessage) {
+        const pongMessage = new Uint8Array(43);
+        globalThis.webxdcRealtimeChannel.send(pongMessage);
+      }
 
-  pingChannel.postMessage("ping");
+      resolve(false);
+    };
 
-  setTimeout(() => {
-    resolve(true);
-    pingChannel.removeEventListener("message", listener);
-  }, 2000);
+    globalThis.webxdcRealtimeChannel.send(new Uint8Array(42));
+
+    setTimeout(() => {
+      resolve(true);
+    }, 2000);
+  } else {
+    const pingChannel = new BroadcastChannel("pingChannel");
+    pingChannel.addEventListener("message", (event) => {
+      if (event.data === "ping") {
+        pingChannel.postMessage("pong");
+      }
+    });
+
+    const listener = () => {
+      // Someone is already present. They are the server.
+      resolve(false);
+      pingChannel.removeEventListener("message", listener);
+    };
+    pingChannel.addEventListener("message", listener, { once: true });
+
+    pingChannel.postMessage("ping");
+
+    setTimeout(() => {
+      resolve(true);
+      pingChannel.removeEventListener("message", listener);
+    }, 2000);
+  }
 });
 globalThis.amITheServerP = amITheServerP;
 amITheServerP.then((res) => {

@@ -3,25 +3,56 @@
 // Mutate WebRTC objects such that RTCDataChannel.send sends data over a
 // `BroadcastChannel` instead of the actual WebRTC implementation.
 
-const broadcastChannel = new BroadcastChannel("webrtc-data");
+/**
+ * @type (message: unknown) => void
+ */
+let broadcastMessage;
+/**
+ * @type (listener: (message: unknown) => void) => void
+ */
+let addListener;
+if (globalThis.webxdc) {
+  // https://webxdc.org/docs/spec/joinRealtimeChannel.html
+  const realtimeChannel = webxdc.joinRealtimeChannel();
+  globalThis.webxdcRealtimeChannel = realtimeChannel;
+
+  broadcastMessage = (message) => realtimeChannel.send(message);
+  let listeners = [];
+  realtimeChannel.setListener((message) => {
+    for (const l of listeners) {
+      l(message);
+    }
+
+    globalThis.globalWebxdcRealtimeListener?.(message);
+  });
+  addListener = (listener) => listeners.push(listener);
+} else {
+  const broadcastChannel = new BroadcastChannel("webrtc-data");
+  broadcastMessage = (message) => broadcastChannel.postMessage(message);
+  addListener = (listener) =>
+    broadcastChannel.addEventListener("message", (event) =>
+      listener(event.data)
+    );
+}
 
 /**
  * @param {RTCDataChannel} dataChannel
  */
 function startDispatchingOnmessageEventsToDatachannel(dataChannel) {
   let numOnMessages = 0;
-  broadcastChannel.addEventListener("message", (event) => {
+  addListener((data) => {
     numOnMessages++;
 
     // This gives an error "The event is already being dispatched"
     // dataChannel.dispatchEvent(event);
 
     const messageEvent = new MessageEvent("message", {
+      data,
       // Probably only `data` here is important.
-      data: event.data,
-      origin: event.origin,
-      lastEventId: event.lastEventId,
-      source: event.source,
+      // data: event.data,
+      // origin: event.origin,
+      // lastEventId: event.lastEventId,
+      // source: event.source,
       // ports: event.ports,
     });
     dataChannel.dispatchEvent(messageEvent);
@@ -148,7 +179,7 @@ RTCPeerConnection.prototype.createDataChannel = function (...args) {
 let numSends = 0;
 const _originalSend = RTCDataChannel.prototype.send;
 RTCDataChannel.prototype.send = function (arg) {
-  broadcastChannel.postMessage(arg);
+  broadcastMessage(arg);
   numSends++;
 };
 setInterval(() => {
