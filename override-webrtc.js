@@ -32,14 +32,67 @@ function startDispatchingOnmessageEventsToDatachannel(dataChannel) {
   }, 5000);
 
   setTimeout(() => {
-    const openEvent = new RTCDataChannelEvent("open", {
-      channel: dataChannel,
-    });
+    const openEvent = new Event("open");
+    openEvent.channel = dataChannel;
     dataChannel.dispatchEvent(openEvent);
     dataChannel.onopen?.(openEvent);
   });
 }
 
+/**
+ * @implements {RTCPeerConnection}
+ */
+class FakeRTCPeerConnection extends EventTarget {
+  constructor() {
+    super();
+
+    this.iceConnectionState = "connected";
+    this.iceGatheringState = "complete";
+  }
+  setLocalDescription(desc) {
+    this.localDescription = desc;
+    this.currentLocalDescription = desc;
+    return Promise.resolve();
+  }
+  setRemoteDescription(desc) {
+    this.remoteDescription = desc;
+    this.currentRemoteDescription = desc;
+    return Promise.resolve();
+  }
+  createAnswer() {
+    return Promise.resolve(
+      new RTCSessionDescription({
+        type: "answer",
+        sdp: "foo",
+      })
+    );
+  }
+  createOffer(...args) {
+    return Promise.resolve(
+      new RTCSessionDescription({
+        type: "offer",
+        sdp: "foo",
+      })
+    );
+  }
+  createDataChannel(label, dataChannelDict) {
+    return /** @type {RTCDataChannel} */ (
+      new FakeRTCDataChannel(label, dataChannelDict)
+    );
+  }
+}
+/**
+ * @implements {RTCDataChannel}
+ */
+class FakeRTCDataChannel extends EventTarget {
+  constructor(label, dataChannelDict) {
+    super();
+    this.label = label;
+  }
+}
+
+globalThis.RTCPeerConnection = FakeRTCPeerConnection;
+globalThis.RTCDataChannel = FakeRTCDataChannel;
 globalThis.RTCPeerConnection = new Proxy(RTCPeerConnection, {
   construct(target, argArray, newTarget, ...rest) {
     /** @type {RTCPeerConnection} */
@@ -54,11 +107,10 @@ globalThis.RTCPeerConnection = new Proxy(RTCPeerConnection, {
     // but appears to be fine to also run it on the client.
     setTimeout(() => {
       const dc = originalCreateChannel.call(rtcpc, "test");
-      const event = new RTCDataChannelEvent("datachannel", {
-        channel: dc,
-      });
+      const event = new Event("datachannel");
+      event.channel = dc;
       rtcpc.dispatchEvent(event);
-      rtcpc.ondatachannel?.(event)
+      rtcpc.ondatachannel?.(event);
     }, 10);
 
     setTimeout(() => {
