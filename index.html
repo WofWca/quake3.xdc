@@ -22,6 +22,9 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
     user-select: none;
     -webkit-user-select: none;
 }
+#upload-game-files {
+    color: white;
+}
 #ui {
     padding: 1em;
     position: absolute;
@@ -153,6 +156,39 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
 <body>
 <div id=rotator>
 
+<section id="upload-game-files" style="display: none;">
+    <h3>Please select game resources</h3>
+    <p>
+        Download game resources from
+        <a
+            href="https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh"
+            download
+        >https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh</a>
+        and select the downloaded file below.
+        <br>
+        You need to paste the link in your normal browser. Clicking the link here will not work.
+        <br>
+        <details><summary>Alternative download</summary>
+            <a href="./tucows_286139_Quake_III_Arena_archive.torrent" download>Torrent file</a>
+            <br>
+            You will need to unpack the .zip archive to get the <code>.gz.sh</code> file.
+        </details>
+    </p>
+    
+    <p style="font-size: smaller;">
+        In case you need it, the expected SHA-256 hash is
+        <code>64dee3f69b6e792d1da4fe0ac98fedc7eb1e37ea1027fb609a9fadd06150a4ec</code>
+    </p>
+
+    <label>
+        Game resources file
+        <br>
+        <input
+            accept=".gz.sh"
+            type="file"
+        />
+    </label>
+</section>
 
 <canvas id=canvas></canvas>
 
@@ -627,8 +663,23 @@ if (demoq3pak0) {
     demoq3pak0 = new Uint8Array(demoq3pak0);
     done.style.transform = 'scaleX(1)';
 } else {
+    const filePickerSection = document.getElementById('upload-game-files');
+    filePickerSection.style.display = '';
+    const filePicker = filePickerSection.getElementsByTagName('input')[0];
+    const blockerEl = document.getElementById('blocker');
+    const progressEl = document.getElementById('progress');
+    blockerEl.style.display = 'none';
+    progressEl.style.display = 'none';
+    await new Promise(r => {
+        filePicker.onchange = r;
+    })
+    blockerEl.style.display = '';
+    progressEl.style.display = '';
+    filePickerSection.remove();
+
     const demoSize = 49289300;
-    let sh = await fetch('https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh').then(r => r.body);
+    // let sh = await fetch('https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh').then(r => r.body);
+    let sh = filePicker.files[0].stream();
     // Skip the first 0x155C bytes of the shell script to get the gz file. Ugh, the streams API is terrible.
     // Also update the progress bar.
     let downloaded = 0;
