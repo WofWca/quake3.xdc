@@ -7,61 +7,148 @@
  * @type (message: unknown) => void
  */
 let broadcastMessage;
-/**
- * @type (listener: (message: unknown) => void) => void
- */
-let addListener;
 if (globalThis.webxdc) {
   // https://webxdc.org/docs/spec/joinRealtimeChannel.html
   const realtimeChannel = webxdc.joinRealtimeChannel();
   globalThis.webxdcRealtimeChannel = realtimeChannel;
 
   broadcastMessage = (message) => realtimeChannel.send(message);
-  let listeners = [];
   realtimeChannel.setListener((message) => {
-    for (const l of listeners) {
-      l(message);
-    }
+    handlePacket(message);
 
     globalThis.globalWebxdcRealtimeListener?.(message);
   });
-  addListener = (listener) => listeners.push(listener);
 } else {
   const broadcastChannel = new BroadcastChannel("webrtc-data");
   broadcastMessage = (message) => broadcastChannel.postMessage(message);
-  addListener = (listener) =>
-    broadcastChannel.addEventListener("message", (event) =>
-      listener(event.data)
-    );
+  broadcastChannel.addEventListener("message", (event) =>
+    handlePacket(event.data)
+  );
 }
+
+/**
+ * @param {Uint8Array} body
+ * @param {number} sourceAddress
+ * @param {number} destinationAddress
+ * @returns {void}
+ */
+function sendPacket(body, sourceAddress, destinationAddress) {
+  broadcastMessage(packetize(body, sourceAddress, destinationAddress));
+}
+const PACKET_HEADER_SIZE_U32 = 2;
+const PACKET_HEADER_SIZE_BYTES =
+  Uint32Array.BYTES_PER_ELEMENT * PACKET_HEADER_SIZE_U32;
+/**
+ * @param {Uint8Array} data
+ * @param {number} sourceAddress
+ * @param {number} destinationAddress
+ * @returns {Uint8Array}
+ */
+function packetize(data, sourceAddress, destinationAddress) {
+  const packetArrayBuffer = new ArrayBuffer(
+    data.buffer.byteLength + PACKET_HEADER_SIZE_BYTES
+  );
+  const headerSlice = new Uint32Array(
+    packetArrayBuffer,
+    0,
+    PACKET_HEADER_SIZE_U32
+  );
+
+  headerSlice[0] = sourceAddress;
+  headerSlice[1] = destinationAddress;
+
+  const packet = new Uint8Array(headerSlice.buffer);
+  packet.set(data, PACKET_HEADER_SIZE_BYTES);
+
+  return packet;
+}
+/**
+ * Handles a raw packet and emits an `onmessage` event
+ * on the datachannel that is selected by looking at the destination address
+ * specified in the packet.
+ *
+ * webxdc realtime channels do not have concept of "channels" or "addresses",
+ * so we have to implement this manually.
+ */
+function handlePacket(/** @type {Uint8Array} */ packet) {
+  if (packet.buffer.byteLength < PACKET_HEADER_SIZE_BYTES) {
+    return;
+  }
+  // TODO perf: does this clone the buffer or nah?
+  const packetHeader = new Uint32Array(
+    packet.buffer,
+    0,
+    PACKET_HEADER_SIZE_U32
+  );
+
+  const packetSourceAddress = packetHeader[0];
+  // The second is the destination.
+  const packetDestinationAddress = packetHeader[1];
+  if (packetDestinationAddress !== myAddress) {
+    return;
+  }
+
+  let dataChannel = addressToDataChannel.get(packetSourceAddress);
+  if (!dataChannel) {
+    dataChannel = unassignedDataChannels.pop();
+    if (!dataChannel) {
+      console.warn(
+        `received the first packet from ${packetSourceAddress}, ` +
+          "but there are no available data channels."
+      );
+      return;
+    }
+
+    console.log(
+      "We received a connection from a new address:",
+      packetSourceAddress
+    );
+
+    dataChannel._destinationAddress = packetSourceAddress;
+    addressToDataChannel.set(packetSourceAddress, dataChannel);
+  }
+
+  // Strip the "header"
+  const packetBody = new Uint8Array(packet.buffer, PACKET_HEADER_SIZE_BYTES);
+
+  const messageEvent = new MessageEvent("message", {
+    data: packetBody,
+    // Probably only `data` here is important.
+    // data: event.data,
+    // origin: event.origin,
+    // lastEventId: event.lastEventId,
+    // source: event.source,
+    // ports: event.ports,
+  });
+  dataChannel.dispatchEvent(messageEvent);
+  dataChannel.onmessage?.(messageEvent);
+
+  globalThis.statsNumPacketsHandled =
+    (globalThis.statsNumPacketsHandled ?? 0) + 1;
+}
+
+const myAddress = (() => {
+  // Using the array in order to be extra sure that the resulting number fits
+  // into 32 bits.
+  const arr = new Uint32Array(1);
+  arr[0] = Math.random() * (Math.pow(2, 32) - 1);
+  return arr[0];
+})();
+globalThis.myAddress = myAddress;
+
+/** @type {Map<number, RTCDataChannel>} */
+const addressToDataChannel = new Map();
+/**
+ * Unused, available pre-created datachannels,
+ * that do not have a destination address associated with them yet.
+ * @type {RTCDataChannel[]}
+ */
+const unassignedDataChannels = [];
 
 /**
  * @param {RTCDataChannel} dataChannel
  */
-function startDispatchingOnmessageEventsToDatachannel(dataChannel) {
-  let numOnMessages = 0;
-  addListener((data) => {
-    numOnMessages++;
-
-    // This gives an error "The event is already being dispatched"
-    // dataChannel.dispatchEvent(event);
-
-    const messageEvent = new MessageEvent("message", {
-      data,
-      // Probably only `data` here is important.
-      // data: event.data,
-      // origin: event.origin,
-      // lastEventId: event.lastEventId,
-      // source: event.source,
-      // ports: event.ports,
-    });
-    dataChannel.dispatchEvent(messageEvent);
-    dataChannel.onmessage?.(messageEvent);
-  });
-  setInterval(() => {
-    console.log("numOnMessages", numOnMessages);
-  }, 5000);
-
+function emitOpenOnChannelAfterTimeout(dataChannel) {
   setTimeout(() => {
     const openEvent = new Event("open");
     openEvent.channel = dataChannel;
@@ -131,18 +218,24 @@ globalThis.RTCPeerConnection = new Proxy(RTCPeerConnection, {
 
     rtcpc.addEventListener("datachannel", (event) => {
       console.log("Intercepted datachannel event:", event);
-      startDispatchingOnmessageEventsToDatachannel(event.channel);
+
+      event.channel._destinationAddress = undefined;
+      unassignedDataChannels.push(event.channel);
+
+      emitOpenOnChannelAfterTimeout(event.channel);
     });
 
-    // This only needs to be run on the server,
-    // but appears to be fine to also run it on the client.
-    setTimeout(() => {
-      const dc = originalCreateChannel.call(rtcpc, "test");
-      const event = new Event("datachannel");
-      event.channel = dc;
-      rtcpc.dispatchEvent(event);
-      rtcpc.ondatachannel?.(event);
-    }, 10);
+    globalThis.amITheServerP.then((amITheServer) => {
+      if (amITheServer) {
+        setTimeout(() => {
+          const dc = originalCreateChannel.call(rtcpc, "test");
+          const event = new Event("datachannel");
+          event.channel = dc;
+          rtcpc.dispatchEvent(event);
+          rtcpc.ondatachannel?.(event);
+        }, 10);
+      }
+    });
 
     setTimeout(() => {
       console.log("Dispatching fake iceconnectionstatechange");
@@ -171,15 +264,27 @@ RTCPeerConnection.prototype.createDataChannel = function (...args) {
   const ret = originalCreateChannel.call(this, ...args);
   console.log("Intercepted createDataChannel", ret);
 
-  startDispatchingOnmessageEventsToDatachannel(ret);
+  // Only clients do `createDataChannel`, so it's OK to unconditionally
+  // set `_destinationAddress` to `SERVER_PEER_ID`,
+  // because clients only send packets to the server
+  // and never to other clients.
+  globalThis.serverAddressP.then((serverAddress) => {
+    if (myAddress === serverAddress) {
+      console.error("Did not expect server to call `createDataChannel`");
+    }
+    ret._destinationAddress = serverAddress;
+    addressToDataChannel.set(serverAddress, ret);
+
+    emitOpenOnChannelAfterTimeout(ret);
+  });
 
   return ret;
 };
 
 let numSends = 0;
 const _originalSend = RTCDataChannel.prototype.send;
-RTCDataChannel.prototype.send = function (arg) {
-  broadcastMessage(arg);
+RTCDataChannel.prototype.send = function (/** @type {Uint8Array} */ arg) {
+  sendPacket(arg, myAddress, this._destinationAddress);
   numSends++;
 };
 setInterval(() => {

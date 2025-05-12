@@ -2,7 +2,7 @@
 
 This is a [webxdc](https://webxdc.org) (in-chat mini-apps) port
 of the 1999 first-person shooter Quake III Arena,
-with multiplayer support (just 2 players for now).
+with multiplayer support.
 
 This is intended as a prototype.
 
@@ -72,6 +72,3 @@ So, how it was made:
 - We should have properly forked https://github.com/jdarpinian/ioq3
   and implemented a build CI,
   instead of just saving the bundled website assets.
-- The implementation of the webxdc transport is quite minimal:
-  each peer assumes that there is only one other peer.
-  This is why it only supports 2 players.
