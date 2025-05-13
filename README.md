@@ -4,6 +4,8 @@ This is a [webxdc](https://webxdc.org) (in-chat mini-apps) port
 of the 1999 first-person shooter Quake III Arena,
 with multiplayer support.
 
+![Windows desktop screenshot with two windows. One is Delta Chat messenger with the "Gamers" chat open, one message says "We gamin?" and the attachment is "Quake III Arena app". The other window is titled "Quake III Arena - Gamers" and it shows the shooter game with two players.](https://github.com/WofWca/quake3.xdc/blob/screenshot/screenshot.png)
+
 This is intended as a prototype.
 
 ## Usage
