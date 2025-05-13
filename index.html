@@ -660,9 +660,76 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
 // demoq3/pak0.pk3 is original Quake 3 demo assets. Fetch them from a tarfile in a gz file in a shell script in a zip file at the Internet Archive.
 // First check to see if we have it in the cache
+const CACHE_KEY = '/demoq3/pak0.pk3';
 const cache = await caches.open('thelongestyard');
-const cacheResponse = await cache.match('/demoq3/pak0.pk3');
-let demoq3pak0 = await cacheResponse?.arrayBuffer();
+const indexedDBRequest = indexedDB.open('thelongestyard', 1);
+indexedDBRequest.onupgradeneeded = (event) => {
+    /** @type {IDBDatabase} */
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains('thelongestyard')) {
+        db.createObjectStore('thelongestyard');
+    }
+};
+/**
+ * In webxdc context, the scheme URL may be `webxdc:`, but `CacheStorage`
+ * is only supported for `http` and `https`.
+ */
+const canUseCacheStorage = await (async () => {
+    try {
+        await cache.put('testtestfoobar___', new Response('test'));
+    } catch (err) {
+        return false;
+    }
+    return true;
+})();
+/** @type {ArrayBuffer | undefined} */
+let demoq3pak0;
+if (canUseCacheStorage) {
+    const cacheResponse = await cache.match(CACHE_KEY);
+    demoq3pak0 = await cacheResponse?.arrayBuffer();
+} else {
+    demoq3pak0 = await new Promise(resolve => {
+        indexedDBRequest.onsuccess = (event) => {
+            /** @type {IDBDatabase} */
+            const db = event.target.result;
+            const transaction = db.transaction('thelongestyard', 'readonly');
+            const store = transaction.objectStore('thelongestyard');
+
+            const getRequest = store.get(CACHE_KEY);
+
+            getRequest.onsuccess = (event) => {
+                const blob = event.target.result;
+
+                if (!blob) {
+                    resolve(undefined);
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const arrayBuffer = reader.result;
+                    resolve(arrayBuffer)
+                };
+                reader.readAsArrayBuffer(blob);
+            };
+
+            getRequest.onerror = (event) => {
+                resolve(undefined);
+                console.error(
+                    'Error retrieving /demoq3/pak0.pk3 from indexedDB:',
+                    event.target.error
+                );
+            };
+        };
+
+        indexedDBRequest.onerror = (event) => {
+            resolve(undefined);
+            console.error(
+                'Error retrieving /demoq3/pak0.pk3 from indexedDB:',
+                event.target.error
+            );
+        };
+    });
+}
 if (demoq3pak0) {
     demoq3pak0 = new Uint8Array(demoq3pak0);
     done.style.transform = 'scaleX(1)';
@@ -714,7 +781,29 @@ if (demoq3pak0) {
         let size = parseInt(String.fromCharCode.apply(null, tar.subarray(offset + 124, offset + 136)).replace(/\0/g, '').trim(), 8);
         if (name === 'demoq3/pak0.pk3') {
             demoq3pak0 = tar.subarray(offset + 512, offset + 512 + size);
-            cache.put('/demoq3/pak0.pk3', new Response(demoq3pak0, { headers: { 'Content-Type': 'application/octet-stream' } }));
+            if (canUseCacheStorage) {
+                cache.put(CACHE_KEY, new Response(demoq3pak0, { headers: { 'Content-Type': 'application/octet-stream' } }));
+            } else {
+                const indexedDBRequest = indexedDB.open('thelongestyard', 1);
+                indexedDBRequest.onsuccess = (event) => {
+                    /** @type {IDBDatabase} */
+
+                    const db = event.target.result;
+                    const transaction = db.transaction('thelongestyard', 'readwrite');
+                    const store = transaction.objectStore('thelongestyard');
+                    const blob = new Blob([demoq3pak0]);
+                    const putRequest = store.put(blob, CACHE_KEY);
+                    putRequest.onsuccess = () => {
+                        console.log('demoq3/pak0.pk3 stored to indexedDB successfully!');
+                    };
+                    putRequest.onerror = (event) => {
+                        console.error(
+                            'Error storing demoq3/pak0.pk3 to indexedDB:',
+                            event.target.error
+                        );
+                    };
+                };
+            }
             break;
         }
         offset += 512 + Math.ceil(size / 512) * 512;
