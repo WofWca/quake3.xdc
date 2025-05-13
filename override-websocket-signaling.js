@@ -6,6 +6,14 @@ let serverAddress = undefined;
 const serverAddressP = new Promise((resolve) => {
   // If someone responds within 2 seconds, there is a server already.
   // If not, we are the server.
+  /**
+   * It's OK to wait for this so long,
+   * because the game itself takes a while to load.
+   * The longer the wait the more reliable it is,
+   * because P2P connection establishment (including signaling)
+   * may also take a while: it's not just about the ping between peers.
+   */
+  const WHO_IS_THE_SERVER_TIMEOUT = 3000;
 
   if (globalThis.webxdc) {
     /**
@@ -64,7 +72,7 @@ const serverAddressP = new Promise((resolve) => {
         makeWhoIsTheServerResponse(myAddress)
       );
       resolveAndCleanUp(myAddress);
-    }, 2000);
+    }, WHO_IS_THE_SERVER_TIMEOUT);
   } else {
     /**
      * @param {number} resolveVal
@@ -104,7 +112,7 @@ const serverAddressP = new Promise((resolve) => {
         serverAddress: myAddress,
       });
       whoIsTheServerChannel.removeEventListener("message", listener);
-    }, 2000);
+    }, WHO_IS_THE_SERVER_TIMEOUT);
   }
 });
 serverAddressP.then((newVal) => (serverAddress = newVal));
