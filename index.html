@@ -390,12 +390,37 @@ let demoq3pak0Promise = new Promise((resolve) => {
 let username = localStorage.getItem('username');
 let model = localStorage.getItem('model');
 if (!username || !model) {
-    username = '';
-    const chars = ['bcdfghjklmnprstvwz', 'aeiou'];
-    for (let i = 0; i < 6; i++)
-        username += chars[i % 2].charAt(Math.random() * chars[i % 2].length | 0);
-    username = username.charAt(0).toUpperCase() + username.slice(1);
+    // https://webxdc.org/docs/spec/selfAddr_and_selfName.html
+    const webxdcSelfName = globalThis.webxdc?.selfName;
+    if (typeof webxdcSelfName === 'string') {
+        // Apparently non-ASCII chars don't work well.
+        // Also, we want to exclude `"` to avoid command injection.
+        const allowedChars =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+            +" ^[](){}!@#$%&'*+,-./<>=?|";
+        const withoutBadCharacters = webxdcSelfName
+            .split('')
+            .filter(nameCharacter => allowedChars.includes(nameCharacter))
+            .join('');
+        if (withoutBadCharacters !== webxdcSelfName) {
+            console.log(
+                '`webxdc.selfName = webxdcSelfName` '
+                + 'contains forbidden characters, we filtered them out.'
+            );
+        }
+        if (withoutBadCharacters.trim().length > 0) {
+            username = withoutBadCharacters;
+        }
+    }
+    if (!username) {
+        username = '';
+        const chars = ['bcdfghjklmnprstvwz', 'aeiou'];
+        for (let i = 0; i < 6; i++)
+            username += chars[i % 2].charAt(Math.random() * chars[i % 2].length | 0);
+        username = username.charAt(0).toUpperCase() + username.slice(1);
+    }
     localStorage.setItem('username', username);
+
     const models = ['sarge', 'visor', 'major', 'major/daemia', 'major', 'major/daemia', 'grunt', 'grunt/stripe']; // only these are available in the demo, plus red/blue versions but those wouldn't be fair
     model = models[Math.random() * models.length | 0];
     localStorage.setItem('model', model);
