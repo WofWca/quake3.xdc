@@ -82,7 +82,6 @@ function handlePacket(/** @type {Uint8Array} */ packet) {
   );
 
   const packetSourceAddress = packetHeader[0];
-  // The second is the destination.
   const packetDestinationAddress = packetHeader[1];
   if (packetDestinationAddress !== myAddress) {
     return;
