@@ -580,17 +580,85 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             module.FS.writeFile('/demoq3/pak0.pk3', await demoq3pak0Promise);
             module.FS.writeFile('/demoq3/ztm-flexible-hud.pk3', await ztmFlexibleHud);
             if (multiplayer) {
+                const tryNotifyChat = (message) => {
+                    const selfName = globalThis.webxdc?.selfName || 'A player'
+                    // https://webxdc.org/docs/spec/sendUpdate.html
+                    globalThis.webxdc?.sendUpdate?.({
+                        payload: null,
+                        // TODO feat: add the current number of players
+                        // to `summary`? Will need to handle disconnects though.
+                        info: `${selfName} ${message}`,
+                    }, '')
+                }
+
                 if (await connectToServer) {
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +connect "${server}.humblenet"
                     `.trim().split(/\s+/));
+
+                    // Only after a timeout, so that we can collect
+                    // some packets to determine the current number of players
+                    // (`globalThis.addressToLastPacketTimestamp`).
+                    // The delay doesn't have to be big,
+                    // because this code runs after we've already been able
+                    // to receive some packets
+                    // (because at this point we have determined
+                    // who the server is).
+                    // Note, however, that if we're the first to join,
+                    // then we won't receive packets from the server
+                    // until we have sent some ourself.
+                    setTimeout(async () => {
+                        // Just ourself and the server for now.
+                        let numPlayers = 2;
+                        const serverAdress = await globalThis.serverAddressP;
+                        /** @type {Map<number, number>} */
+                        const map = globalThis.addressToLastPacketTimestamp;
+                        map.forEach((lastPacketReceivedAt, address) => {
+                            if (address === serverAdress) {
+                                // We've already counted the server.
+                                return
+                            }
+                            // Ignore incorrectly counted special packets
+                            // (see `isWhoIsTheServerRequest`,
+                            // `isWhoIsTheServerResponse`).
+                            // Yes, this is stupid.
+                            if (address === 0x2B2B2B2B || address === 0x2A2A2A2A) {
+                                return
+                            }
+                            if (Date.now() - lastPacketReceivedAt < 5000) {
+                                numPlayers += 1;
+                            }
+                        });
+                        // FYI the "entered the game" part is the same
+                        // as the respective in-game message.
+                        tryNotifyChat(
+                            `entered the game. Players online: ${numPlayers}`
+                        );
+                        // TODO feat: add "disconnected" / "server closed"
+                        // messages so that people can see if the game
+                        // has ended and so there is no point in trying to join.
+                        // This doesn't have to be implemented with an
+                        // 'unload' event. A player can detect
+                        // if another player has disconnected,
+                        // and send the relevant message.
+                    }, 1000)
                 } else {
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
                         +map q3dm17
                         `.trim().split(/\s+/));
+
+                    // Only after a timeout so as to be less annoying,
+                    // e.g. when someone opens the app just to check
+                    // if anyone is online, or just to fiddle around.
+                    //
+                    // TODO fix: though the messages might look a bit stupid
+                    // if someone joins before we've sent this message.
+                    setTimeout(() => {
+                        tryNotifyChat('started the server');
+                    }, 30 * 1000)
                 }
             } else {
                 module.arguments.push(...`

@@ -83,6 +83,11 @@ function handlePacket(/** @type {Uint8Array} */ packet) {
 
   const packetSourceAddress = packetHeader[0];
   const packetDestinationAddress = packetHeader[1];
+
+  // Remember though that there are also special packets,
+  // (see `isWhoIsTheServerRequest`, `isWhoIsTheServerResponse`).
+  globalThis.addressToLastPacketTimestamp.set(packetSourceAddress, Date.now());
+
   if (packetDestinationAddress !== myAddress) {
     return;
   }
@@ -143,6 +148,9 @@ const addressToDataChannel = new Map();
  * @type {RTCDataChannel[]}
  */
 const unassignedDataChannels = [];
+
+/** @type {Map<number, number>} */
+globalThis.addressToLastPacketTimestamp = new Map();
 
 /**
  * @param {RTCDataChannel} dataChannel
