@@ -185,7 +185,7 @@ class FakeWebSocket {
 
     if (state === 1) {
       // apparently the signaling server sends a TURN server.
-      this._onMessageBase64(
+      this._mockSendServerToClientMessageBase64(
         // ........................................╜}.&.............
         // ...................<...............abcdefg12345678911....
         // ..ABCDEFGHI1234567........dummy-relay.examle.com:3478.
@@ -263,7 +263,7 @@ class FakeWebSocket {
           this._onMessageArrayBuffer(data.buffer);
         }
       } else {
-        this._onMessageBase64(
+        this._mockSendServerToClientMessageBase64(
           // ........................................°8.X....Myname..
           "DAAAAAgADAAHAAgACAAAAAAAABcMAAAACAAMAAQACAAIAAAACAAAAPg4CFgGAAAATXluYW1lAAA="
         );
@@ -279,13 +279,13 @@ class FakeWebSocket {
         // 2:33:44:55:66:77:88:99:11:22:33:44:55:66:77:88:99:11:22:3
         // 3:44:55:66:77:88:99:11:22:33:44:55..a=setup:active..a=mid
         // :0..a=sctp-port:5000..a=max-message-size:123456.....
-        this._onMessageBase64(
+        this._mockSendServerToClientMessageBase64(
           "DAAAAAgADAAHAAgACAAAAAAAAA0MAAAACAAMAAQACAAIAAAA+DgIWAQAAADJAQAAdj0wDQpvPS0gMTExMTExMTExMTExMTExMTExMSAyIElOIElQNCAxMjcuMC4wLjENCnM9LQ0KdD0wIDANCmE9Z3JvdXA6QlVORExFIDANCmE9ZXh0bWFwLWFsbG93LW1peGVkDQphPW1zaWQtc2VtYW50aWM6IFdNUw0KbT1hcHBsaWNhdGlvbiA5IFVEUC9EVExTL1NDVFAgd2VicnRjLWRhdGFjaGFubmVsDQpjPUlOIElQNCAwLjAuMC4wDQphPWljZS11ZnJhZzphYmNkDQphPWljZS1wd2Q6YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4DQphPWljZS1vcHRpb25zOnRyaWNrbGUNCmE9ZmluZ2VycHJpbnQ6c2hhLTI1NiAxMToyMjozMzo0NDo1NTo2Njo3Nzo4ODo5OToxMToyMjozMzo0NDo1NTo2Njo3Nzo4ODo5OToxMToyMjozMzo0NDo1NTo2Njo3Nzo4ODo5OToxMToyMjozMzo0NDo1NQ0KYT1zZXR1cDphY3RpdmUNCmE9bWlkOjANCmE9c2N0cC1wb3J0OjUwMDANCmE9bWF4LW1lc3NhZ2Utc2l6ZToxMjM0NTYNCgAAAA=="
         );
       }
     }
   }
-  _onMessageBase64(base64Str) {
+  _mockSendServerToClientMessageBase64(base64Str) {
     fetch(`data:application/octet-stream;base64,${base64Str}`).then(
       async (res) => {
         const data =
