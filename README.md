@@ -12,21 +12,18 @@ This is intended as a prototype.
 
 1. Install [Delta Chat](https://delta.chat) (or another messenger
    that supports [webxdc](https://webxdc.org)).
-2. Put all the files of this repo in a `.zip` file.
-   Make sure that `index.html` is at the top level of the archive,
-   and is not nested inside another folder.
-   You can use the GitHub's "Code -> Download ZIP" function,
-   and adjust the file contents after downloading.
-3. Rename the `.zip` file into an `.xdc` file.
-4. Open the Delta Chat messenger.
-5. Send the `.xdc` file to your friend.
-6. Launch the resulting app.
-7. Following the in-app instructions,
+2. Download [the bundled `.xdc` file](https://github.com/WofWca/quake3.xdc/releases/latest/download/quake3.xdc).
+   Alternatively, download from the [webxdc store](https://webxdc.org/apps/#wofwca-quake3).
+   (The file is just a `.zip` archive renamed to `.xdc`).
+3. Open the Delta Chat messenger.
+4. Send the `.xdc` file to your friend.
+5. Launch the resulting app.
+6. Following the in-app instructions,
    download
    [the game data archive](https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh).
-8. Select the archive in the app's file picker.
-9. Wait for your friend to do the same, starting from step 6 (launch the app).
-   10 Frag!
+7. Select the archive in the app's file picker.
+8. Wait for your friend to do the same, starting from step 5 (launch the app).
+9. Frag!
 
 ## How this project has been made
 
