@@ -71,3 +71,16 @@ So, how it was made:
 - We should have properly forked https://github.com/jdarpinian/ioq3
   and implemented a build CI,
   instead of just saving the bundled website assets.
+
+## Is this project any better than ioquake3 or thelongestyard.link?
+
+Not really.
+
+If you are already using a native version of [ioquake3](https://ioquake3.org/)
+or <https://thelongestyard.link> and are happy with it,
+then there is no need to migrate to this [webxdc](https://webxdc.org) version.
+
+This project is simply a version of <https://thelongestyard.link>
+that is a little more convenient to run if you're already using
+[Delta Chat](https://delta.chat) or another messenger
+that supports [webxdc](https://webxdc.org).
