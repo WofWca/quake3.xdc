@@ -6,8 +6,6 @@ with multiplayer support.
 
 ![Windows desktop screenshot with two windows. One is Delta Chat messenger with the "Gamers" chat open, one message says "We gamin?" and the attachment is "Quake III Arena app". The other window is titled "Quake III Arena - Gamers" and it shows the shooter game with two players.](https://github.com/WofWca/quake3.xdc/blob/screenshot/screenshot.png)
 
-This is intended as a prototype.
-
 ## Usage
 
 1. Install [Delta Chat](https://delta.chat) (or another messenger
@@ -35,8 +33,9 @@ That project is, in turn, based on https://ioquake3.org/
 (https://github.com/ioquake/ioq3/)  
 and HumbleNet (https://github.com/jdarpinian/HumbleNet).
 
-For now this is intended as a prototype,
-so at the current state this is not very maintainable.
+The project is not made in a maintainable way.
+Initially it was intended as just a prototype
+but it seems to work well enough.
 
 So, how it was made:
 
