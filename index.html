@@ -657,13 +657,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         tryNotifyChat(
                             `entered the game. Players online: ${numPlayers}`
                         );
-                        // TODO feat: add "disconnected" / "server closed"
-                        // messages so that people can see if the game
-                        // has ended and so there is no point in trying to join.
-                        // This doesn't have to be implemented with an
-                        // 'unload' event. A player can detect
-                        // if another player has disconnected,
-                        // and send the relevant message.
                     }, 1000)
                 } else {
                     module.arguments.push(...`
@@ -680,6 +673,20 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     // if someone joins before we've sent this message.
                     setTimeout(() => {
                         tryNotifyChat('started the server');
+
+                        // This is so that you don't enter the chat to see
+                        // that someone has started the server
+                        // only to open the game and realize that it's
+                        // already finished.
+                        //
+                        // Yes, `pagehide` might not work on mobile,
+                        // but `visibilitychange` is kind of worse on Desktop
+                        // because of false-positives.
+                        // `window.top` because see
+                        // https://github.com/deltachat/deltachat-desktop/issues/3321#issuecomment-1821024467.
+                        window.top.addEventListener('pagehide', () => {
+                            tryNotifyChat('stopped the server');
+                        });
                     }, 30 * 1000)
                 }
             } else {
