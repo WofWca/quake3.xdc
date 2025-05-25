@@ -389,6 +389,20 @@ if (window.matchMedia('(pointer: coarse)').matches) {
     `;
 }
 
+const fullGameMaps = [
+    // 1 through 19. There is also `q3dm0`, but let's skip it.
+    ...(new Array(19).fill(0)).map((_, ind) => `q3dm${ind + 1}`),
+    // 1 through 6
+    ...(new Array(6).fill(0)).map((_, ind) => `q3tourney${ind + 1}`),
+    ...(new Array(4).fill(0)).map((_, ind) => `q3ctf${ind + 1}`),
+];
+/**
+ * @param {Array<any>} arr
+ */
+function randomFromArray(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
 let multiplayer = !!server;
 if (multiplayer) multiplayerMessage.style.display = 'block';
 multiplayerMessage.addEventListener('click', (e) => {
@@ -524,12 +538,12 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
-                        +map q3dm17
+                        +map ${isFullGame ? randomFromArray(fullGameMaps) : 'q3dm17'}
                         `.trim().split(/\s+/));
                 }
             } else {
                 module.arguments.push(...`
-                    +map q3dm17
+                    +map ${isFullGame ? randomFromArray(fullGameMaps) : 'q3dm17'}
                     +addbot sarge ${botSkill}
                     +addbot daemia ${botSkill}
                     +addbot major ${botSkill}
