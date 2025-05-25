@@ -465,6 +465,19 @@ if (window.matchMedia('(pointer: coarse)').matches) {
     `;
 }
 
+const knownDemoMaps = [
+    'q3dm1',
+    'q3dm7',
+    'q3dm17',
+    'q3tourney2',
+];
+/**
+ * @param {Array<any>} arr
+ */
+function randomFromArray(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
 const query = new URLSearchParams(window.location.search);
 // let server = query.get('server');
 let server = 'Myname';
@@ -662,7 +675,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
-                        +map q3dm17
+                        +map ${randomFromArray(knownDemoMaps)}
                         `.trim().split(/\s+/));
 
                     // Only after a timeout so as to be less annoying,
@@ -691,7 +704,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 }
             } else {
                 module.arguments.push(...`
-                    +map q3dm17
+                    +map ${randomFromArray(knownDemoMaps)}
                     +addbot sarge ${botSkill}
                     +addbot daemia ${botSkill}
                     +addbot major ${botSkill}
