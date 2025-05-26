@@ -842,47 +842,7 @@ if (!isFullGame) {
         const cacheResponse = await cache.match(CACHE_KEY);
         demoq3pak0 = await cacheResponse?.arrayBuffer();
     } else {
-        demoq3pak0 = await new Promise(resolve => {
-            indexedDBRequest.onsuccess = (event) => {
-                /** @type {IDBDatabase} */
-                const db = event.target.result;
-                const transaction = db.transaction('thelongestyard', 'readonly');
-                const store = transaction.objectStore('thelongestyard');
-
-                const getRequest = store.get(CACHE_KEY);
-
-                getRequest.onsuccess = (event) => {
-                    const blob = event.target.result;
-
-                    if (!blob) {
-                        resolve(undefined);
-                        return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        const arrayBuffer = reader.result;
-                        resolve(arrayBuffer)
-                    };
-                    reader.readAsArrayBuffer(blob);
-                };
-
-                getRequest.onerror = (event) => {
-                    resolve(undefined);
-                    console.error(
-                        'Error retrieving /demoq3/pak0.pk3 from indexedDB:',
-                        event.target.error
-                    );
-                };
-            };
-
-            indexedDBRequest.onerror = (event) => {
-                resolve(undefined);
-                console.error(
-                    'Error retrieving /demoq3/pak0.pk3 from indexedDB:',
-                    event.target.error
-                );
-            };
-        });
+        demoq3pak0 = await getFileFromIndexedDb(indexedDBRequest, CACHE_KEY);
     }
     if (demoq3pak0) {
         demoq3pak0 = new Uint8Array(demoq3pak0);
@@ -998,6 +958,76 @@ if (!isFullGame) {
         // also takes time.
         done.style.transform = 'scaleX(1)';
     }
+}
+
+/**
+ * @param {IDBOpenDBRequest} openRequest
+ * @param {string} filePath
+ * @returns {Promise<undefined | ArrayBuffer>}
+ */
+function getFileFromIndexedDb(openRequest, filePath) {
+    return new Promise(resolve => {
+        const onError = () => {
+            resolve(undefined);
+            console.error(
+                `Error retrieving ${filePath} from indexedDB:`,
+                openRequest.error.error
+            );
+        };
+
+        let isPending;
+        try {
+            // This throws an error if it's still pending
+            const _dummy = openRequest.error;
+            isPending = false;
+        } catch (err) {
+            isPending = true;
+        }
+
+        if (!isPending && openRequest.error) {
+            onError();
+            return
+        } else {
+            openRequest.addEventListener('error', onError, { once: true });
+        }
+
+        const onSuccess = () => {
+            /** @type {IDBDatabase} */
+            const db = openRequest.result;
+            const transaction = db.transaction('thelongestyard', 'readonly');
+            const store = transaction.objectStore('thelongestyard');
+
+            const getRequest = store.get(filePath);
+
+            getRequest.onsuccess = (event) => {
+                const blob = event.target.result;
+
+                if (!blob) {
+                    resolve(undefined);
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const arrayBuffer = reader.result;
+                    resolve(arrayBuffer)
+                };
+                reader.readAsArrayBuffer(blob);
+            };
+
+            getRequest.onerror = (event) => {
+                resolve(undefined);
+                console.error(
+                    `Error retrieving ${filePath} from indexedDB:`,
+                    event.target.error
+                );
+            };
+        };
+        if (!isPending && openRequest.result) {
+            onSuccess();
+        } else {
+            openRequest.addEventListener('success', onSuccess, { once: true });
+        }
+    });
 }
 
 </script>
