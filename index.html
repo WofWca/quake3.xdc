@@ -1000,18 +1000,15 @@ function getFileFromIndexedDb(openRequest, filePath) {
             const getRequest = store.get(filePath);
 
             getRequest.onsuccess = (event) => {
+                /** @type {Blob | undefined} */
                 const blob = event.target.result;
 
                 if (!blob) {
                     resolve(undefined);
                     return;
                 }
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const arrayBuffer = reader.result;
-                    resolve(arrayBuffer)
-                };
-                reader.readAsArrayBuffer(blob);
+
+                blob.arrayBuffer().then(resolve)
             };
 
             getRequest.onerror = (event) => {
