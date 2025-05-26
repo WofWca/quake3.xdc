@@ -898,25 +898,7 @@ if (!isFullGame) {
                 if (canUseCacheStorage) {
                     cache.put(CACHE_KEY, new Response(demoq3pak0, { headers: { 'Content-Type': 'application/octet-stream' } }));
                 } else {
-                    const indexedDBRequest = indexedDB.open('thelongestyard', 1);
-                    indexedDBRequest.onsuccess = (event) => {
-                        /** @type {IDBDatabase} */
-
-                        const db = event.target.result;
-                        const transaction = db.transaction('thelongestyard', 'readwrite');
-                        const store = transaction.objectStore('thelongestyard');
-                        const blob = new Blob([demoq3pak0]);
-                        const putRequest = store.put(blob, CACHE_KEY);
-                        putRequest.onsuccess = () => {
-                            console.log('demoq3/pak0.pk3 stored to indexedDB successfully!');
-                        };
-                        putRequest.onerror = (event) => {
-                            console.error(
-                                'Error storing demoq3/pak0.pk3 to indexedDB:',
-                                event.target.error
-                            );
-                        };
-                    };
+                    saveFileToIndexedDb(indexedDBRequest, CACHE_KEY, demoq3pak0)
                 }
                 break;
             }
@@ -1025,6 +1007,42 @@ function getFileFromIndexedDb(openRequest, filePath) {
             openRequest.addEventListener('success', onSuccess, { once: true });
         }
     });
+}
+
+/**
+ * @param {IDBOpenDBRequest} openRequest
+ * @param {string} filePath
+ * @param {ArrayBuffer} file
+ * @returns {Promise<void>}
+ */
+async function saveFileToIndexedDb(openRequest, filePath, file) {
+    /** @type {IDBDatabase} */
+    let db
+    try {
+        // This throws if the request is still pending
+        db = openRequest.result
+    } catch (error) {
+        db = await new Promise(r => {
+            openRequest.addEventListener(
+                'success',
+                () => r(openRequest.result),
+                { once: true },
+            );
+        });
+    }
+    const transaction = db.transaction('thelongestyard', 'readwrite');
+    const store = transaction.objectStore('thelongestyard');
+    const blob = new Blob([file]);
+    const putRequest = store.put(blob, filePath);
+    putRequest.onsuccess = () => {
+        console.log(`${filePath} stored to indexedDB successfully!`);
+    };
+    putRequest.onerror = (event) => {
+        console.error(
+            `Error storing ${filePath} to indexedDB:`,
+            event.target.error
+        );
+    };
 }
 
 </script>
