@@ -9,6 +9,12 @@
 let broadcastMessage;
 if (globalThis.webxdc) {
   // https://webxdc.org/docs/spec/joinRealtimeChannel.html
+  if (webxdc.joinRealtimeChannel == undefined) {
+    document.body.innerText =
+      "Error: webxdc.joinRealtimeChannel is not supported by this (messenger?) application.";
+    document.body.style.color = "red";
+    throw new Error();
+  }
   const realtimeChannel = webxdc.joinRealtimeChannel();
   globalThis.webxdcRealtimeChannel = realtimeChannel;
 
