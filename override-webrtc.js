@@ -15,8 +15,34 @@ if (globalThis.webxdc) {
     document.body.style.color = "red";
     throw new Error();
   }
-  const realtimeChannel = webxdc.joinRealtimeChannel();
+  let realtimeChannel;
+  try {
+    realtimeChannel = webxdc.joinRealtimeChannel();
+  } catch (error) {
+    // At least on Delta Chat Electron, `joinRealtimeChannel` can fail
+    // after a page reload / navigation
+    // (see https://webxdc.org/docs/spec/joinRealtimeChannel.html#realtimechannelleave).
+    // This is a stupid hack to keep the channel between page reloads.
+    try {
+      window.top.__webxdcRealtimeChannel.leave();
+    } catch (error2) {
+      console.error(
+        "Failed to leave realtime channel after failed attempt to create one",
+        error2
+      );
+    }
+
+    realtimeChannel = webxdc.joinRealtimeChannel();
+  }
   globalThis.webxdcRealtimeChannel = realtimeChannel;
+  try {
+    window.top.__webxdcRealtimeChannel = realtimeChannel;
+  } catch (error) {
+    console.warn(
+      "Could not set window.top.__webxdcRealtimeChannel = realtimeChannel.",
+      "This might be fine."
+    );
+  }
 
   broadcastMessage = (message) => realtimeChannel.send(message);
   realtimeChannel.setListener((message) => {
