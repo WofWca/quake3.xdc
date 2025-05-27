@@ -22,13 +22,17 @@ export async function saveFileToIndexedDb(openRequest, filePath, file) {
     const transaction = db.transaction('thelongestyard', 'readwrite');
     const store = transaction.objectStore('thelongestyard');
     const blob = new Blob([file]);
-    const putRequest = store.put(blob, filePath);
+    const _putRequest = store.put(blob, filePath);
     await new Promise((resolve, reject) => {
-        putRequest.onsuccess = () => {
+        // Waiting for `transaction.oncomplete`
+        // instead of `putRequest.onsuccess`,
+        // because if we go to another page too soon,
+        // the file (especially pak0.pk3) might not get actually saved.
+        transaction.oncomplete = () => {
             console.log(`${filePath} stored to indexedDB successfully!`);
             resolve();
         };
-        putRequest.onerror = (event) => {
+        transaction.onerror = (event) => {
             reject(`Error storing ${filePath} to indexedDB: ${event.target.error}`);
         };
     })
