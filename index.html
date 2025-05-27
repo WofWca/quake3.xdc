@@ -818,28 +818,28 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 // demoq3/pak0.pk3 is original Quake 3 demo assets. Fetch them from a tarfile in a gz file in a shell script in a zip file at the Internet Archive.
 // First check to see if we have it in the cache
 const cache = await caches.open('thelongestyard');
+const indexedDBRequest = indexedDB.open('thelongestyard', 1);
+indexedDBRequest.onupgradeneeded = (event) => {
+    /** @type {IDBDatabase} */
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains('thelongestyard')) {
+        db.createObjectStore('thelongestyard');
+    }
+};
+/**
+ * In webxdc context, the scheme URL may be `webxdc:`, but `CacheStorage`
+ * is only supported for `http` and `https`.
+ */
+const canUseCacheStorage = await (async () => {
+    try {
+        await cache.put('testtestfoobar___', new Response('test'));
+    } catch (err) {
+        return false;
+    }
+    return true;
+})();
 if (!isFullGame) {
     const CACHE_KEY = '/demoq3/pak0.pk3';
-    const indexedDBRequest = indexedDB.open('thelongestyard', 1);
-    indexedDBRequest.onupgradeneeded = (event) => {
-        /** @type {IDBDatabase} */
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains('thelongestyard')) {
-            db.createObjectStore('thelongestyard');
-        }
-    };
-    /**
-     * In webxdc context, the scheme URL may be `webxdc:`, but `CacheStorage`
-     * is only supported for `http` and `https`.
-     */
-    const canUseCacheStorage = await (async () => {
-        try {
-            await cache.put('testtestfoobar___', new Response('test'));
-        } catch (err) {
-            return false;
-        }
-        return true;
-    })();
     /** @type {ArrayBuffer | undefined} */
     let demoq3pak0;
     if (canUseCacheStorage) {
@@ -923,7 +923,15 @@ if (!isFullGame) {
             '/baseq3/pak6.pk3',
             '/baseq3/pak7.pk3',
             '/baseq3/pak8.pk3',
-        ].map(async filePath => [filePath, await cache.match(filePath)])
+        ].map(async filePath => [
+            filePath,
+            canUseCacheStorage
+                ? (await cache.match(filePath))
+                    ?.arrayBuffer()
+                    .then(buf => new Uint8Array(buf))
+                : (await getFileFromIndexedDb(indexedDBRequest, filePath)
+                    .then(buf => buf != undefined ? new Uint8Array(buf) : buf))
+        ])
     );
     if (responses.some(([filePath, response]) => response == undefined)) {
         // Preserve query parameters, such as `server`,
@@ -933,12 +941,7 @@ if (!isFullGame) {
         nextUrl.hash = 'go-back-on-success';
         location.assign(nextUrl);
     } else {
-        gotPk3Files(
-            responses.map(([filePath, response]) => [
-                filePath,
-                response.arrayBuffer().then(buf => new Uint8Array(buf))
-            ])
-        );
+        gotPk3Files(responses);
 
         // TODO proper progress bar: loading the files into the Emscipten FS
         // also takes time.

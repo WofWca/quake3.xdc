@@ -63,6 +63,7 @@
 
     <script type="module">
         // @ts-check
+        import { saveFileToIndexedDb } from './game-files-cache-utils.js'
 
         let goBackOnSuccess = false;
         if (location.hash === '#go-back-on-success') {
@@ -126,6 +127,21 @@
             }
 
             const cache = await caches.open('thelongestyard');
+
+            // TODO DRY this,
+            /**
+             * In webxdc context, the scheme URL may be `webxdc:`, but `CacheStorage`
+             * is only supported for `http` and `https`.
+             */
+            const canUseCacheStorage = await (async () => {
+                try {
+                    await cache.put('testtestfoobar___', new Response('test'));
+                } catch (err) {
+                    return false;
+                }
+                return true;
+            })();
+
             /** @type {File[]} */
             const filesArr = [...input.files];
             input.disabled = true;
@@ -146,9 +162,20 @@
             }, 100);
 
             try {
-                await Promise.all(filesArr.map(async file => {
-                    await cache.put(`/baseq3/${file.name}`, new Response(file))
-                }));
+                if (canUseCacheStorage) {
+                    await Promise.all(filesArr.map(async file => {
+                        await cache.put(`/baseq3/${file.name}`, new Response(file))
+                    }));
+                } else {
+                    const indexedDBRequest = indexedDB.open('thelongestyard', 1);
+                    await Promise.all(filesArr.map(async file => {
+                        await saveFileToIndexedDb(
+                            indexedDBRequest,
+                            `/baseq3/${file.name}`,
+                            await file.arrayBuffer()
+                        );
+                    }));
+                }
             } catch (error) {
                 /** @type {HTMLElement} */
                 const errorEl = document.getElementById('uploadError');
