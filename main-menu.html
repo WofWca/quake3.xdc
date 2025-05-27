@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Main menu - Quake III Arena</title>
+
+    <style>
+        body:not(.haveFullVersion) .ifHaveFullVersion {
+            display: none;
+        }
+        body.haveFullVersion .ifNotHaveFullVersion {
+            display: none;
+        }
+
+        html, body {
+            /* TODO properly style the page. */
+            font-family: "Antonio", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 700;
+            font-style: normal;
+            letter-spacing: -.05ch;
+
+            font-size: xx-large;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+
+    <script type="module">
+        // The source of truth of whether we have the full version
+        // is whether we have the files in cache.
+        // But this quick check is fine.
+        // Even if this value does not reflect reality, we are able to recover.
+        if (localStorage.getItem('haveFullVersion') === 'true') {
+            document.body.classList.add('haveFullVersion');
+        }
+    </script>
+</head>
+
+<body>
+    <a
+        class="ifHaveFullVersion"
+        href="./index.html?full-game"
+    >Play full game</a>
+    <br class="ifHaveFullVersion">
+
+    <!-- It's important to keep a way to play demo such that people
+    are always able to play together. -->
+    <a href="./index.html?demo-game">Play demo</a>
+    <br>
+
+    <a
+        class="ifNotHaveFullVersion"
+        href="./upload-full-version.html?full-game"
+    >Unlock all maps</a>
+
+    <p>
+        <!-- TODO automatically do this, and remove this paragraph. -->
+        Remember that in order to play the game together,
+        all players must pick the same type of game
+        (either the full game or the demo).
+    </p>
+</body>
+
+</html>

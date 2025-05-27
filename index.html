@@ -200,6 +200,7 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
 full-screen, this prevents clicking the game. -->
 <div id="ui" style="display: none;">
     <div id=multiplayerMessage class="button selected" style=display:none title="COPY MULTIPLAYER URL">COPY MULTIPLAYER URL</div>
+    <a id="mainMenuLink" class="button selected" style="display: none;" href="./main-menu.html" title="EXIT TO MAIN MENU">EXIT TO MAIN MENU</a>
 </div>
 <div id=progress><div id=done></div></div>
 </div>
@@ -466,7 +467,13 @@ if (query.has('multiplayer')) {
     newUrl.searchParams.set('server', server);
     history.replaceState(null, '', newUrl);
 }
-const isFullGame = query.get('full-game') != null ? true : false;
+const isFullGame = query.get('full-game') != null
+    ? true
+    : query.get('demo-game') != null
+        ? false
+        : localStorage.getItem('launchFullGameByDefault') === 'true';
+// Remember last played game.
+localStorage.setItem('launchFullGameByDefault', isFullGame);
 const basegame = isFullGame ? 'baseq3' : 'demoq3'
 
 let generatedArguments = `
@@ -578,6 +585,17 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
         printErr: (msg) => {
             if (msg === '--- Common Initialization Complete ---') {
                 progress.style.display = 'none';
+            } else if (msg === '----- Client Shutdown (Client quit) -----') {
+                // They pressed "Exit" (close the entire game process).
+                location.assign('./main-menu.html');
+            } else if (msg === '==== ShutdownGame ====') {
+                // If they didn't quit the entire game,
+                // they got to the main menu of the game.
+                // Let's enable this link.
+                document.getElementById('mainMenuLink').style.display = '';
+                // TODO this gonna be a little annoying if we can't enter
+                // full screen.
+                ui.style.display = '';
             }
             console.error(msg);
         },
