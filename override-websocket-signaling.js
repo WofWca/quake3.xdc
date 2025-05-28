@@ -1,7 +1,9 @@
 //@ts-check
 
+const thisAppStartedAt = Date.now();
 /** @type {undefined | number} */
 let serverAddress = undefined;
+const whoIsTheServerRequest = new Uint8Array([42, 42, 42, 42]);
 /** @type {Promise<number>} */
 const serverAddressP = new Promise((resolve) => {
   // If someone responds within 2 seconds, there is a server already.
@@ -39,26 +41,59 @@ const serverAddressP = new Promise((resolve) => {
       if (isWhoIsTheServerRequest) {
         if (serverAddress === myAddress) {
           globalThis.webxdcRealtimeChannel.send(
-            makeWhoIsTheServerResponse(serverAddress)
+            makeWhoIsTheServerResponse(serverAddress, thisAppStartedAt)
           );
         }
         return;
       }
 
       const isWhoIsTheServerResponse =
-        uint8Array.length === 8 &&
+        uint8Array.length === WHO_IS_THE_SERVER_RESPONSE_SIZE &&
         uint8Array[0] === 43 &&
         uint8Array[1] === 43 &&
         uint8Array[2] === 43 &&
         uint8Array[3] === 43;
       if (isWhoIsTheServerResponse) {
-        const serverAdress = new Uint32Array(uint8Array.buffer)[1];
-        resolveAndCleanUp(serverAdress);
+        const responseServerAddress = new Uint32Array(uint8Array.buffer)[1];
+        const responseServerStartedAt = new Float64Array(
+          uint8Array.buffer,
+          8,
+          1
+        )[0];
+        if (responseServerStartedAt < thisAppStartedAt) {
+          // That peer should be the server, because they opened the game first.
+          resolveAndCleanUp(responseServerAddress);
+          if (
+            serverAddress != undefined &&
+            serverAddress != responseServerAddress
+          ) {
+            // We are connected to the wrong server.
+            // Most likely we are the server, but we could also be already
+            // connected to someone else.
+            //
+            // Reload the page, set server address.
+            // It would be nice to simply execute a Quake command,
+            // but I couldn't get it to work with stdin.
+            //
+            // This is only useful if we were unable to find the server
+            // within `WHO_IS_THE_SERVER_TIMEOUT`, i.e. if the connection
+            // is quite slow.
+            //
+            // TODO don't reload if we're in the menu
+            // or picking game files or something,
+            // i.e. if we still have a chance to connect without reloading.
+            const newUrl = new URL(location.href);
+            newUrl.searchParams.append(
+              SERVER_ADDRESS_QUERY_KEY,
+              responseServerAddress.toString(10)
+            );
+            location.replace(newUrl);
+          }
+        }
         return;
       }
     };
 
-    const whoIsTheServerRequest = new Uint8Array([42, 42, 42, 42]);
     globalThis.webxdcRealtimeChannel.send(whoIsTheServerRequest);
     // For some reason Android won't discover other servers,
     // probably because the first "ping" message doesn't get sent.
@@ -69,10 +104,25 @@ const serverAddressP = new Promise((resolve) => {
 
     const timeoutId = setTimeout(() => {
       globalThis.webxdcRealtimeChannel.send(
-        makeWhoIsTheServerResponse(myAddress)
+        makeWhoIsTheServerResponse(myAddress, thisAppStartedAt)
       );
       resolveAndCleanUp(myAddress);
     }, WHO_IS_THE_SERVER_TIMEOUT);
+
+    // It would probably make sense for this code to be at the top,
+    // but due to the fact that this is all horribly written,
+    // we wouldn't set `globalWebxdcRealtimeListener` then,
+    // and `resolveAndCleanUp` would be undefined.
+    const SERVER_ADDRESS_QUERY_KEY = "serverAddress";
+    const query = new URLSearchParams(window.location.search);
+    const presetServerAddress = query.get(SERVER_ADDRESS_QUERY_KEY);
+    if (presetServerAddress != null) {
+      const cleanedUrl = new URL(location.href);
+      cleanedUrl.searchParams.delete(SERVER_ADDRESS_QUERY_KEY);
+      history.replaceState(null, "", cleanedUrl);
+
+      resolveAndCleanUp(parseInt(presetServerAddress, 10));
+    }
   } else {
     /**
      * @param {number} resolveVal
@@ -122,21 +172,35 @@ globalThis.amITheServerP = serverAddressP.then((serverAddress) => {
 });
 amITheServerP.then((res) => {
   console.log("amITheServer:", res);
+
+  if (res && globalThis.webxdc) {
+    // In case there is some network unreliability, keep checking
+    // if there is someone else trying to be a server,
+    // to be extra sure that all players end up on the same server.
+    setInterval(() => {
+      globalThis.webxdcRealtimeChannel.send(whoIsTheServerRequest);
+    }, 3000);
+  }
 });
 
+const WHO_IS_THE_SERVER_RESPONSE_SIZE = 4 + 4 + 8;
 /**
  * @param {number} serverAddress
+ * @param {number} serverStartedAt
  */
-function makeWhoIsTheServerResponse(serverAddress) {
-  const buffer1 = new Uint32Array(2);
+function makeWhoIsTheServerResponse(serverAddress, serverStartedAt) {
+  const buffer = new ArrayBuffer(WHO_IS_THE_SERVER_RESPONSE_SIZE);
+  const buffer1 = new Uint32Array(buffer);
   buffer1[1] = serverAddress;
-  const response2 = new Uint8Array(buffer1.buffer);
-  response2[0] = 43;
-  response2[1] = 43;
-  response2[2] = 43;
-  response2[3] = 43;
+  const response2 = new Float64Array(buffer, 8, 1);
+  response2[0] = serverStartedAt;
+  const response3 = new Uint8Array(buffer);
+  response3[0] = 43;
+  response3[1] = 43;
+  response3[2] = 43;
+  response3[3] = 43;
 
-  return response2;
+  return response3;
 }
 
 globalThis.WebSocket = new Proxy(WebSocket, {
