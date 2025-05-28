@@ -79,6 +79,10 @@ Not really.
 If you are already using a native version of [ioquake3](https://ioquake3.org/)
 or <https://thelongestyard.link> and are happy with it,
 then there is no need to migrate to this [webxdc](https://webxdc.org) version.
+In fact, you should expect higher ping in the webxdc version,
+due to the reliability layer overhead of the transport that it uses.
+Unreliable + unordered transport is not yet available in Delta Chat,
+but it is being considered, as of 2025-05.
 
 This project is simply a version of <https://thelongestyard.link>
 that is a little more convenient to run if you're already using
