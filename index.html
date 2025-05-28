@@ -878,17 +878,27 @@ if (!isFullGame) {
     } else {
         const filePickerSection = document.getElementById('upload-game-files');
         filePickerSection.style.display = '';
+        const bodyInitialOverflow = document.body.style.overflow;
+        const rotator = document.getElementById('rotator');
+        const rotatorInitialOverflow = rotator.style.overflow;
+        // This is especially useful on mobile.
+        document.body.style.overflow = 'auto';
+        rotator.style.overflow = 'auto';
         const filePicker = filePickerSection.getElementsByTagName('input')[0];
         const blockerEl = document.getElementById('blocker');
         const progressEl = document.getElementById('progress');
         blockerEl.style.display = 'none';
         progressEl.style.display = 'none';
+        canvas.style.display = 'none';
         await new Promise(r => {
             filePicker.onchange = r;
         })
         blockerEl.style.display = '';
         progressEl.style.display = '';
+        canvas.style.display = '';
         filePickerSection.remove();
+        document.body.style.overflow = bodyInitialOverflow;
+        rotator.style.overflow = rotatorInitialOverflow;
 
         const demoSize = 49289300;
         // let sh = await fetch('https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh').then(r => r.body);
