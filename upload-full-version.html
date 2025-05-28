@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
     <title>Upload full version - Quake III Arena Demo</title>
+
+    <style>
+        body:not(.reason-invalid-game-folder) .if-reason-invalid-game-folder,
+        body.reason-invalid-game-folder .if-not-reason-invalid-game-folder {
+            display: none;
+        }
+    </style>
 </head>
 
 <body>
@@ -16,6 +23,18 @@
     <!-- TODO perhaps the message text can be tailored
     for when the user gets to this page by trying to join someone else's game,
     and for when they click "unlock all maps" themselves. -->
+
+    <p class="if-reason-invalid-game-folder">
+        The player that is currently hosting the server
+        is running the full version of Quake III Arena,
+        but you only have the demo version.
+    </p>
+    <p class="if-reason-invalid-game-folder">
+        <!-- This paragraph is duplicated. -->
+        In order to play the full game together,
+        all players have to own the full game.
+        <!-- I tried connecting the two together, and was unable to. -->
+    </p>
     <p>
         Purchase the full Quake III Arena to unlock all maps and other content.
         You can buy the game
@@ -23,13 +42,14 @@
         or
         <a href="https://www.gog.com/game/quake_iii_arena">on GOG</a>.
     </p>
-    <p>
+    <p class="if-not-reason-invalid-game-folder">
+        <!-- This paragraph is duplicated. -->
         In order to play the full game together,
         all players have to own the full game.
         <!-- I tried connecting the two together, and was unable to. -->
     </p>
     <p>
-        After downloading the game, locate the game directory,
+        After downloading the full game, locate the game directory,
         and upload the pak0.pk3 - pak8.pk3 files
         from the "baseq3" directory,
         using the file picker below.
@@ -61,6 +81,12 @@
         </output>
     </form>
 
+    <p class="if-reason-invalid-game-folder">
+        Alternatively, you keep playing the demo version together.
+        Ask the current hoster to switch to the demo version,
+        or to let you host the game.
+    </p>
+
     <script type="module">
         // @ts-check
         import { saveFileToIndexedDb } from './game-files-cache-utils.js'
@@ -71,6 +97,11 @@
             // Remove it immediately
             // so that people don't share the URL like this.
             location.hash = '';
+        }
+
+        const query = new URLSearchParams(window.location.search);
+        if (query.has('reason-invalid-game-folder')) {
+            document.body.classList.add('reason-invalid-game-folder');
         }
 
         /** @type {HTMLInputElement} */

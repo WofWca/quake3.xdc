@@ -473,7 +473,14 @@ const isFullGame = query.get('full-game') != null
         ? false
         : localStorage.getItem('launchFullGameByDefault') === 'true';
 // Remember last played game.
-localStorage.setItem('launchFullGameByDefault', isFullGame);
+localStorage.setItem(
+    'launchFullGameByDefault',
+    // It's important to check `haveFullVersion`,
+    // because we might have tried to launch the full version
+    // only because we once tried to connect to a server
+    // that ran the full version.
+    isFullGame && localStorage.getItem('haveFullVersion') === 'true'
+);
 const basegame = isFullGame ? 'baseq3' : 'demoq3'
 
 let generatedArguments = `
@@ -596,6 +603,37 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // TODO this gonna be a little annoying if we can't enter
                 // full screen.
                 ui.style.display = '';
+            } else if (msg === 'ERROR: Invalid game folder') {
+                // This error is usually caused by the server having
+                // a demo version, and the client having the full version,
+                // or vice versa.
+                // Let's change the game version to the one used by the server.
+                //
+                // TODO but not always!
+                //
+                // TODO it would be better to check whether the full game
+                // is running more "manually".
+                // For example, without requiring people to first upload
+                // the demo game files.
+                //
+                // If we already failed previosly, don't try to switch again.
+                // TODO this query param is gonna unintentionally
+                // persist sometimes, isn't it? When do we want to remove it?
+                if (!query.has('reason-invalid-game-folder')) {
+                    setTimeout(() => {
+                        const newUrl = new URL(location.href);
+                        newUrl.searchParams.set('reason-invalid-game-folder', '');
+                        if (isFullGame) {
+                            // Full game failed, switch to demo
+                            newUrl.searchParams.set('demo-game', '');
+                            newUrl.searchParams.delete('full-game');
+                        } else {
+                            newUrl.searchParams.set('full-game', '');
+                            newUrl.searchParams.delete('demo-game');
+                        }
+                        location.assign(newUrl);
+                    }, 500);
+                }
             }
             console.error(msg);
         },
