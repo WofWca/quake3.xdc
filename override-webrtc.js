@@ -114,6 +114,14 @@ function handlePacket(/** @type {Uint8Array} */ packet) {
   );
 
   const packetSourceAddress = packetHeader[0];
+  // Ignore special packets (see `isWhoIsTheServerRequest`,
+  // `isWhoIsTheServerResponse`). Yes, this is stupid.
+  if (
+    packetSourceAddress === 0x2b2b2b2b ||
+    packetSourceAddress === 0x2a2a2a2a
+  ) {
+    return;
+  }
   const packetDestinationAddress = packetHeader[1];
 
   // Remember though that there are also special packets,
