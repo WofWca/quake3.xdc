@@ -854,6 +854,15 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 set sv_maxclients 128
                 set snaps 60
                 set cl_maxpackets 125
+
+                ${globalThis.webxdc != undefined && (new Date()).getFullYear() < 2028
+                    ? (
+                        '// webxdc connection is reliable + ordered as of 2025-05,\n' +
+                        '// so duplicating packets is of no use.\n' +
+                        'set cl_packetdup 0\n'
+                    ) : ''
+                }
+
                 set sv_pure 1
 
                     `, { encoding: 'utf8' });
