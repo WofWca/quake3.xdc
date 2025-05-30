@@ -31,9 +31,15 @@ export async function saveFileToIndexedDb(openRequest, filePath, file) {
         transaction.oncomplete = () => {
             console.log(`${filePath} stored to indexedDB successfully!`);
             resolve();
+
+            transaction.oncomplete = null;
+            transaction.onerror = null;
         };
         transaction.onerror = (event) => {
             reject(`Error storing ${filePath} to indexedDB: ${event.target.error}`);
+
+            transaction.oncomplete = null;
+            transaction.onerror = null;
         };
     })
 }
@@ -44,9 +50,15 @@ export async function saveFileToIndexedDb(openRequest, filePath, file) {
  * @returns {Promise<undefined | ArrayBuffer>}
  */
 export function getFileFromIndexedDb(openRequest, filePath) {
-    return new Promise(resolve => {
+    return new Promise(resolve_ => {
+        const resolveAndCleanUp = (val) => {
+            resolve_(val)
+            openRequest.removeEventListener('error', onError);
+            openRequest.removeEventListener('success', onSuccess);
+        }
+
         const onError = () => {
-            resolve(undefined);
+            resolveAndCleanUp(undefined);
             console.error(
                 `Error retrieving ${filePath} from indexedDB:`,
                 openRequest.error.error
@@ -77,20 +89,26 @@ export function getFileFromIndexedDb(openRequest, filePath) {
 
             const getRequest = store.get(filePath);
 
+            const resolveAndCleanUp2 = (val) => {
+                resolveAndCleanUp(val);
+                getRequest.onsuccess = null;
+                getRequest.onerror = null;
+            }
+
             getRequest.onsuccess = (event) => {
                 /** @type {Blob | undefined} */
                 const blob = event.target.result;
 
                 if (!blob) {
-                    resolve(undefined);
+                    resolveAndCleanUp2(undefined);
                     return;
                 }
 
-                blob.arrayBuffer().then(resolve)
+                blob.arrayBuffer().then(resolveAndCleanUp2)
             };
 
             getRequest.onerror = (event) => {
-                resolve(undefined);
+                resolveAndCleanUp2(undefined);
                 console.error(
                     `Error retrieving ${filePath} from indexedDB:`,
                     event.target.error

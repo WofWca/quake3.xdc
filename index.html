@@ -697,6 +697,16 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             await Promise.all(pk3Files.map(async ([filePath, file]) => {
                 module.FS.writeFile(filePath, await file);
             }));
+
+            // Clean them up from RAM
+            // I don't know why, but dev tools report that
+            // even if we set `pk3FilesPromise = undefined`,
+            // the array is still retained in `Generator` of this module
+            // somehow. So let's also empty the array.
+            pk3Files.fill(undefined);
+            pk3FilesPromise = undefined;
+            gotPk3Files = undefined;
+
             module.FS.writeFile(`/${basegame}/ztm-flexible-hud.pk3`, await ztmFlexibleHud);
             if (multiplayer) {
                 const tryNotifyChat = (message) => {
