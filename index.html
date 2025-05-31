@@ -865,7 +865,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 set snaps 60
                 set cl_maxpackets 125
 
-                ${globalThis.webxdc != undefined && (new Date()).getFullYear() < 2028
+                ${globalThis.webxdc != undefined
                     ? (
                         '// webxdc connection is reliable + ordered as of 2025-05,\n' +
                         '// so duplicating packets is of no use.\n' +
