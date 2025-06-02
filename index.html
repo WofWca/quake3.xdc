@@ -612,6 +612,7 @@ fetch(`${buildPath}/ztm-flexible-hud.pk3`).then(r=>r.arrayBuffer()).then(r=>gotZ
 // Fool Emscripten into thinking the browser supports pointer lock.
 if (!document.body.requestPointerLock) document.body.requestPointerLock = () => true;
 
+let kickedInitialBots = false;
 let firstMainLoop = true;
 let shadersCompiled = 0;
 let shadersTotal = 57;
@@ -681,6 +682,24 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         }
                         location.assign(newUrl);
                     }, 500);
+                }
+            } else if (msg?.endsWith('challenge ping')) {
+                // "Connected with ... challenge ping"
+                // kick all bots when someone connects.
+                // FYI there is also `set bot_minplayers`,
+                // but it's not great because it will keep the bots
+                // until there is enough players,
+                // instead of kicking all bots, and will also keep kicking bots
+                // even if you added them manually.
+
+                if (!kickedInitialBots) {
+                    // I don't know a better way to execute a command.
+                    // See https://discourse.ioquake.org/t/how-to-execute-commands-using-another-program-in-web-emscripten-version-stdin/2046
+                    window.dispatchEvent(
+                        // See below, `bind KP_SLASH`.
+                        new KeyboardEvent('keydown', { code: 'NumpadDivide' })
+                    );
+                    kickedInitialBots = true;
                 }
             }
             console.error(msg);
@@ -818,6 +837,10 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
                         +map ${randomMap()}
+                        +addbot random ${botSkill}
+                        +addbot random ${botSkill}
+                        +addbot random ${botSkill}
+                        +addbot random ${botSkill}
                         `.trim().split(/\s+/));
 
                     // Only after a timeout so as to be less annoying,
@@ -893,6 +916,8 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // Also, F11 is associated with "full screen".
                 unbind F11
 
+                bind KP_SLASH "kickbots; map_restart; unbind KP_SLASH"
+
                 set r_mode -2 // make game use desktop resolution
                 set r_picmip 0 // full texture detail
                 set r_lodBias -2 // don't use lower detail models far away
@@ -929,15 +954,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 }
 
                 set sv_pure 1
-
-                // Unless someone else has connected, add one bot.
-                // TODO it would be nice to have more bots initially
-                // and kick them all when at least one player connects.
-                // See https://discourse.ioquake.org/t/how-to-execute-commands-using-another-program-in-web-emscripten-version-stdin/2046
-                //
-                // TODO fix this automatically kicks bots
-                // even if you added them manually.
-                set bot_minplayers 2
 
                 // Map rotation. After a match has finished,
                 // go to next map.
