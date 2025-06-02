@@ -563,6 +563,11 @@ const fullGameMaps = [
 function randomFromArray(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
+function randomMap() {
+    return isFullGame
+        ? randomFromArray(fullGameMaps)
+        : randomFromArray(knownDemoMaps);
+}
 
 
 let multiplayer = !!server;
@@ -813,7 +818,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
-                        +map ${isFullGame ? randomFromArray(fullGameMaps) : randomFromArray(knownDemoMaps)}
+                        +map ${randomMap()}
                         `.trim().split(/\s+/));
 
                     // Only after a timeout so as to be less annoying,
@@ -842,7 +847,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 }
             } else {
                 module.arguments.push(...`
-                    +map ${isFullGame ? randomFromArray(fullGameMaps) : randomFromArray(knownDemoMaps)}
+                    +map ${randomMap()}
                     +addbot sarge ${botSkill}
                     +addbot daemia ${botSkill}
                     +addbot major ${botSkill}
