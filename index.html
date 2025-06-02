@@ -563,10 +563,9 @@ const fullGameMaps = [
 function randomFromArray(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
+const availableMaps = isFullGame ? fullGameMaps : knownDemoMaps;
 function randomMap() {
-    return isFullGame
-        ? randomFromArray(fullGameMaps)
-        : randomFromArray(knownDemoMaps);
+    return randomFromArray(availableMaps);
 }
 
 
@@ -941,17 +940,20 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // go to next map.
                 // Taken from
                 // https://planetquake.gamespy.com/View110c.html?view=Guides.Detail&id=52&game=4
-                // TODO make sure that maps do not repeat here.
-                set d1 "map ${randomMap()} ; set nextmap vstr d2"
-                set d2 "map ${randomMap()} ; set nextmap vstr d3"
-                set d3 "map ${randomMap()} ; set nextmap vstr d4"
-                set d4 "map ${randomMap()} ; set nextmap vstr d5"
-                set d5 "map ${randomMap()} ; set nextmap vstr d6"
-                set d6 "map ${randomMap()} ; set nextmap vstr d7"
-                set d7 "map ${randomMap()} ; set nextmap vstr d8"
-                set d8 "map ${randomMap()} ; set nextmap vstr d9"
-                set d9 "map ${randomMap()} ; set nextmap vstr d10"
-                set d10 "map ${randomMap()} ; set nextmap vstr d1"
+                // https://guides.gamehostbros.com/games/quake-3/mapcycle/
+                ${availableMaps
+                    // Shuffle
+                    .map(mapName => ({ mapName, sortVal: Math.random() }))
+                    .sort((a, b) => a.sortVal - b.sortVal)
+                    .map(obj => obj.mapName)
+
+                    .map((mapName, ind, arr) => {
+                        const nextInd = ind === arr.length - 1
+                            ? 1
+                            : ind + 2;
+                        return `set d${ind + 1} "map ${mapName} ; set nextmap vstr d${nextInd}"`
+                    })
+                    .join('\n')}
                 vstr d1
 
                     `, { encoding: 'utf8' });
