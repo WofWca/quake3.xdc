@@ -931,6 +931,12 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
                 set sv_pure 1
 
+                // Unless someone else has connected, add one bot.
+                // TODO it would be nice to have more bots initially
+                // and kick them all when at least one player connects.
+                // See https://discourse.ioquake.org/t/how-to-execute-commands-using-another-program-in-web-emscripten-version-stdin/2046
+                set bot_minplayers 2
+
                 // Map rotation. After a match has finished,
                 // go to next map.
                 // Taken from
