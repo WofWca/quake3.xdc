@@ -381,6 +381,19 @@ HTMLElement.prototype.requestPointerLock = function(options) {
 const ios = /iPad|iPhone|iPod/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 let saveFiles = null;
+let lastSavedFilesOnEscapePressAt = Date.now();
+/**
+ * @param {KeyboardEvent} event
+ */
+const saveFilesOnEscapePress = (event) => {
+    const alreadySavedRecently = (Date.now() - lastSavedFilesOnEscapePressAt) < 1000;
+    if (event.key === 'Escape' && !alreadySavedRecently && saveFiles) {
+        saveFiles();
+        lastSavedFilesOnEscapePressAt = Date.now();
+    }
+}
+document.addEventListener('keydown', saveFilesOnEscapePress, { passive: true });
+
 document.addEventListener('pointerlockchange', ()=>{if (!ios && document.pointerLockElement && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen()});
 async function canvasRequestPointerLock() {
     try {
@@ -406,6 +419,14 @@ async function canvasRequestPointerLock() {
 }
 document.addEventListener('fullscreenchange', () => {
     if (saveFiles) saveFiles();
+    if (document.fullscreenElement) {
+        // This means that full-screen is supported, and we can now save files
+        // on 'fullscreenchange', and stop falling back to 'keydown'.
+        //
+        // Fullscreen is not supported on Delta Chat Tauri as of 2025-05,
+        // so we need `saveFilesOnEscapePress`,
+        document.removeEventListener('keydown', saveFilesOnEscapePress);
+    }
     if (document.fullscreenElement && !document.pointerLockElement && canvas.originalRequestPointerLock) canvasRequestPointerLock();
     ui.style.visibility = document.fullscreenElement ? 'hidden' : 'visible';
 });
