@@ -916,7 +916,9 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // Also, F11 is associated with "full screen".
                 unbind F11
 
-                bind KP_SLASH "kickbots; map_restart; unbind KP_SLASH"
+                // "map_restart" with no delay, so as to not induce
+                // "try hard" feelings in players.
+                bind KP_SLASH "kickbots; map_restart 0; unbind KP_SLASH"
 
                 set r_mode -2 // make game use desktop resolution
                 set r_picmip 0 // full texture detail
