@@ -643,6 +643,10 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 progress.style.display = 'none';
             } else if (msg === '----- Client Shutdown (Client quit) -----') {
                 // They pressed "Exit" (close the entire game process).
+
+                // Not sure `saveFiles` will work right before navigation,
+                // but why not try
+                saveFiles();
                 location.assign('./main-menu.html');
             } else if (msg === '==== ShutdownGame ====') {
                 // If they didn't quit the entire game,
