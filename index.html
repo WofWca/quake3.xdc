@@ -687,7 +687,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         location.assign(newUrl);
                     }, 500);
                 }
-            } else if (msg?.endsWith('challenge ping')) {
+            } else if (msg?.startsWith('Client') && msg.endsWith('challenge ping')) {
                 // "Connected with ... challenge ping"
                 // kick all bots when someone connects.
                 // FYI there is also `set bot_minplayers`,
