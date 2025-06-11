@@ -913,6 +913,11 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 bind PAD0_LEFTSTICK_CLICK "+zoom"
                 bind PAD0_RIGHTSTICK_CLICK "+button3"
 
+                // "ESCAPE" conflicts with "exit fullscreen",
+                // which is rather annoying,
+                // so maybe this will be of use to some people.
+                bind F4 "togglemenu"
+
                 // By default F11 is "screenshot", but firstly,
                 // they turn out to be just all black in the web version.
                 // Secondly they're not accessible by regular users
