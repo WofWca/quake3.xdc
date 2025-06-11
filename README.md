@@ -63,6 +63,18 @@ So, how it was made:
 8. Get rid of other minor dependencies on direct internet connection.
    See commit history.
 
+And here is some extra stuff:
+
+1. Add "Change Map" in-game menu item.
+   1. Download the Linux build artifact from this branch
+      https://github.com/WofWca/flexible-hud-for-ioq3/tree/add-menu-item-start-new-arena-ztm-flexible-hud.
+      The branch is based on this MR:
+      https://github.com/clover-moe/mint-arena/pull/7.
+   2. Find the `vm/ui.qvm` file in the build files.
+   3. Open the original `ztm-flexible-hud.pk3` file as a `.zip` file.
+   4. Replace the `vm/ui.qvm` in the original `ztm-flexible-hud.pk3`
+      with the new file.
+
 ### Why it's terribly made
 
 - HumbleNet is not really needed.
