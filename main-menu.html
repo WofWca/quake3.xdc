@@ -28,6 +28,32 @@
             flex-direction: column;
             align-items: center;
         }
+
+        #openFileExplorerBtn {
+            height: 30px;
+            font-family: "Antonio", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 700;
+            font-style: normal;
+            letter-spacing: -.05ch;
+        }
+
+        #closeFileExplorerBtn {
+            height: 30px;
+            width: 30px;
+        }
+
+        #fileExplorerDialog {
+            padding: 5px;
+            width: 80vw;
+            height: 80vh;
+        }
+
+        #fileExplorerContainer {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
     </style>
 
     <script type="module">
@@ -39,6 +65,9 @@
             document.body.classList.add('haveFullVersion');
         }
     </script>
+
+    <!-- https://github.com/DavidSM100/emscripten-fs-file-explorer-ui -->
+    <script src="./emscripten-fs-file-explorer-ui.iife.js"></script>
 </head>
 
 <body>
@@ -58,12 +87,62 @@
         href="./upload-full-version.html?full-game"
     >Unlock all maps</a>
 
+    
+    <button id="openFileExplorerBtn" style="margin-top: 10px;">Open File Explorer</button>
+
     <p>
         <!-- TODO automatically do this, and remove this paragraph. -->
         Remember that in order to play the game together,
         all players must pick the same type of game
         (either the full game or the demo).
     </p>
+
+    <dialog id="fileExplorerDialog">
+        <div id="fileExplorerContainer">
+            <div style="text-align: right; margin-bottom: 5px;">
+                <button id="closeFileExplorerBtn">
+                     <b>X</b>
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <script>
+        const dialog = document.getElementById("fileExplorerDialog");
+        const fileExplorerContainer = document.getElementById("fileExplorerContainer");
+        document.getElementById("closeFileExplorerBtn").onclick = () => {
+            const container = document.getElementById("fileExplorerDiv");
+            dialog.close();
+        }
+
+        dialog.addEventListener("close", () => {
+            const container = document.getElementById("fileExplorerDiv");
+            container.remove();
+        })
+
+        const openFileExplorerBtn = document.getElementById("openFileExplorerBtn");
+        openFileExplorerBtn.onclick = async () => {
+            openFileExplorerBtn.disabled = true;
+            const container = document.createElement("div");
+            container.style.flex = "1";
+            container.id = "fileExplorerDiv";
+            const ioquake3 = await import("/ioquake3_opengl2.wasm32.js");
+            const module = await ioquake3.default();
+            module.FS.mkdirTree("/home/web_user/.q3a");
+            module.FS.mount(module.FS.filesystems.IDBFS, {}, "/home/web_user/.q3a");
+            module.FS.syncfs(true, (err) => {
+                if (err) {
+                    console.error(err);
+                }
+                mountEmscriptenFileExplorer(container, module.FS, {
+                    initialDir: "/home/web_user/.q3a"
+                });
+                fileExplorerContainer.append(container);
+                dialog.showModal();
+                openFileExplorerBtn.disabled = false;
+            });
+        }
+    </script>
 </body>
 
 </html>
