@@ -38,6 +38,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <fcntl.h>
 #include <fenv.h>
 #include <sys/wait.h>
+#include <time.h>
 
 qboolean stdinIsATTY;
 
@@ -64,10 +65,11 @@ char *Sys_DefaultHomePath(void)
 
 	if( !*homePath && com_homepath != NULL )
 	{
+#ifdef __APPLE__
 		if( ( p = getenv( "HOME" ) ) != NULL )
 		{
 			Com_sprintf(homePath, sizeof(homePath), "%s%c", p, PATH_SEP);
-#ifdef __APPLE__
+
 			Q_strcat(homePath, sizeof(homePath),
 				"Library/Application Support/");
 
@@ -75,13 +77,44 @@ char *Sys_DefaultHomePath(void)
 				Q_strcat(homePath, sizeof(homePath), com_homepath->string);
 			else
 				Q_strcat(homePath, sizeof(homePath), HOMEPATH_NAME_MACOSX);
+		}
 #else
+		if( ( p = getenv( "FLATPAK_ID" ) ) != NULL && *p != '\0' )
+		{
+			if( ( p = getenv( "XDG_DATA_HOME" ) ) != NULL && *p != '\0' )
+			{
+				Com_sprintf(homePath, sizeof(homePath), "%s%c", p, PATH_SEP);
+			}
+			else if( ( p = getenv( "HOME" ) ) != NULL && *p != '\0' )
+			{
+				Com_sprintf(homePath, sizeof(homePath), "%s%c.local%cshare%c", p, PATH_SEP, PATH_SEP, PATH_SEP);
+			}
+
+			if( *homePath )
+			{
+				char *dir;
+
+				if(com_homepath->string[0])
+					dir = com_homepath->string;
+				else
+					dir = HOMEPATH_NAME_UNIX;
+
+				if(dir[0] == '.' && dir[1] != '\0')
+					dir++;
+
+				Q_strcat(homePath, sizeof(homePath), dir);
+			}
+		}
+		else if( ( p = getenv( "HOME" ) ) != NULL )
+		{
+			Com_sprintf(homePath, sizeof(homePath), "%s%c", p, PATH_SEP);
+
 			if(com_homepath->string[0])
 				Q_strcat(homePath, sizeof(homePath), com_homepath->string);
 			else
 				Q_strcat(homePath, sizeof(homePath), HOMEPATH_NAME_UNIX);
-#endif
 		}
+#endif
 	}
 
 	return homePath;
@@ -548,11 +581,15 @@ void Sys_Sleep( int msec )
 	}
 	else
 	{
+		struct timespec req;
+
 		// With nothing to select() on, we can't wait indefinitely
 		if( msec < 0 )
 			msec = 10;
 
-		usleep( msec * 1000 );
+		req.tv_sec = msec/1000;
+		req.tv_nsec = (msec%1000)*1000000;
+		nanosleep(&req, NULL);
 	}
 }
 

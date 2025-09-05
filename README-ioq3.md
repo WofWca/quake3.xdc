@@ -160,6 +160,22 @@ Makefile.local:
 The defaults for these variables differ depending on the target platform.
 
 
+# OpenGL ES support
+
+The opengl2 renderer (the default) supports OpenGL ES 2+. Though there
+are many missing features and the performance may not be sufficient for
+embedded System-on-a-Chip and mobile platforms.
+
+The opengl1 renderer does not have OpenGL ES support.
+
+The opengl2 renderer will try both OpenGL and OpenGL ES APIs to find one that
+works. The `r_preferOpenGLES` cvar controls which API to try first.
+Set it to -1 for auto (default), 0 for OpenGL, and 1 for OpenGL ES. It should be
+set using command line arguments:
+
+    ioquake3 +set cl_renderer opengl2 +set r_preferOpenGLES 1
+
+
 # Console
 
 ## New cvars

@@ -240,10 +240,10 @@ static void CG_DrawField (int x, int y, int width, int value) {
 	l = strlen(num);
 	if (l > width)
 		l = width;
-	x += 2 + CHAR_WIDTH*(width - l);
+	x += 2 + CHARACTER_WIDTH*(width - l);
 
 	// center x, move y to bottom.
-	x += (1.0f-cg_statusScale.value)*l*CHAR_WIDTH*0.5f;
+	x += (1.0f-cg_statusScale.value)*l*CHARACTER_WIDTH*0.5f;
 	y += (1.0f-cg_statusScale.value)*CHAR_HEIGHT;
 
 	ptr = num;
@@ -254,8 +254,8 @@ static void CG_DrawField (int x, int y, int width, int value) {
 		else
 			frame = *ptr -'0';
 
-		CG_DrawPic( x,y, CHAR_WIDTH*cg_statusScale.value, CHAR_HEIGHT*cg_statusScale.value, cgs.media.numberShaders[frame] );
-		x += CHAR_WIDTH*cg_statusScale.value;
+		CG_DrawPic( x,y, CHARACTER_WIDTH*cg_statusScale.value, CHAR_HEIGHT*cg_statusScale.value, cgs.media.numberShaders[frame] );
+		x += CHARACTER_WIDTH*cg_statusScale.value;
 		ptr++;
 		l--;
 	}
@@ -616,7 +616,7 @@ static void CG_DrawStatusBar( void ) {
 		origin[1] = 0;
 		origin[2] = 0;
 		angles[YAW] = 90 + 20 * sin( cg.time / 1000.0 );
-		CG_Draw3DModel( CHAR_WIDTH*3 + TEXT_ICON_SPACE, 480-iconSize, iconSize, iconSize,
+		CG_Draw3DModel( CHARACTER_WIDTH*3 + TEXT_ICON_SPACE, 480-iconSize, iconSize, iconSize,
 					   cg_weapons[ cent->currentState.weapon ].ammoModel, 0, origin, angles );
 	}
 
@@ -625,23 +625,23 @@ static void CG_DrawStatusBar( void ) {
 		origin[1] = 0;
 		origin[2] = -5;
 		angles[YAW] = ( cg.time & 2047 ) * 360 / 4096.0;
-		CG_DrawHealthModel( 185 + CHAR_WIDTH*3 + TEXT_ICON_SPACE, 480-iconSize, iconSize, iconSize,
+		CG_DrawHealthModel( 185 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE, 480-iconSize, iconSize, iconSize,
 					   cg_items[ 6 /*item_health_large*/].models[0], 0, cg_items[ 6 /*item_health_large*/].models[1], origin, angles, 0 );
 
 		// if we didn't draw a 3D icon, draw a 2D icon for health
 		if ( !cg_draw3dIcons.integer && cg_drawIcons.integer ) {
-			CG_DrawPic( 185 + CHAR_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize, cg_items[6/*item_health_large*/].icon );
+			CG_DrawPic( 185 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize, cg_items[6/*item_health_large*/].icon );
 		}
 	}
 	else if ( cg_drawStatusHead.integer == 1 )
-		CG_DrawStatusBarHead( 185 + CHAR_WIDTH*3 + TEXT_ICON_SPACE );
+		CG_DrawStatusBarHead( 185 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE );
 
 	if( cg.predictedPlayerState.powerups[PW_REDFLAG] ) {
-		CG_DrawStatusBarFlag( 185 + CHAR_WIDTH*3 + TEXT_ICON_SPACE + ICON_SIZE, TEAM_RED );
+		CG_DrawStatusBarFlag( 185 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE + ICON_SIZE, TEAM_RED );
 	} else if( cg.predictedPlayerState.powerups[PW_BLUEFLAG] ) {
-		CG_DrawStatusBarFlag( 185 + CHAR_WIDTH*3 + TEXT_ICON_SPACE + ICON_SIZE, TEAM_BLUE );
+		CG_DrawStatusBarFlag( 185 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE + ICON_SIZE, TEAM_BLUE );
 	} else if( cg.predictedPlayerState.powerups[PW_NEUTRALFLAG] ) {
-		CG_DrawStatusBarFlag( 185 + CHAR_WIDTH*3 + TEXT_ICON_SPACE + ICON_SIZE, TEAM_FREE );
+		CG_DrawStatusBarFlag( 185 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE + ICON_SIZE, TEAM_FREE );
 	}
 
 	if ( ps->stats[ STAT_ARMOR ] ) {
@@ -649,7 +649,7 @@ static void CG_DrawStatusBar( void ) {
 		origin[1] = 0;
 		origin[2] = -10;
 		angles[YAW] = ( cg.time & 2047 ) * 360 / 2048.0;
-		CG_Draw3DModel( 370 + CHAR_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize,
+		CG_Draw3DModel( 370 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize,
 					   cgs.media.armorModel, 0, origin, angles );
 	}
 	//
@@ -680,7 +680,7 @@ static void CG_DrawStatusBar( void ) {
 
 				icon = cg_weapons[ cg.predictedPlayerState.weapon ].ammoIcon;
 				if ( icon ) {
-					CG_DrawPic( CHAR_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize, icon );
+					CG_DrawPic( CHARACTER_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize, icon );
 				}
 			}
 		}
@@ -717,7 +717,7 @@ static void CG_DrawStatusBar( void ) {
 		trap_R_SetColor( NULL );
 		// if we didn't draw a 3D icon, draw a 2D icon for armor
 		if ( !cg_draw3dIcons.integer && cg_drawIcons.integer ) {
-			CG_DrawPic( 370 + CHAR_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize, cgs.media.armorIcon );
+			CG_DrawPic( 370 + CHARACTER_WIDTH*3 + TEXT_ICON_SPACE, 480 - iconSize, iconSize, iconSize, cgs.media.armorIcon );
 		}
 
 	}
@@ -1311,7 +1311,7 @@ static float CG_DrawPowerups( float y ) {
 	}
 
 	// draw the icons and timers
-	x = 640 - ICON_SIZE - CHAR_WIDTH * 2;
+	x = 640 - ICON_SIZE - CHARACTER_WIDTH * 2;
 	for ( i = 0 ; i < active ; i++ ) {
 		item = BG_FindItemForPowerup( sorted[i] );
 
