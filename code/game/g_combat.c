@@ -601,7 +601,25 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	self->s.loopSound = 0;
 
-	self->r.maxs[2] = DEAD_MAXS_Z;
+	// The below line has been commented out in
+	// https://github.com/ec-/baseq3a/pull/49.
+	// Executing this line causes a bug where the shotgun doesn't gib
+	// unless you aim at the feet.
+	// See https://github.com/ioquake/ioq3/issues/794.
+	//
+	// Note that without this line, when shooting at two players standing
+	// behind each other, the second target will take less damage,
+	// because the dead body of the first player will absorb the pellets
+	// until it gets gibbed (that is, up to 4 pellets,
+	// see `GIB_HEALTH` and `DEFAULT_SHOTGUN_DAMAGE`).
+	//
+	// The purpose and the effect of this line is not entirely clear.
+	// Maybe it's to transition the player hitbox
+	// into the "lying down dead" state, make it shorter.
+	// But this is already handled in `PM_CheckDuck`,
+	// so maybe it's just leftover code.
+	//
+	// self->r.maxs[2] = DEAD_MAXS_Z;
 
 	// don't allow respawn until the death anim is done
 	// g_forcerespawn may force spawning at some later time
