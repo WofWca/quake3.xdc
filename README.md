@@ -81,6 +81,10 @@ From now on the development steps are as follows:
    <https://github.com/ec-/baseq3a/pull/59>.
 4. Extract `pak8a.pk3` from `QVM.zip` here.
 
+2. We also are using a file explorer ui for the Emscripten Filesystem API, so users can edit some files and mod the game.
+   1. Copy the .iife.js file from the dist folder of the [emscripten-fs-file-explorer-ui](https://www.npmjs.com/package/emscripten-fs-file-explorer-ui) npm package and use it in one of the html files following the npm package instructions.
+   2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in webxdc context (download links are used in the file explorer to export files)
+
 ### Why it's terribly made
 
 - HumbleNet is not really needed.
