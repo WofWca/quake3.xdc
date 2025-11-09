@@ -1098,6 +1098,7 @@ extern	vmCvar_t		cg_bobroll;
 extern	vmCvar_t		cg_swingSpeed;
 extern	vmCvar_t		cg_shadows;
 extern	vmCvar_t		cg_gibs;
+extern	vmCvar_t		cg_oldGibs;
 extern	vmCvar_t		cg_drawTimer;
 extern	vmCvar_t		cg_drawFPS;
 extern	vmCvar_t		cg_drawSnapshot;
@@ -1453,6 +1454,7 @@ void CG_LightningBoltBeam( vec3_t start, vec3_t end );
 void CG_ScorePlum( int client, vec3_t org, int score );
 
 void CG_GibPlayer( vec3_t playerOrigin );
+void CG_GibPlayerOld( vec3_t playerOrigin );
 void CG_BigExplode( vec3_t playerOrigin );
 
 void CG_Bleed( vec3_t origin, int entityNum );
