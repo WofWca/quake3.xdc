@@ -45,6 +45,10 @@ CG_CVAR( cg_fov, "cg_fov", "90", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_viewsize, "cg_viewsize", "100", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_shadows, "cg_shadows", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_gibs, "cg_gibs", "1", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE,
+	"Vanilla gibs, from 1999. "
+	"When set to 1, takes priority "
+	"over (almost) all the other `cg_gibs*` vars." )
 CG_CVAR( cg_draw2D, "cg_draw2D", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_drawStatus, "cg_drawStatus", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_drawTimer, "cg_drawTimer", "0", CVAR_ARCHIVE, NULL )
