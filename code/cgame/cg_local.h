@@ -1102,6 +1102,7 @@ extern	vmCvar_t		cg_oldGibs;
 extern	vmCvar_t		cg_gibsInheritPlayerVelocity;
 extern	vmCvar_t		cg_gibsExtraRandomVelocity;
 extern	vmCvar_t		cg_gibsExtraVerticalVelocity;
+extern	vmCvar_t		cg_gibsBounceFactor;
 extern	vmCvar_t		cg_drawTimer;
 extern	vmCvar_t		cg_drawFPS;
 extern	vmCvar_t		cg_drawSnapshot;
