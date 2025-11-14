@@ -376,6 +376,7 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 
 		if ( ent2->client && ent2->client->ps.pm_type == PM_DEAD ) {
 			SetDeadHeight( ent2 );
+			SetFlNoKnockback( ent2 );
 		}
 	}
 }
