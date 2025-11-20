@@ -534,14 +534,17 @@ let generatedArguments = `
 let botSkill = 2;
 
 if (window.matchMedia('(pointer: coarse)').matches) {
+    // `cl_autoAttack` has been reverted in our fork
+    // https://github.com/jdarpinian/ioq3/commit/713c0795c5ea9328111ec2215a077957168f7e2c,
+    // because it seems to make the engine .wasm incompatible with other mods.
+    // +set cl_autoAttack 1
     generatedArguments += `
-        +set cl_autoAttack 1
         +set g_forcerespawn 2
     `;
 } else {
-    generatedArguments += `
-        +set cl_autoAttack 0
-    `;
+    // generatedArguments += `
+    //     +set cl_autoAttack 0
+    // `;
 }
 
 const knownDemoMaps = [
@@ -605,9 +608,16 @@ let buildPath = '.';
 if (location.pathname.startsWith('/ioq3/code/web/')) {
     buildPath = '../../build/debug-emscripten-wasm32';
 }
-let gotZtmFlexibleHud;
-const ztmFlexibleHud = new Promise(r=>gotZtmFlexibleHud=r);
-fetch(`${buildPath}/ztm-flexible-hud.pk3`).then(r=>r.arrayBuffer()).then(r=>gotZtmFlexibleHud(new Uint8Array(r)));
+let gotBaseq3aMod;
+const baseq3aMod = new Promise(r=>gotBaseq3aMod=r);
+fetch(`${buildPath}/pak8a.pk3`).then(r=>r.arrayBuffer()).then(r=>gotBaseq3aMod(new Uint8Array(r)));
+/**
+ * Without this mod the bots in the Quake III Arena demo version
+ * are all running with just gauntlet.
+ */
+const fixDemoBotsMod = fetch(`${buildPath}/pak9-fix-demo-bots.pk3`)
+    .then(r => r.arrayBuffer())
+    .then(b => new Uint8Array(b))
 
 // Fool Emscripten into thinking the browser supports pointer lock.
 if (!document.body.requestPointerLock) document.body.requestPointerLock = () => true;
@@ -778,7 +788,8 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             pk3FilesPromise = undefined;
             gotPk3Files = undefined;
 
-            module.FS.writeFile(`/${basegame}/ztm-flexible-hud.pk3`, await ztmFlexibleHud);
+            module.FS.writeFile(`/${basegame}/pak8a.pk3`, await baseq3aMod);
+            module.FS.writeFile(`/${basegame}/pak9-fix-demo-bots.pk3`, await fixDemoBotsMod);
             if (multiplayer) {
                 const tryNotifyChat = (message) => {
                     const selfName = globalThis.webxdc?.selfName || 'A player'
@@ -837,14 +848,18 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         );
                     }, 1000)
                 } else {
+                    // TODO improvement: in the full game there are more bots
+                    // to choose from.
+                    // Unfortunately `addbot random` is not available
+                    // in baseq3a mod.
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
                         +map ${randomMap()}
-                        +addbot random ${botSkill}
-                        +addbot random ${botSkill}
-                        +addbot random ${botSkill}
-                        +addbot random ${botSkill}
+                        +addbot sarge ${botSkill}
+                        +addbot daemia ${botSkill}
+                        +addbot visor ${botSkill}
+                        +addbot stripe ${botSkill}
                         `.trim().split(/\s+/));
 
                     // Only after a timeout so as to be less annoying,
@@ -940,9 +955,12 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 set r_ext_framebuffer_multisample 16 // use multisample antialiasing
                 set r_lodCurveError 10000 // smoother curves far away (cheat protected)
 
+                set g_warmup 0 // baseq3a mod has it set to 20 by default. But we're casual here.
                 set r_mode -2
-                set cg_fovGunAdjust 1
-                set cg_fovAspectAdjust 1
+                // These two are from ztm-flexible-hud mod, but we don't use this mod anymore.
+                // set cg_fovGunAdjust 1
+                // set cg_fovAspectAdjust 1
+                set cg_fovAdjust 1
                 set com_maxfps 0
                 set r_swapInverval 1
                 set net_enabled 1

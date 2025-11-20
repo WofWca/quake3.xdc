@@ -63,17 +63,23 @@ So, how it was made:
 8. Get rid of other minor dependencies on direct internet connection.
    See commit history.
 
-And here is some extra stuff:
+Update 2025-11: now we use a forked version of thelongestyard.link.
+From now on the development steps are as follows:
 
-1. Add "Change Map" in-game menu item.
-   1. Download the Linux build artifact from this branch
-      https://github.com/WofWca/flexible-hud-for-ioq3/tree/add-menu-item-start-new-arena-ztm-flexible-hud.
-      The branch is based on this MR:
-      https://github.com/clover-moe/mint-arena/pull/7.
-   2. Find the `vm/ui.qvm` file in the build files.
-   3. Open the original `ztm-flexible-hud.pk3` file as a `.zip` file.
-   4. Replace the `vm/ui.qvm` in the original `ztm-flexible-hud.pk3`
-      with the new file.
+1. Download a "web" (Emscripten) build from
+   <https://github.com/WofWca/ioq3/tree/revert-more-stuff>.
+   It's a forked version with some stuff reverted,
+   namely `cl_autoAttack` and the "ztm-flexible-hud" mod.
+   Those extra changes appear to have made the engine (`.wasm`)
+   incompatible with other mods.
+2. Upack the `.wasm32.js` and `.wasm32.wasm` files here.
+3. Download the `QVM.zip` artifact from
+   <https://github.com/WofWca/baseq3a/tree/baseq3a-free-version-and-my-stuff>.
+   This is a version of the "baseq3a" mod with non-free assets removed
+   and with some of our patches.
+   You may also use the free version, with no extra patches:
+   <https://github.com/ec-/baseq3a/pull/59>.
+4. Extract `pak8a.pk3` from `QVM.zip` here.
 
 ### Why it's terribly made
 
