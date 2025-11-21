@@ -852,6 +852,11 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     // to choose from.
                     // Unfortunately `addbot random` is not available
                     // in baseq3a mod.
+                    //
+                    // `+exec setNextmap.cfg` seems to be needed because
+                    // map rotation seems to be broken by `+map ...`.
+                    // Otherwise `nextmap` is set to `map_restart 0`,
+                    // despite it being present in `autoexec.cfg`.
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
@@ -860,6 +865,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         +addbot daemia ${botSkill}
                         +addbot visor ${botSkill}
                         +addbot stripe ${botSkill}
+                        +exec setNextmap.cfg
                         `.trim().split(/\s+/));
 
                     // Only after a timeout so as to be less annoying,
@@ -894,8 +900,14 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     +addbot major ${botSkill}
                     +addbot visor ${botSkill}
                     +addbot stripe ${botSkill}
+                    +exec setNextmap.cfg
                 `.trim().split(/\s+/));
             }
+            module.FS.writeFile(
+                `/${basegame}/setNextmap.cfg`,
+                'set nextmap vstr d1',
+                { encoding: 'utf8' }
+            )
             module.FS.writeFile(`/${basegame}/autoexec.cfg`, `
                 set in_joystick 1
                 set in_joystickUseAnalog 1
@@ -942,7 +954,9 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
                 // "map_restart" with no delay, so as to not induce
                 // "try hard" feelings in players.
-                bind KP_SLASH "kickbots; map_restart 0; unbind KP_SLASH"
+                // "map_restart 0" seems to break map rotation
+                // by assigning to "nextmap" var, so we manually set it again.
+                bind KP_SLASH "kickbots; map_restart 0; set nextmap vstr d1; unbind KP_SLASH"
 
                 set r_mode -2 // make game use desktop resolution
                 set r_picmip 0 // full texture detail
@@ -1002,7 +1016,8 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         return `set d${ind + 1} "map ${mapName} ; set nextmap vstr d${nextInd}"`
                     })
                     .join('\n')}
-                vstr d1
+                // vstr d1
+                set nextmap vstr d1
 
                     `, { encoding: 'utf8' });
             module.removeRunDependency('setup-ioq3-filesystem');
