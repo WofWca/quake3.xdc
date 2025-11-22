@@ -237,7 +237,6 @@ full-screen, this prevents clicking the game. -->
 
 <script type='module'>
 import {
-    saveFileToIndexedDb,
     getFileFromIndexedDb
 } from './game-files-cache-utils.js'
 
@@ -619,6 +618,14 @@ const fixDemoBotsMod = fetch(`${buildPath}/pak9-fix-demo-bots.pk3`)
     .then(r => r.arrayBuffer())
     .then(b => new Uint8Array(b))
 
+// Checking `localStorage` instead of `module.FS`
+// because the files could have been deleted by the user manually.
+const filesAlreadyCreatedStorageKey = `filesAlreadyCreated_${basegame}`
+const filesAlreadyCreated =
+    localStorage.getItem(filesAlreadyCreatedStorageKey) === 'true'
+
+const qhome = '/home/web_user/.q3a';
+
 // Fool Emscripten into thinking the browser supports pointer lock.
 if (!document.body.requestPointerLock) document.body.requestPointerLock = () => true;
 
@@ -734,7 +741,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             });
             // Add the fetched asset files to the Emscripten virtual filesystem.
             module.addRunDependency('setup-ioq3-filesystem');
-            const qhome = '/home/web_user/.q3a';
+            module.FS.mkdirTree(`/${basegame}`);
             module.FS.mkdirTree(qhome);
             module.FS.mount(module.FS.filesystems.IDBFS, {}, qhome);
             let idbfsReadyResolve = null;
@@ -743,11 +750,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 if (err) { console.error(err); debugger; }
                 idbfsReadyResolve();
             });
-            // Checking `localStorage` instead of `module.FS`
-            // because the files could have been deleted by the user manually.
-            const filesAlreadyCreatedStorageKey = `filesAlreadyCreated_${basegame}`
-            const filesAlreadyCreated =
-                localStorage.getItem(filesAlreadyCreatedStorageKey) === 'true'
             await idbfsReady;
             try {
                 // TODO maybe preserve the config when switching
@@ -885,13 +887,6 @@ set nextmap vstr d1`,
                 )
             }
 
-            saveFiles = () => {
-                module.FS.syncfs(false, (err) => {
-                    if (err) { console.error(err); debugger; }
-                });
-            };
-            saveFiles();
-            module.FS.mkdirTree(`/${basegame}`);
             const pk3Files = await pk3FilesPromise;
             await Promise.all(pk3Files.map(async ([filePath, file]) => {
                 module.FS.writeFile(filePath, await file);
@@ -906,8 +901,17 @@ set nextmap vstr d1`,
             pk3FilesPromise = undefined;
             gotPk3Files = undefined;
 
-            module.FS.writeFile(`/${basegame}/pak8a.pk3`, await baseq3aMod);
-            module.FS.writeFile(`/${basegame}/pak9-fix-demo-bots.pk3`, await fixDemoBotsMod);
+            module.FS.mkdirTree(`${qhome}/${basegame}`);
+            module.FS.writeFile(`${qhome}/${basegame}/pak8a.pk3`, await baseq3aMod);
+            module.FS.writeFile(`${qhome}/${basegame}/pak9-fix-demo-bots.pk3`, await fixDemoBotsMod);
+
+            saveFiles = () => {
+                module.FS.syncfs(false, (err) => {
+                    if (err) { console.error(err); debugger; }
+                });
+            };
+            saveFiles();
+
             if (multiplayer) {
                 const tryNotifyChat = (message) => {
                     const selfName = globalThis.webxdc?.selfName || 'A player'
@@ -1088,20 +1092,11 @@ const canUseCacheStorage = await (async () => {
     }
     return true;
 })();
-if (!isFullGame) {
-    const CACHE_KEY = '/demoq3/pak0.pk3';
-    /** @type {ArrayBuffer | undefined} */
-    let demoq3pak0;
-    if (canUseCacheStorage) {
-        const cacheResponse = await cache.match(CACHE_KEY);
-        demoq3pak0 = await cacheResponse?.arrayBuffer();
-    } else {
-        demoq3pak0 = await getFileFromIndexedDb(indexedDBRequest, CACHE_KEY);
-    }
-    if (demoq3pak0) {
-        demoq3pak0 = new Uint8Array(demoq3pak0);
-        done.style.transform = 'scaleX(1)';
-    } else {
+if (filesAlreadyCreated) {
+    gotPk3Files([])
+    done.style.transform = 'scaleX(1)';
+} else {
+    if (!isFullGame) {
         const filePickerSection = document.getElementById('upload-game-files');
         filePickerSection.style.display = '';
         const bodyInitialOverflow = document.body.style.overflow;
@@ -1158,54 +1153,50 @@ if (!isFullGame) {
             let name = String.fromCharCode.apply(null, tar.subarray(offset, offset + 100)).replace(/\0/g, '').trim();
             let size = parseInt(String.fromCharCode.apply(null, tar.subarray(offset + 124, offset + 136)).replace(/\0/g, '').trim(), 8);
             if (name === 'demoq3/pak0.pk3') {
-                demoq3pak0 = tar.subarray(offset + 512, offset + 512 + size);
-                if (canUseCacheStorage) {
-                    cache.put(CACHE_KEY, new Response(demoq3pak0, { headers: { 'Content-Type': 'application/octet-stream' } }));
-                } else {
-                    saveFileToIndexedDb(indexedDBRequest, CACHE_KEY, demoq3pak0)
-                }
+                const demoq3pak0 = tar.subarray(offset + 512, offset + 512 + size);
+                gotPk3Files([
+                    [`${qhome}/demoq3/pak0.pk3`, Promise.resolve(demoq3pak0)]
+                ]);
                 break;
             }
             offset += 512 + Math.ceil(size / 512) * 512;
         }
-    }
-    if (!demoq3pak0) throw new Error('demoq3/pak0.pk3 not found');
-    gotPk3Files([['demoq3/pak0.pk3', Promise.resolve(demoq3pak0)]]);
-} else {
-    const responses = await Promise.all(
-        [
-            '/baseq3/pak0.pk3',
-            '/baseq3/pak1.pk3',
-            '/baseq3/pak2.pk3',
-            '/baseq3/pak3.pk3',
-            '/baseq3/pak4.pk3',
-            '/baseq3/pak5.pk3',
-            '/baseq3/pak6.pk3',
-            '/baseq3/pak7.pk3',
-            '/baseq3/pak8.pk3',
-        ].map(async filePath => [
-            filePath,
-            canUseCacheStorage
-                ? (await cache.match(filePath))
-                    ?.arrayBuffer()
-                    .then(buf => new Uint8Array(buf))
-                : (await getFileFromIndexedDb(indexedDBRequest, filePath)
-                    .then(buf => buf != undefined ? new Uint8Array(buf) : buf))
-        ])
-    );
-    if (responses.some(([filePath, response]) => response == undefined)) {
-        // Preserve query parameters, such as `server`,
-        // so that that page knows where to return to.
-        const nextUrl = new URL(location.href);
-        nextUrl.pathname = './upload-full-version.html';
-        nextUrl.hash = 'go-back-on-success';
-        location.assign(nextUrl);
     } else {
-        gotPk3Files(responses);
+        const responses = await Promise.all(
+            [
+                '/baseq3/pak0.pk3',
+                '/baseq3/pak1.pk3',
+                '/baseq3/pak2.pk3',
+                '/baseq3/pak3.pk3',
+                '/baseq3/pak4.pk3',
+                '/baseq3/pak5.pk3',
+                '/baseq3/pak6.pk3',
+                '/baseq3/pak7.pk3',
+                '/baseq3/pak8.pk3',
+            ].map(async filePath => [
+                `${qhome}${filePath}`,
+                canUseCacheStorage
+                    ? (await cache.match(filePath))
+                        ?.arrayBuffer()
+                        .then(buf => new Uint8Array(buf))
+                    : (await getFileFromIndexedDb(indexedDBRequest, filePath)
+                        .then(buf => buf != undefined ? new Uint8Array(buf) : buf))
+            ])
+        );
+        if (responses.some(([filePath, response]) => response == undefined)) {
+            // Preserve query parameters, such as `server`,
+            // so that that page knows where to return to.
+            const nextUrl = new URL(location.href);
+            nextUrl.pathname = './upload-full-version.html';
+            nextUrl.hash = 'go-back-on-success';
+            location.assign(nextUrl);
+        } else {
+            gotPk3Files(responses);
 
-        // TODO proper progress bar: loading the files into the Emscipten FS
-        // also takes time.
-        done.style.transform = 'scaleX(1)';
+            // TODO proper progress bar: loading the files into the Emscipten FS
+            // also takes time.
+            done.style.transform = 'scaleX(1)';
+        }
     }
 }
 
