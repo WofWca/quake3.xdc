@@ -603,9 +603,9 @@ let buildPath = '.';
 if (location.pathname.startsWith('/ioq3/code/web/')) {
     buildPath = '../../build/debug-emscripten-wasm32';
 }
-let gotBaseq3aMod;
-const baseq3aMod = new Promise(r=>gotBaseq3aMod=r);
-fetch(`${buildPath}/pak8a.pk3`).then(r=>r.arrayBuffer()).then(r=>gotBaseq3aMod(new Uint8Array(r)));
+const baseq3aMod = fetch(`${buildPath}/pak8a.pk3`)
+    .then(r => r.arrayBuffer())
+    .then(r => new Uint8Array(r));
 /**
  * Without this mod the bots in the Quake III Arena demo version
  * are all running with just gauntlet.
