@@ -236,10 +236,6 @@ full-screen, this prevents clicking the game. -->
 <script src="./override-websocket-signaling.js" type="module"></script>
 
 <script type='module'>
-import {
-    getFileFromIndexedDb
-} from './game-files-cache-utils.js'
-
 let peerServer = 's://peer-server.thelongestyard.link';
 // if (location.hostname === 'localhost') {
 //     peerServer = '://localhost:8080';
@@ -1071,27 +1067,6 @@ set nextmap vstr d1`,
 
 // demoq3/pak0.pk3 is original Quake 3 demo assets. Fetch them from a tarfile in a gz file in a shell script in a zip file at the Internet Archive.
 // First check to see if we have it in the cache
-const cache = await caches.open('thelongestyard');
-const indexedDBRequest = indexedDB.open('thelongestyard', 1);
-indexedDBRequest.onupgradeneeded = (event) => {
-    /** @type {IDBDatabase} */
-    const db = event.target.result;
-    if (!db.objectStoreNames.contains('thelongestyard')) {
-        db.createObjectStore('thelongestyard');
-    }
-};
-/**
- * In webxdc context, the scheme URL may be `webxdc:`, but `CacheStorage`
- * is only supported for `http` and `https`.
- */
-const canUseCacheStorage = await (async () => {
-    try {
-        await cache.put('testtestfoobar___', new Response('test'));
-    } catch (err) {
-        return false;
-    }
-    return true;
-})();
 if (filesAlreadyCreated) {
     gotPk3Files([])
     done.style.transform = 'scaleX(1)';
@@ -1162,28 +1137,7 @@ if (filesAlreadyCreated) {
             offset += 512 + Math.ceil(size / 512) * 512;
         }
     } else {
-        const responses = await Promise.all(
-            [
-                '/baseq3/pak0.pk3',
-                '/baseq3/pak1.pk3',
-                '/baseq3/pak2.pk3',
-                '/baseq3/pak3.pk3',
-                '/baseq3/pak4.pk3',
-                '/baseq3/pak5.pk3',
-                '/baseq3/pak6.pk3',
-                '/baseq3/pak7.pk3',
-                '/baseq3/pak8.pk3',
-            ].map(async filePath => [
-                `${qhome}${filePath}`,
-                canUseCacheStorage
-                    ? (await cache.match(filePath))
-                        ?.arrayBuffer()
-                        .then(buf => new Uint8Array(buf))
-                    : (await getFileFromIndexedDb(indexedDBRequest, filePath)
-                        .then(buf => buf != undefined ? new Uint8Array(buf) : buf))
-            ])
-        );
-        if (responses.some(([filePath, response]) => response == undefined)) {
+        if (localStorage.getItem('haveFullVersion') !== 'true') {
             // Preserve query parameters, such as `server`,
             // so that that page knows where to return to.
             const nextUrl = new URL(location.href);
@@ -1191,10 +1145,9 @@ if (filesAlreadyCreated) {
             nextUrl.hash = 'go-back-on-success';
             location.assign(nextUrl);
         } else {
-            gotPk3Files(responses);
-
-            // TODO proper progress bar: loading the files into the Emscipten FS
-            // also takes time.
+            // The files have already been added to the FS
+            // by `upload-full-version.html`.
+            gotPk3Files([]);
             done.style.transform = 'scaleX(1)';
         }
     }

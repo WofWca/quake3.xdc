@@ -89,7 +89,7 @@
 
     <script type="module">
         // @ts-check
-        import { saveFileToIndexedDb } from './game-files-cache-utils.js'
+        const ioquake3P = import("/ioquake3_opengl2.wasm32.js");
 
         let goBackOnSuccess = false;
         if (location.hash === '#go-back-on-success') {
@@ -157,22 +157,6 @@
                 return;
             }
 
-            const cache = await caches.open('thelongestyard');
-
-            // TODO DRY this,
-            /**
-             * In webxdc context, the scheme URL may be `webxdc:`, but `CacheStorage`
-             * is only supported for `http` and `https`.
-             */
-            const canUseCacheStorage = await (async () => {
-                try {
-                    await cache.put('testtestfoobar___', new Response('test'));
-                } catch (err) {
-                    return false;
-                }
-                return true;
-            })();
-
             /** @type {File[]} */
             const filesArr = [...input.files];
             input.disabled = true;
@@ -193,20 +177,39 @@
             }, 100);
 
             try {
-                if (canUseCacheStorage) {
-                    await Promise.all(filesArr.map(async file => {
-                        await cache.put(`/baseq3/${file.name}`, new Response(file))
-                    }));
-                } else {
-                    const indexedDBRequest = indexedDB.open('thelongestyard', 1);
-                    await Promise.all(filesArr.map(async file => {
-                        await saveFileToIndexedDb(
-                            indexedDBRequest,
-                            `/baseq3/${file.name}`,
-                            await file.arrayBuffer()
-                        );
-                    }));
-                }
+                const module = await (await ioquake3P).default();
+                const qhome = '/home/web_user/.q3a';
+                module.FS.mkdirTree(qhome);
+                module.FS.mount(module.FS.filesystems.IDBFS, {}, qhome);
+
+                await /** @type {Promise<void>} */ (new Promise((resolve, reject) =>{
+                    module.FS.syncfs(true, (err) => {
+                        if (err) {
+                            reject(err);
+                            return
+                        }
+                        resolve()
+                   })
+                }));
+
+                const dir = `${qhome}/baseq3`;
+                module.FS.mkdirTree(dir);
+                await Promise.all(filesArr.map(async file => {
+                    module.FS.writeFile(
+                        `${dir}/${file.name}`,
+                        new Uint8Array(await file.arrayBuffer())
+                    );
+                }));
+
+                await /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+                    module.FS.syncfs(false, (err) => {
+                        if (err) {
+                            reject(err);
+                            return
+                        }
+                        resolve()
+                    });
+                }));
             } catch (error) {
                 /** @type {HTMLElement} */
                 const errorEl = document.getElementById('uploadError');
