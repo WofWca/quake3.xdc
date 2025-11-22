@@ -899,7 +899,12 @@ set nextmap vstr d1`,
 
             module.FS.mkdirTree(`${qhome}/${basegame}`);
             module.FS.writeFile(`${qhome}/${basegame}/pak8a.pk3`, await baseq3aMod);
-            module.FS.writeFile(`${qhome}/${basegame}/pak9-fix-demo-bots.pk3`, await fixDemoBotsMod);
+            if (basegame === 'demoq3') {
+                module.FS.writeFile(
+                    `${qhome}/${basegame}/pak9-fix-demo-bots.pk3`,
+                    await fixDemoBotsMod
+                );
+            }
 
             saveFiles = () => {
                 module.FS.syncfs(false, (err) => {
