@@ -770,7 +770,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                  * Without this mod the bots in the Quake III Arena demo version
                  * are all running with just gauntlet.
                  */
-                const fixDemoBotsMod = fetch(`${buildPath}/pak9-fix-demo-bots.pk3`)
+                const fixDemoBotsMod = fetch(`${buildPath}/pak1-fix-demo-bots.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(b => new Uint8Array(b))
 
@@ -887,7 +887,7 @@ set nextmap vstr d1`,
                 module.FS.writeFile(`${qhome}/${basegame}/pak8a.pk3`, await baseq3aMod);
                 if (basegame === 'demoq3') {
                     module.FS.writeFile(
-                        `${qhome}/${basegame}/pak9-fix-demo-bots.pk3`,
+                        `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
                         await fixDemoBotsMod
                     );
                 }
