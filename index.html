@@ -850,10 +850,16 @@ set r_ignoreGLErrors 1
 set cg_fov 90
 set cg_deferPlayers 0 // load player models when they connect instead of substituting a random model
 
-set sv_fps 60
+// These are present in thelongestyard.link, but the Unlagged mod creator
+// Doesn't recommend to set a higher value of \`sv_fps\`.
+// https://www.ra.is/unlagged/
+// Also since, again, WebXDC connection is reliable, sending more packets
+// might make things more messy (but I'm not sure).
+// set sv_fps 60
+// set snaps 60
+// set cl_maxpackets 125
+
 set sv_maxclients 128
-set snaps 60
-set cl_maxpackets 125
 
 ${globalThis.webxdc != undefined
     ? (
