@@ -825,6 +825,9 @@ unbind F11
 // by assigning to "nextmap" var, so we manually set it again.
 bind KP_SLASH "kickbots; map_restart 0; set nextmap vstr d1; unbind KP_SLASH"
 
+// https://github.com/ec-/baseq3a/pull/53
+set cg_oldGibs 0
+
 set r_mode -2 // make game use desktop resolution
 set r_picmip 0 // full texture detail
 set r_lodBias -2 // don't use lower detail models far away
