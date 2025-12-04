@@ -511,14 +511,16 @@ const basegame =
     query.get('basegame') ??
     localStorage.getItem('defaultBasegame') ??
     'demoq3';
-const isFullGame = basegame === 'baseq3';
 // Remember last played game.
 // It's important to check `haveFullVersion`,
 // because we might have tried to launch the full version
 // only because we once tried to connect to a server
 // that ran the full version.
 // If we don't have the full version, we should not set it as default.
-if (!(isFullGame && localStorage.getItem('haveFullVersion') !== 'true')) {
+if (!(
+    basegame === 'baseq3' &&
+    localStorage.getItem('haveFullVersion') !== 'true'
+)) {
     localStorage.setItem('defaultBasegame', basegame);
 }
 
@@ -561,7 +563,7 @@ const fullGameMaps = [
 function randomFromArray(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
-const availableMaps = isFullGame ? fullGameMaps : knownDemoMaps;
+const availableMaps = basegame === 'baseq3' ? fullGameMaps : knownDemoMaps;
 function randomMap() {
     return randomFromArray(availableMaps);
 }
@@ -1083,7 +1085,7 @@ if (filesAlreadyCreated) {
     gotPk3Files([])
     done.style.transform = 'scaleX(1)';
 } else {
-    if (!isFullGame) {
+    if (basegame === 'demoq3') {
         const filePickerSection = document.getElementById('upload-game-files');
         filePickerSection.style.display = '';
         const bodyInitialOverflow = document.body.style.overflow;
