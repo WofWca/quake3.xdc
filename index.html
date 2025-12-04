@@ -506,11 +506,13 @@ if (query.has('multiplayer')) {
     newUrl.searchParams.set('server', server);
     history.replaceState(null, '', newUrl);
 }
-const isFullGame = query.get('full-game') != null
-    ? true
-    : query.get('demo-game') != null
-        ? false
-        : localStorage.getItem('launchFullGameByDefault') === 'true';
+/** @type {'demoq3' | 'baseq3' | string} */
+const basegame =
+    query.get('basegame') ??
+    (localStorage.getItem('launchFullGameByDefault') === 'true'
+        ? 'baseq3'
+        : 'demoq3');
+const isFullGame = basegame === 'baseq3';
 // Remember last played game.
 localStorage.setItem(
     'launchFullGameByDefault',
@@ -520,7 +522,6 @@ localStorage.setItem(
     // that ran the full version.
     isFullGame && localStorage.getItem('haveFullVersion') === 'true'
 );
-const basegame = isFullGame ? 'baseq3' : 'demoq3'
 
 let generatedArguments = `
     +set fs_game ${basegame}
@@ -679,14 +680,11 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     setTimeout(() => {
                         const newUrl = new URL(location.href);
                         newUrl.searchParams.set('reason-invalid-game-folder', '');
-                        if (isFullGame) {
-                            // Full game failed, switch to demo
-                            newUrl.searchParams.set('demo-game', '');
-                            newUrl.searchParams.delete('full-game');
-                        } else {
-                            newUrl.searchParams.set('full-game', '');
-                            newUrl.searchParams.delete('demo-game');
-                        }
+                        newUrl.searchParams.set(
+                            'basegame',
+                            // The current basegame failed, switch to the other one.
+                            basegame === 'demoq3' ? 'baseq3' : 'demoq3'
+                        );
                         location.assign(newUrl);
                     }, 500);
                 }
