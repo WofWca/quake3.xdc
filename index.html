@@ -449,6 +449,25 @@ window.addEventListener("keydown", (e) => {
         if (!defaultKeyBindingKeyCodes[e.code]) e.preventDefault = () => false;
     }, { capture: true });
 
+const query = new URLSearchParams(window.location.search);
+/** @type {'demoq3' | 'baseq3' | string} */
+const basegame =
+    query.get('basegame') ??
+    localStorage.getItem('defaultBasegame') ??
+    'demoq3';
+// Remember last played game.
+// It's important to check `haveFullVersion`,
+// because we might have tried to launch the full version
+// only because we once tried to connect to a server
+// that ran the full version.
+// If we don't have the full version, we should not set it as default.
+if (!(
+    basegame === 'baseq3' &&
+    localStorage.getItem('haveFullVersion') !== 'true'
+)) {
+    localStorage.setItem('defaultBasegame', basegame);
+}
+
 /** @type {(files: Array<[filePath: string, file: Promise<Uint8Array>]>}) => void} */
 let gotPk3Files;
 /** @type {Promise<Array<[filePath: string, file: Promise<Uint8Array>]>}>} */
@@ -496,7 +515,6 @@ if (!username || !model) {
 }
 
 
-const query = new URLSearchParams(window.location.search);
 // let server = query.get('server');
 let server = 'Myname';
 if (query.has('multiplayer')) {
@@ -505,23 +523,6 @@ if (query.has('multiplayer')) {
     newUrl.searchParams.delete('multiplayer');
     newUrl.searchParams.set('server', server);
     history.replaceState(null, '', newUrl);
-}
-/** @type {'demoq3' | 'baseq3' | string} */
-const basegame =
-    query.get('basegame') ??
-    localStorage.getItem('defaultBasegame') ??
-    'demoq3';
-// Remember last played game.
-// It's important to check `haveFullVersion`,
-// because we might have tried to launch the full version
-// only because we once tried to connect to a server
-// that ran the full version.
-// If we don't have the full version, we should not set it as default.
-if (!(
-    basegame === 'baseq3' &&
-    localStorage.getItem('haveFullVersion') !== 'true'
-)) {
-    localStorage.setItem('defaultBasegame', basegame);
 }
 
 let generatedArguments = `
