@@ -224,7 +224,7 @@
             console.log('Full game uploaded!')
             progress.value = progress.max;
             localStorage.setItem('haveFullVersion', 'true');
-            localStorage.setItem('launchFullGameByDefault', 'true');
+            localStorage.setItem('defaultBasegame', 'baseq3');
 
             if (goBackOnSuccess) {
                 history.back();

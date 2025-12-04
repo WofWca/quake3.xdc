@@ -509,19 +509,18 @@ if (query.has('multiplayer')) {
 /** @type {'demoq3' | 'baseq3' | string} */
 const basegame =
     query.get('basegame') ??
-    (localStorage.getItem('launchFullGameByDefault') === 'true'
-        ? 'baseq3'
-        : 'demoq3');
+    localStorage.getItem('defaultBasegame') ??
+    'demoq3';
 const isFullGame = basegame === 'baseq3';
 // Remember last played game.
-localStorage.setItem(
-    'launchFullGameByDefault',
-    // It's important to check `haveFullVersion`,
-    // because we might have tried to launch the full version
-    // only because we once tried to connect to a server
-    // that ran the full version.
-    isFullGame && localStorage.getItem('haveFullVersion') === 'true'
-);
+// It's important to check `haveFullVersion`,
+// because we might have tried to launch the full version
+// only because we once tried to connect to a server
+// that ran the full version.
+// If we don't have the full version, we should not set it as default.
+if (!(isFullGame && localStorage.getItem('haveFullVersion') !== 'true')) {
+    localStorage.setItem('defaultBasegame', basegame);
+}
 
 let generatedArguments = `
     +set fs_game ${basegame}
