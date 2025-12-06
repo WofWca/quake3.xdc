@@ -616,9 +616,10 @@ if (location.pathname.startsWith('/ioq3/code/web/')) {
 
 // Checking `localStorage` instead of `module.FS`
 // because the files could have been deleted by the user manually.
-const filesAlreadyCreatedStorageKey = `filesAlreadyCreated_${basegame}`
+const getFilesAlreadyCreatedStorageKey =
+    (basegame) => `filesAlreadyCreated_${basegame}`;
 const filesAlreadyCreated =
-    localStorage.getItem(filesAlreadyCreatedStorageKey) === 'true'
+    localStorage.getItem(getFilesAlreadyCreatedStorageKey(basegame)) === 'true'
 
 const qhome = '/home/web_user/.q3a';
 
@@ -820,15 +821,28 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
                         await fixDemoBotsMod
                     );
-                } else if (basegame === 'baseoa-minimal') {
-                    const baseoa = fetch(`${buildPath}/openarena-minimal.pk3`)
-                        .then(r => r.arrayBuffer())
-                        .then(r => new Uint8Array(r));
-                    module.FS.writeFile(
-                        `${qhome}/${basegame}/openarena-minimal.pk3`,
-                        await baseoa
-                    );
                 }
+            }
+
+            // Initialize Open Arena mod regardless of whether `basegame`
+            // is Open Arena or Demo or whatever,
+            // so that if the server is running Open Arena,
+            // the engine can auto-switch to it
+            // without spitting out the "Invalid game folder" error
+            // in case that this user has never launched Open Arena.
+            const BASEGAME_BASEOA_MIN = 'baseoa-minimal'
+            if (localStorage.getItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN)) !== 'true') {
+                const baseoa = fetch(`${buildPath}/openarena-minimal.pk3`)
+                    .then(r => r.arrayBuffer())
+                    .then(r => new Uint8Array(r));
+
+                module.FS.mkdirTree(`${qhome}/${BASEGAME_BASEOA_MIN}`);
+                writeCommonPersistentFiles(module, BASEGAME_BASEOA_MIN);
+                module.FS.writeFile(
+                    `${qhome}/${BASEGAME_BASEOA_MIN}/openarena-minimal.pk3`,
+                    await baseoa
+                );
+                localStorage.setItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN), 'true');
             }
 
             const pk3Files = await pk3FilesPromise;
@@ -996,7 +1010,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
                     `, { encoding: 'utf8' });
             module.removeRunDependency('setup-ioq3-filesystem');
-            localStorage.setItem(filesAlreadyCreatedStorageKey, 'true');
+            localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
         }],
     });
     if (multiplayer) {
