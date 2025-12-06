@@ -450,7 +450,7 @@ window.addEventListener("keydown", (e) => {
     }, { capture: true });
 
 const query = new URLSearchParams(window.location.search);
-/** @type {'demoq3' | 'baseq3' | string} */
+/** @type {'demoq3' | 'baseq3' | 'openarena-minimal' | string} */
 const basegame =
     query.get('basegame') ??
     localStorage.getItem('defaultBasegame') ??
@@ -509,7 +509,9 @@ if (!username || !model) {
     }
     localStorage.setItem('username', username);
 
-    const models = ['sarge', 'visor', 'major', 'major/daemia', 'major', 'major/daemia', 'grunt', 'grunt/stripe']; // only these are available in the demo, plus red/blue versions but those wouldn't be fair
+    const models = basegame === 'baseoa-minimal'
+        ? ['sarge']
+        : ['sarge', 'visor', 'major', 'major/daemia', 'major', 'major/daemia', 'grunt', 'grunt/stripe']; // only these are available in the demo, plus red/blue versions but those wouldn't be fair
     model = models[Math.random() * models.length | 0];
     localStorage.setItem('model', model);
 }
@@ -564,7 +566,12 @@ const fullGameMaps = [
 function randomFromArray(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
-const availableMaps = basegame === 'baseq3' ? fullGameMaps : knownDemoMaps;
+const availableMaps =
+    basegame === 'baseq3'
+    ? fullGameMaps
+    : basegame === 'baseoa-minimal'
+    ? ['wrackdm17']
+    : knownDemoMaps;
 function randomMap() {
     return randomFromArray(availableMaps);
 }
@@ -682,6 +689,8 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     setTimeout(() => {
                         const newUrl = new URL(location.href);
                         newUrl.searchParams.set('reason-invalid-game-folder', '');
+                        // TODO we now have another possible basegame,
+                        // `baseoa-minimal`.
                         newUrl.searchParams.set(
                             'basegame',
                             // The current basegame failed, switch to the other one.
@@ -833,7 +842,13 @@ bind KP_SLASH "kickbots; map_restart 0; set nextmap vstr d1; unbind KP_SLASH"
 set cg_oldGibs 0
 
 set r_mode -2 // make game use desktop resolution
-set r_picmip 0 // full texture detail
+
+${
+// No need for "very high quality" on a game with all models and textures
+// compressed to bare minimum.
+basegame !== 'baseoa-minimal'
+?
+`set r_picmip 0 // full texture detail
 set r_lodBias -2 // don't use lower detail models far away
 set r_subdivisions 1 // smoother curves
 set r_textureMode "GL_LINEAR_MIPMAP_LINEAR" // trilinear filter
@@ -841,7 +856,9 @@ set r_ext_texture_filter_anisotropic 1 // enable anisotropy texture filter
 set r_ext_max_anisotropy 16 // 16x anisotropy texture filter
 set r_ext_multisample 16 // use multisample antialiasing
 set r_ext_framebuffer_multisample 16 // use multisample antialiasing
-set r_lodCurveError 10000 // smoother curves far away (cheat protected)
+set r_lodCurveError 10000 // smoother curves far away (cheat protected)`
+: ''
+}
 
 set g_warmup 0 // baseq3a mod has it set to 20 by default. But we're casual here.
 set r_mode -2
@@ -927,6 +944,14 @@ set nextmap vstr d1`,
                     module.FS.writeFile(
                         `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
                         await fixDemoBotsMod
+                    );
+                } else if (basegame === 'baseoa-minimal') {
+                    const baseoa = fetch(`${buildPath}/openarena-minimal.pk3`)
+                        .then(r => r.arrayBuffer())
+                        .then(r => new Uint8Array(r));
+                    module.FS.writeFile(
+                        `${qhome}/${basegame}/openarena-minimal.pk3`,
+                        await baseoa
                     );
                 }
             }
@@ -1021,9 +1046,14 @@ set nextmap vstr d1`,
                     // map rotation seems to be broken by `+map ...`.
                     // Otherwise `nextmap` is set to `map_restart 0`,
                     // despite it being present in `autoexec.cfg`.
-                    const bots = basegame === 'demoq3'
+                    const bots =
+                        basegame === 'demoq3'
                         ? ['random', 'random', 'random', 'random']
-                        : ['sarge', 'daemia', 'visor', 'stripe'];
+                        : basegame === 'baseq3'
+                        ? ['sarge', 'daemia', 'visor', 'stripe']
+                        : basegame === 'baseoa-minimal'
+                        ? ['sarge', 'sarge', 'grism', 'grism']
+                        : ['sarge', 'sarge', 'sarge', 'sarge']
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
@@ -1182,7 +1212,7 @@ if (filesAlreadyCreated) {
             }
             offset += 512 + Math.ceil(size / 512) * 512;
         }
-    } else {
+    } else if (basegame === 'baseq3') {
         if (localStorage.getItem('haveFullVersion') !== 'true') {
             // Preserve query parameters, such as `server`,
             // so that that page knows where to return to.
@@ -1196,6 +1226,9 @@ if (filesAlreadyCreated) {
             gotPk3Files([]);
             done.style.transform = 'scaleX(1)';
         }
+    } else {
+        gotPk3Files([]);
+        done.style.transform = 'scaleX(1)';
     }
 }
 
