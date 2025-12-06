@@ -773,6 +773,9 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 const fixDemoBotsMod = fetch(`${buildPath}/pak1-fix-demo-bots.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(b => new Uint8Array(b))
+                const ztmFlexibleHudMod = fetch(`${buildPath}/ztm-flexible-hud.pk3`)
+                    .then(r => r.arrayBuffer())
+                    .then(r => new Uint8Array(r));
 
                 module.FS.mkdirTree(`${qhome}/${basegame}`);
                 module.FS.writeFile(`${qhome}/${basegame}/autoexec.cfg`,
@@ -826,6 +829,7 @@ unbind F11
 bind KP_SLASH "kickbots; map_restart 0; set nextmap vstr d1; unbind KP_SLASH"
 
 // https://github.com/ec-/baseq3a/pull/53
+// Only applies when pak8a.pk3 mod is present (not in the demo version).
 set cg_oldGibs 0
 
 set r_mode -2 // make game use desktop resolution
@@ -841,10 +845,10 @@ set r_lodCurveError 10000 // smoother curves far away (cheat protected)
 
 set g_warmup 0 // baseq3a mod has it set to 20 by default. But we're casual here.
 set r_mode -2
-// These two are from ztm-flexible-hud mod, but we don't use this mod anymore.
-// set cg_fovGunAdjust 1
-// set cg_fovAspectAdjust 1
 set cg_fovAdjust 1
+// These two are from ztm-flexible-hud mod.
+set cg_fovGunAdjust 1
+set cg_fovAspectAdjust 1
 set com_maxfps 0
 set r_swapInverval 1
 set net_enabled 1
@@ -893,8 +897,33 @@ set nextmap vstr d1`,
                 )
 
                 module.FS.mkdirTree(`${qhome}/${basegame}`);
-                module.FS.writeFile(`${qhome}/${basegame}/pak8a.pk3`, await baseq3aMod);
-                if (basegame === 'demoq3') {
+                // The Quake SDK license, which baseq3a is under,
+                // apparently does not allow to use the mod with games
+                // other than full Quake III Arena.
+                // - https://github.com/ec-/baseq3a/blob/master/QIIIA%20Game%20Source%20License.txt
+                // - https://openarena.fandom.com/wiki/Mod_compatibility
+                // > for operation only with the full version
+                // > of the software game QUAKE III ARENA
+                //
+                // For the demo version, we have to provide QVMs,
+                // because the ones in the demo's `pak0.pk3`
+                // are not compatible with the new engine.
+                // So we choose ztm-flexible-hud for that,
+                // as in the original thelongestyard.link project.
+                if (basegame === 'baseq3') {
+                    module.FS.writeFile(
+                        `${qhome}/${basegame}/pak8a.pk3`,
+                        await baseq3aMod
+                    );
+                } else if (basegame === 'demoq3') {
+                    // TODO use a mod that includes the "Unlagged" mod.
+                    // https://www.ra.is/unlagged/
+                    // baseq3a does, but, as we said above, we can't use it
+                    // with the demo version.
+                    module.FS.writeFile(
+                        `${qhome}/${basegame}/ztm-flexible-hud.pk3`,
+                        await ztmFlexibleHudMod
+                    );
                     module.FS.writeFile(
                         `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
                         await fixDemoBotsMod
@@ -985,19 +1014,21 @@ set nextmap vstr d1`,
                     // to choose from.
                     // Unfortunately `addbot random` is not available
                     // in baseq3a mod.
+                    // For demoq3 we use ztm-flexible-hud mod,
+                    // which has support for `random` bot.
                     //
                     // `+exec setNextmap.cfg` seems to be needed because
                     // map rotation seems to be broken by `+map ...`.
                     // Otherwise `nextmap` is set to `map_restart 0`,
                     // despite it being present in `autoexec.cfg`.
+                    const bots = basegame === 'demoq3'
+                        ? ['random', 'random', 'random', 'random']
+                        : ['sarge', 'daemia', 'visor', 'stripe'];
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
                         +map ${randomMap()}
-                        +addbot sarge ${botSkill}
-                        +addbot daemia ${botSkill}
-                        +addbot visor ${botSkill}
-                        +addbot stripe ${botSkill}
+                        ${bots.map(b => `+addbot ${b} ${botSkill}`).join(' ')}
                         +exec setNextmap.cfg
                         `.trim().split(/\s+/));
 

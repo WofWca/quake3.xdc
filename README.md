@@ -85,6 +85,22 @@ From now on the development steps are as follows:
    1. Copy the .iife.js file from the dist folder of the [emscripten-fs-file-explorer-ui](https://www.npmjs.com/package/emscripten-fs-file-explorer-ui) npm package and use it in one of the html files following the npm package instructions.
    2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in webxdc context (download links are used in the file explorer to export files)
 
+And here is some extra stuff:
+
+1. Add "Change Map" in-game menu item for the demo version
+
+   1. Download the Linux build artifact from this branch
+      https://github.com/WofWca/flexible-hud-for-ioq3/tree/add-menu-item-start-new-arena-ztm-flexible-hud.
+      The branch is based on this MR:
+      https://github.com/clover-moe/mint-arena/pull/7.
+   2. Find the `vm` directory in the build files.
+   3. Make another .zip file and add the `vm` directory to it.
+   4. Replace `ztm-flexible-hud.pk3` with the new `.zip` file.
+
+   If you don't want the "Change Map" button, you can use
+   the original (non-forked) version of the mod:
+   <https://clover.moe/flexible-hud-for-ioq3>.
+
 ### Why it's terribly made
 
 - HumbleNet is not really needed.
