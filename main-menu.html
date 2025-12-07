@@ -29,6 +29,13 @@
             align-items: center;
         }
 
+        a {
+            /* Otherwise on narrow screens links,
+            in combination with the flex container,
+            make some weird unscrollable overflow. */
+            overflow-wrap: anywhere;
+        }
+
         #openFileExplorerBtn {
             height: 30px;
             font-family: "Antonio", sans-serif;
