@@ -455,18 +455,6 @@ const basegame =
     query.get('basegame') ??
     localStorage.getItem('defaultBasegame') ??
     'demoq3';
-// Remember last played game.
-// It's important to check `haveFullVersion`,
-// because we might have tried to launch the full version
-// only because we once tried to connect to a server
-// that ran the full version.
-// If we don't have the full version, we should not set it as default.
-if (!(
-    basegame === 'baseq3' &&
-    localStorage.getItem('haveFullVersion') !== 'true'
-)) {
-    localStorage.setItem('defaultBasegame', basegame);
-}
 
 /** @type {(files: Array<[filePath: string, file: Promise<Uint8Array>]>}) => void} */
 let gotPk3Files;
@@ -1011,6 +999,12 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     `, { encoding: 'utf8' });
             module.removeRunDependency('setup-ioq3-filesystem');
             localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
+            // Remember last played game.
+            // It's important to do it here and not unconditionally
+            // at the top level, because the fact that we got here
+            // means that the current basegame is playable,
+            // i.e. we have the necessary files, be it baseq3 or demoq3.
+            localStorage.setItem('defaultBasegame', basegame);
         }],
     });
     if (multiplayer) {
