@@ -830,7 +830,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     `${qhome}/${BASEGAME_BASEOA_MIN}/openarena-minimal.pk3`,
                     await baseoa
                 );
-                localStorage.setItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN), 'true');
             }
 
             const pk3Files = await pk3FilesPromise;
@@ -849,7 +848,17 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
             saveFiles = () => {
                 module.FS.syncfs(false, (err) => {
-                    if (err) { console.error(err); debugger; }
+                    if (err) {
+                        console.error(err);
+                        debugger;
+                        return;
+                    }
+                    // Be careful with these lines. `saveFiles()`
+                    // is also called outside of `preRun`.
+                    // Currently it's fine because we only assign to `saveFiles`
+                    // after we have done all the `writeFile()`s.
+                    localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
+                    localStorage.setItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN), 'true');
                 });
             };
             saveFiles();
@@ -998,7 +1007,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
                     `, { encoding: 'utf8' });
             module.removeRunDependency('setup-ioq3-filesystem');
-            localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
             // Remember last played game.
             // It's important to do it here and not unconditionally
             // at the top level, because the fact that we got here
