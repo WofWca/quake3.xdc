@@ -619,6 +619,17 @@ let firstMainLoop = true;
 let shadersCompiled = 0;
 let shadersTotal = 57;
 let module = null;
+
+// These are to detect when we are trying to connect to a game
+// whose files we don't have (i.e. baseq3 or demoq3),
+// and to prompt the user to upload them.
+const LOG_STATE_IDLE = 1;
+const LOG_STATE_LOGGED_GAME_DIRECTORY_CHANGED = 2;
+const LOG_STATE_LOGGED_WE_ARE_LOOKING = 3;
+let logState = LOG_STATE_IDLE;
+/** @type {string | undefined} */
+let changedBasegameTo = undefined;
+
 import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
     module = await ioquake3.default({
         canvas: canvas,
@@ -641,6 +652,28 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             }
         },
         printErr: (msg) => {
+            if (logState === LOG_STATE_LOGGED_WE_ARE_LOOKING) {
+                // This log entry is basegame path.
+                // We expect this to be the fs_game path.
+
+                // More about Quake paths in this comment:
+                // https://github.com/ioquake/ioq3/blob/0b2efa22208994e064e0fb39fe70707c8bd639e8/code/qcommon/files.c#L39-L169
+
+                /** @type {string} */
+                let gameFolder;
+                if (msg.startsWith(qhome)) {
+                    gameFolder = msg.slice(`${qhome}/`.length).split('/')[0];
+                } else if (msg.startsWith('./')) {
+                    gameFolder = msg.slice('./'.length).split('/')[0];
+                } else {
+                    console.warn(`Expected next log to be a path, but it's ${msg}`);
+                }
+                logState = LOG_STATE_IDLE;
+                if (gameFolder != undefined) {
+                    changedBasegameTo = gameFolder;
+                }
+            }
+
             if (msg === '--- Common Initialization Complete ---') {
                 progress.style.display = 'none';
             } else if (msg === '----- Client Shutdown (Client quit) -----') {
@@ -658,6 +691,16 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // TODO this gonna be a little annoying if we can't enter
                 // full screen.
                 ui.style.display = '';
+            } else if (msg === '----- Client Shutdown (Game directory changed) -----') {
+                // This log kickstarts logState to go from IDLE.
+                logState = LOG_STATE_LOGGED_GAME_DIRECTORY_CHANGED
+            } else if (msg === 'We are looking in the current search path:') {
+                // Only transition to next state if GAME_DIRECTORY_CHANGED
+                // because this log is printed on every game initialization,
+                // and not only when connecting to a server.
+                if (logState === LOG_STATE_LOGGED_GAME_DIRECTORY_CHANGED) {
+                    logState = LOG_STATE_LOGGED_WE_ARE_LOOKING;
+                }
             } else if (msg === 'ERROR: Invalid game folder') {
                 // This error is usually (TODO but not always!?)
                 // caused by the server running the game
@@ -673,21 +716,27 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // is running more "manually".
                 // For example, without requiring people to first upload
                 // the demo game files.
-                //
-                // If we already failed previosly, don't try to switch again.
-                // TODO this query param is gonna unintentionally
-                // persist sometimes, isn't it? When do we want to remove it?
-                if (!query.has('reason-invalid-game-folder')) {
+                if (
+                    // If we already failed previosly, don't try to switch again.
+                    // TODO this query param is gonna unintentionally
+                    // persist sometimes, isn't it? When do we want to remove it?
+                    !query.has('reason-invalid-game-folder') &&
+                    // Otherwise this means that we didn't even change
+                    // the game after startup.
+                    // Either the server is running the same game,
+                    // or we just never even connected to any servers.
+                    changedBasegameTo != undefined &&
+                    changedBasegameTo !== basegame &&
+                    // Again, all this code is to prompt the user
+                    // to upload game files, and we only have the UI
+                    // for demoq3 and baseq3.
+                    (changedBasegameTo === 'baseq3' || changedBasegameTo === 'demoq3')
+                ) {
+                    const changedBasegameTo_ = changedBasegameTo;
                     setTimeout(() => {
                         const newUrl = new URL(location.href);
                         newUrl.searchParams.set('reason-invalid-game-folder', '');
-                        // TODO we now have another possible basegame,
-                        // `baseoa-minimal`.
-                        newUrl.searchParams.set(
-                            'basegame',
-                            // The current basegame failed, switch to the other one.
-                            basegame === 'demoq3' ? 'baseq3' : 'demoq3'
-                        );
+                        newUrl.searchParams.set('basegame', changedBasegameTo_);
                         location.assign(newUrl);
                     }, 500);
                 }
