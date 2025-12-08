@@ -659,12 +659,15 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // full screen.
                 ui.style.display = '';
             } else if (msg === 'ERROR: Invalid game folder') {
-                // This error is usually caused by the server having
-                // a demo version, and the client having the full version,
-                // or vice versa.
-                // Let's change the game version to the one used by the server.
-                //
-                // TODO but not always!
+                // This error is usually (TODO but not always!?)
+                // caused by the server running the game
+                // which the client does not have
+                // (e.g. full version vs demo version).
+                // Quake engine can automatically switch `fs_game` to the one
+                // run by the server, but if the directory doesn't exist,
+                // this happens.
+                // Let's change the game version to the one used by the server,
+                // thus prompting the user to upload the game files.
                 //
                 // TODO it would be better to check whether the full game
                 // is running more "manually".
