@@ -1108,6 +1108,35 @@ if (filesAlreadyCreated) {
     done.style.transform = 'scaleX(1)';
 } else {
     if (basegame === 'demoq3') {
+        amITheServerP.then(amITheServer => {
+            if (amITheServer) {
+                return
+            }
+
+            // If the server is actually running demoq3,
+            // don't try to connect again.
+            // We do have to upload demoq3 files after all in such a case.
+            if (query.has('reason-invalid-game-folder')) {
+                return
+            }
+            const queryKey = 'tried-baseoa-minimal-to-connect-to-server';
+            if (query.get(queryKey) === 'true') {
+                return
+            }
+
+            console.log(
+                `There is a server already, let's get out of the "upload demo file" screen and try to connect to the server.\n` +
+                `We'll switch to basegame=baseoa-minimal, which we are sure to have, and the engine will auto-switch to the right game.`
+            );
+            const newUrl = new URL(location.href);
+            newUrl.searchParams.set('basegame', 'baseoa-minimal');
+            newUrl.searchParams.set(queryKey, 'true');
+            location.assign(newUrl);
+            // TODO I think we need some UI to tell people
+            // that the server us running demoq3, same as with full game?
+            // Or at least remove the "Alternatively, play Open Arena"?
+        })
+
         const filePickerSection = document.getElementById('upload-game-files');
         filePickerSection.style.display = '';
         const bodyInitialOverflow = document.body.style.overflow;
