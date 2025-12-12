@@ -1314,6 +1314,17 @@ set r_ignoreGLErrors 1
 set cg_fov 90
 set cg_deferPlayers 0 // load player models when they connect instead of substituting a random model
 
+${
+basegame === 'baseoa-minimal'
+?
+`// "Unlagged" mod
+// https://github.com/OpenArena/gamecode/blob/d371ff1482d9c00c543b29186d26d4d875b3bb0a/code/game/g_main.c#L306-L312
+set g_delagHitscan 1
+// set g_truePing 0
+// g_lagLightning 1`
+: ''
+}
+
 // These are present in thelongestyard.link, but the Unlagged mod creator
 // Doesn't recommend to set a higher value of \`sv_fps\`.
 // https://www.ra.is/unlagged/
