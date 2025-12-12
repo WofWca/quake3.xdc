@@ -679,6 +679,13 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
             if (msg === '--- Common Initialization Complete ---') {
                 progress.style.display = 'none';
+
+                // Remember last played game.
+                // It's important to do it here and not unconditionally
+                // at the top level, because the fact that we got here
+                // means that the current basegame is playable,
+                // i.e. we have the necessary files, be it baseq3 or demoq3.
+                localStorage.setItem('defaultBasegame', basegame);
             } else if (msg === '----- Client Shutdown (Client quit) -----') {
                 // They pressed "Exit" (close the entire game process).
 
@@ -1076,12 +1083,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
 
                     `, { encoding: 'utf8' });
             module.removeRunDependency('setup-ioq3-filesystem');
-            // Remember last played game.
-            // It's important to do it here and not unconditionally
-            // at the top level, because the fact that we got here
-            // means that the current basegame is playable,
-            // i.e. we have the necessary files, be it baseq3 or demoq3.
-            localStorage.setItem('defaultBasegame', basegame);
         }],
     });
     if (multiplayer) {
