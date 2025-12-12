@@ -170,6 +170,7 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
     <p>
         Download demo game resources from
         <a
+            target="_blank"
             href="https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh"
             download
         >https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh</a>
@@ -691,6 +692,20 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // TODO this gonna be a little annoying if we can't enter
                 // full screen.
                 ui.style.display = '';
+                setTimeout(() => {
+                    // Maybe they're busy with something in the game menu.
+                    document.getElementById('mainMenuLink').style.display = 'none';
+                    ui.style.display = 'none';
+                }, 10_000);
+            } else if (msg === '------- Game Initialization -------') {
+                // If we did un-hide the overlay button,
+                // make sure to hide it again.
+                // This can happen on `map_restart` which happens
+                // when someone joins the game.
+                // This is especially important on Delta Chat mobile
+                // where otherwise the button would remain forever.
+                document.getElementById('mainMenuLink').style.display = 'none';
+                ui.style.display = 'none';
             } else if (msg === '----- Client Shutdown (Game directory changed) -----') {
                 // This log kickstarts logState to go from IDLE.
                 logState = LOG_STATE_LOGGED_GAME_DIRECTORY_CHANGED
