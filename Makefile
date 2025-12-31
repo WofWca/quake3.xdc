@@ -19,6 +19,18 @@ ifeq ($(COMPILE_PLATFORM),sunos)
   COMPILE_ARCH=$(shell uname -p | sed -e 's/i.86/x86/')
 endif
 
+ifneq ($(findstring mingw,$(COMPILE_PLATFORM)),)
+  # MSYS2 environments differ from uname
+  ifeq ($(MSYSTEM_CHOST),i686-w64-mingw32)
+    COMPILE_PLATFORM=mingw32
+    COMPILE_ARCH=x86
+  endif
+  ifeq ($(MSYSTEM_CHOST),x86_64-w64-mingw32)
+    COMPILE_PLATFORM=mingw32
+    COMPILE_ARCH=x86_64
+  endif
+endif
+
 ifndef BUILD_STANDALONE
   BUILD_STANDALONE =
 endif
@@ -46,6 +58,9 @@ endif
 ifndef BUILD_RENDERER_OPENGL2
   BUILD_RENDERER_OPENGL2=
 endif
+ifndef BUILD_FINAL
+  BUILD_FINAL      =0
+endif
 ifndef BUILD_AUTOUPDATER  # DON'T build unless you mean to!
   BUILD_AUTOUPDATER=0
 endif
@@ -60,8 +75,13 @@ endif
 #############################################################################
 -include Makefile.local
 
+# cygwin environment isn't supported but mingw packages can be used if installed
 ifeq ($(COMPILE_PLATFORM),cygwin)
   PLATFORM=mingw32
+endif
+# MSYS2 msys environment is cygwin without mingw packages
+ifeq ($(COMPILE_PLATFORM),msys)
+  $(error MSYS2 MSYS environment is not supported, use MSYS2 MinGW 32-bit or 64-bit instead)
 endif
 
 # detect "emmake make"
@@ -124,11 +144,15 @@ VERSION=1.36
 endif
 
 ifndef CLIENTBIN
-CLIENTBIN=ioquake3
+CLIENTBIN=liliumarena
 endif
 
 ifndef SERVERBIN
-SERVERBIN=ioq3ded
+SERVERBIN=liliumarena-server
+endif
+
+ifndef RENDERER_PREFIX
+RENDERER_PREFIX=liliumarena-renderer-
 endif
 
 ifndef BASEGAME
@@ -184,11 +208,7 @@ USE_CURL=1
 endif
 
 ifndef USE_CURL_DLOPEN
-  ifdef MINGW
-    USE_CURL_DLOPEN=0
-  else
-    USE_CURL_DLOPEN=1
-  endif
+USE_CURL_DLOPEN=1
 endif
 
 ifndef USE_CODEC_VORBIS
@@ -336,6 +356,8 @@ ifeq ($(SDL_CFLAGS),)
   endif
 endif
 
+ifneq ($(BUILD_FINAL),1)
+
 # Add git version info
 USE_GIT=
 ifeq ($(wildcard .git),.git)
@@ -344,6 +366,8 @@ ifeq ($(wildcard .git),.git)
     VERSION:=$(VERSION)_GIT_$(GIT_REV)
     USE_GIT=1
   endif
+endif
+
 endif
 
 
@@ -362,7 +386,7 @@ endif
 
 ifneq (,$(findstring "$(PLATFORM)", "linux" "gnu_kfreebsd" "kfreebsd-gnu" "gnu"))
   BASE_CFLAGS = -Wall -fno-strict-aliasing -Wimplicit -Wstrict-prototypes \
-    -pipe -DUSE_ICON -DARCH_STRING=\\\"$(ARCH)\\\"
+    -pipe -DUSE_ICON -fvisibility=hidden -DARCH_STRING=\\\"$(ARCH)\\\"
   CLIENT_CFLAGS += $(SDL_CFLAGS)
 
   OPTIMIZEVM = -O3
@@ -403,7 +427,7 @@ ifneq (,$(findstring "$(PLATFORM)", "linux" "gnu_kfreebsd" "kfreebsd-gnu" "gnu")
   endif
 
   SHLIBEXT=so
-  SHLIBCFLAGS=-fPIC -fvisibility=hidden
+  SHLIBCFLAGS=-fPIC
   SHLIBLDFLAGS=-shared $(LDFLAGS)
 
   THREAD_LIBS=-lpthread
@@ -412,6 +436,12 @@ ifneq (,$(findstring "$(PLATFORM)", "linux" "gnu_kfreebsd" "kfreebsd-gnu" "gnu")
 
   CLIENT_LIBS=$(SDL_LIBS)
   RENDERER_LIBS = $(SDL_LIBS)
+
+  ifeq ($(USE_PORTABLE_RPATH),1)
+    # $ is escaped using two, so this is litterly $ORIGIN
+    CLIENT_LIBS+=-Wl,-rpath,'$$ORIGIN/lib/$(ARCH)'
+    RENDERER_LIBS+=-Wl,-rpath,'$$ORIGIN/lib/$(ARCH)'
+  endif
 
   ifeq ($(USE_OPENAL),1)
     ifneq ($(USE_OPENAL_DLOPEN),1)
@@ -759,16 +789,7 @@ ifdef MINGW
   ifeq ($(USE_CURL),1)
     CLIENT_CFLAGS += $(CURL_CFLAGS)
     ifneq ($(USE_CURL_DLOPEN),1)
-      ifeq ($(USE_LOCAL_HEADERS),1)
-        CLIENT_CFLAGS += -DCURL_STATICLIB
-        ifeq ($(ARCH),x86_64)
-          CLIENT_LIBS += $(LIBSDIR)/win64/libcurl.a -lcrypt32
-        else
-          CLIENT_LIBS += $(LIBSDIR)/win32/libcurl.a -lcrypt32
-        endif
-      else
-        CLIENT_LIBS += $(CURL_LIBS)
-      endif
+      CLIENT_LIBS += $(CURL_LIBS)
     endif
   endif
 
@@ -1160,13 +1181,14 @@ endif
 
 ifneq ($(BUILD_CLIENT),0)
   ifneq ($(USE_RENDERER_DLOPEN),0)
+    CLIENT_CFLAGS += -DRENDERER_PREFIX='\"'$(RENDERER_PREFIX)'\"'
     TARGETS += $(B)/$(CLIENTBIN)$(FULLBINEXT)
 
     ifneq ($(BUILD_RENDERER_OPENGL1),0)
-      TARGETS += $(B)/renderer_opengl1_$(SHLIBNAME)
+      TARGETS += $(B)/$(RENDERER_PREFIX)opengl1_$(SHLIBNAME)
     endif
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
-      TARGETS += $(B)/renderer_opengl2_$(SHLIBNAME)
+      TARGETS += $(B)/$(RENDERER_PREFIX)opengl2_$(SHLIBNAME)
     endif
   else
     ifneq ($(BUILD_RENDERER_OPENGL1),0)
@@ -1583,7 +1605,7 @@ targets: makedirs
 	@echo "  HAVE_VM_COMPILED: $(HAVE_VM_COMPILED)"
 	@echo "  PKG_CONFIG: $(PKG_CONFIG)"
 	@echo "  CC: $(CC)"
-ifeq ($(PLATFORM),mingw32)
+ifdef MINGW
 	@echo "  WINDRES: $(WINDRES)"
 endif
 	@echo ""
@@ -2417,12 +2439,12 @@ $(B)/$(CLIENTBIN)$(FULLBINEXT): $(Q3OBJ) $(LIBSDLMAIN)
 		-o $@ $(Q3OBJ) \
 		$(LIBSDLMAIN) $(CLIENT_LIBS) $(LIBS)
 
-$(B)/renderer_opengl1_$(SHLIBNAME): $(Q3ROBJ) $(JPGOBJ)
+$(B)/$(RENDERER_PREFIX)opengl1_$(SHLIBNAME): $(Q3ROBJ) $(JPGOBJ)
 	$(echo_cmd) "LD $@"
 	$(Q)$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3ROBJ) $(JPGOBJ) \
 		$(THREAD_LIBS) $(LIBSDLMAIN) $(RENDERER_LIBS) $(LIBS)
 
-$(B)/renderer_opengl2_$(SHLIBNAME): $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ)
+$(B)/$(RENDERER_PREFIX)opengl2_$(SHLIBNAME): $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ)
 	$(echo_cmd) "LD $@"
 	$(Q)$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ) \
 		$(THREAD_LIBS) $(LIBSDLMAIN) $(RENDERER_LIBS) $(LIBS)
@@ -3126,10 +3148,10 @@ ifneq ($(BUILD_CLIENT),0)
   ifneq ($(USE_RENDERER_DLOPEN),0)
 	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/$(CLIENTBIN)$(FULLBINEXT) $(COPYBINDIR)/$(CLIENTBIN)$(FULLBINEXT)
     ifneq ($(BUILD_RENDERER_OPENGL1),0)
-	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/renderer_opengl1_$(SHLIBNAME) $(COPYBINDIR)/renderer_opengl1_$(SHLIBNAME)
+	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/$(RENDERER_PREFIX)opengl1_$(SHLIBNAME) $(COPYBINDIR)/$(RENDERER_PREFIX)opengl1_$(SHLIBNAME)
     endif
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
-	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/renderer_opengl2_$(SHLIBNAME) $(COPYBINDIR)/renderer_opengl2_$(SHLIBNAME)
+	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/$(RENDERER_PREFIX)opengl2_$(SHLIBNAME) $(COPYBINDIR)/$(RENDERER_PREFIX)opengl2_$(SHLIBNAME)
     endif
   else
     ifneq ($(BUILD_RENDERER_OPENGL1),0)
@@ -3167,7 +3189,7 @@ ifneq ($(BUILD_GAME_SO),0)
 endif
 
 clean: clean-debug clean-release
-ifeq ($(PLATFORM),mingw32)
+ifdef MINGW
 	@$(MAKE) -C $(NSISDIR) clean
 else
 	@$(MAKE) -C $(LOKISETUPDIR) clean

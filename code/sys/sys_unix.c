@@ -66,55 +66,46 @@ char *Sys_DefaultHomePath(void)
 	if( !*homePath && com_homepath != NULL )
 	{
 #ifdef __APPLE__
-		if( ( p = getenv( "HOME" ) ) != NULL )
+		if( ( p = getenv( "HOME" ) ) != NULL && *p != '\0' )
 		{
-			Com_sprintf(homePath, sizeof(homePath), "%s%c", p, PATH_SEP);
-
-			Q_strcat(homePath, sizeof(homePath),
-				"Library/Application Support/");
-
-			if(com_homepath->string[0])
-				Q_strcat(homePath, sizeof(homePath), com_homepath->string);
-			else
-				Q_strcat(homePath, sizeof(homePath), HOMEPATH_NAME_MACOSX);
+			Com_sprintf(homePath, sizeof(homePath), "%s%cLibrary%cApplication Support%c%s", p, PATH_SEP, PATH_SEP, PATH_SEP, com_homepath->string);
 		}
 #else
-		if( ( p = getenv( "FLATPAK_ID" ) ) != NULL && *p != '\0' )
+		char	directory[MAX_OSPATH];
+		char	*s;
+
+		Q_strncpyz( directory, com_homepath->string, sizeof(directory) );
+
+		// convert home directory name to lower case and replace spaces with hyphens
+		s = directory;
+		while( *s )
 		{
-			if( ( p = getenv( "XDG_DATA_HOME" ) ) != NULL && *p != '\0' )
+			if( *s == ' ' )
 			{
-				Com_sprintf(homePath, sizeof(homePath), "%s%c", p, PATH_SEP);
+				*s = '-';
 			}
-			else if( ( p = getenv( "HOME" ) ) != NULL && *p != '\0' )
-			{
-				Com_sprintf(homePath, sizeof(homePath), "%s%c.local%cshare%c", p, PATH_SEP, PATH_SEP, PATH_SEP);
-			}
-
-			if( *homePath )
-			{
-				char *dir;
-
-				if(com_homepath->string[0])
-					dir = com_homepath->string;
-				else
-					dir = HOMEPATH_NAME_UNIX;
-
-				if(dir[0] == '.' && dir[1] != '\0')
-					dir++;
-
-				Q_strcat(homePath, sizeof(homePath), dir);
-			}
-		}
-		else if( ( p = getenv( "HOME" ) ) != NULL )
-		{
-			Com_sprintf(homePath, sizeof(homePath), "%s%c", p, PATH_SEP);
-
-			if(com_homepath->string[0])
-				Q_strcat(homePath, sizeof(homePath), com_homepath->string);
 			else
-				Q_strcat(homePath, sizeof(homePath), HOMEPATH_NAME_UNIX);
+			{
+				*s = tolower(*s);
+			}
+			s++;
+		}
+
+		if( ( p = getenv( "XDG_DATA_HOME" ) ) != NULL && *p != '\0' )
+		{
+			Com_sprintf(homePath, sizeof(homePath), "%s%c%s", p, PATH_SEP, directory);
+		}
+		else if( ( p = getenv( "HOME" ) ) != NULL && *p != '\0' )
+		{
+			Com_sprintf(homePath, sizeof(homePath), "%s%c.local%cshare%c%s", p, PATH_SEP, PATH_SEP, PATH_SEP, directory);
 		}
 #endif
+
+		if( !*homePath )
+		{
+			Com_Printf("Unable to detect home path\n");
+			return NULL;
+		}
 	}
 
 	return homePath;
@@ -259,9 +250,15 @@ qboolean Sys_LowPhysicalMemory( void )
 Sys_Basename
 ==================
 */
-const char *Sys_Basename( char *path )
+const char *Sys_Basename( const char *path )
 {
-	return basename( path );
+	static char base[ MAX_OSPATH ] = { 0 };
+	char pathCopy[ MAX_OSPATH ];
+
+	Q_strncpyz( pathCopy, path, sizeof( pathCopy ) );
+	Q_strncpyz( base, basename( pathCopy ), sizeof( base ) );
+
+	return base;
 }
 
 /*
@@ -269,9 +266,15 @@ const char *Sys_Basename( char *path )
 Sys_Dirname
 ==================
 */
-const char *Sys_Dirname( char *path )
+const char *Sys_Dirname( const char *path )
 {
-	return dirname( path );
+	static char dir[ MAX_OSPATH ] = { 0 };
+	char pathCopy[ MAX_OSPATH ];
+
+	Q_strncpyz( pathCopy, path, sizeof( pathCopy ) );
+	Q_strncpyz( dir, dirname( pathCopy ), sizeof( dir ) );
+
+	return dir;
 }
 
 /*

@@ -154,6 +154,7 @@ fi
 AVAILABLE_ARCHS=""
 
 IOQ3_VERSION=`grep '^VERSION=' Makefile | sed -e 's/.*=\(.*\)/\1/'`
+IOQ3_RENDERER_PREFIX=`grep '^RENDERER_PREFIX=' Makefile | sed -e 's/.*=\(.*\)/\1/'`
 IOQ3_CLIENT_ARCHS=""
 IOQ3_SERVER_ARCHS=""
 IOQ3_RENDERER_GL1_ARCHS=""
@@ -172,9 +173,10 @@ CGAME="cgame"
 GAME="qagame"
 UI="ui"
 
-RENDERER_OPENGL="renderer_opengl"
+RENDERER_OPENGL="${IOQ3_RENDERER_PREFIX}opengl"
 
-DEDICATED_NAME="ioq3ded"
+EXECUTABLE_NAME="liliumarena"
+DEDICATED_NAME="liliumarena-server"
 
 CGAME_NAME="${CGAME}.dylib"
 GAME_NAME="${GAME}.dylib"
@@ -184,18 +186,17 @@ RENDERER_OPENGL1_NAME="${RENDERER_OPENGL}1.dylib"
 RENDERER_OPENGL2_NAME="${RENDERER_OPENGL}2.dylib"
 
 ICNSDIR="misc"
-ICNS="quake3_flat.icns"
-PKGINFO="APPLIOQ3"
+ICNS="lilium.icns"
+PKGINFO="APPL????"
 
 OBJROOT="build"
 #BUILT_PRODUCTS_DIR="${OBJROOT}/${TARGET_NAME}-darwin-${CURRENT_ARCH}"
-PRODUCT_NAME="ioquake3"
+PRODUCT_NAME="Lilium Arena"
 WRAPPER_EXTENSION="app"
 WRAPPER_NAME="${PRODUCT_NAME}.${WRAPPER_EXTENSION}"
 CONTENTS_FOLDER_PATH="${WRAPPER_NAME}/Contents"
 UNLOCALIZED_RESOURCES_FOLDER_PATH="${CONTENTS_FOLDER_PATH}/Resources"
 EXECUTABLE_FOLDER_PATH="${CONTENTS_FOLDER_PATH}/MacOS"
-EXECUTABLE_NAME="${PRODUCT_NAME}"
 PROTOCOL_HANDLER="quake3"
 
 # loop through the architectures to build string lists for each universal binary
@@ -263,12 +264,12 @@ done
 cd `dirname $0`
 
 if [ ! -f Makefile ]; then
-	echo "$0 must be run from the ioquake3 build directory"
+	echo "$0 must be run from the Lilium Arena build directory"
 	exit 1
 fi
 
 if [ "${IOQ3_CLIENT_ARCHS}" == "" ]; then
-	echo "$0: no ioquake3 binary architectures were found for target '${TARGET_NAME}'"
+	echo "$0: no Lilium Arena binary architectures were found for target '${TARGET_NAME}'"
 	exit 1
 fi
 
@@ -327,9 +328,9 @@ PLIST="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <key>CFBundleExecutable</key>
     <string>${EXECUTABLE_NAME}</string>
     <key>CFBundleIconFile</key>
-    <string>quake3_flat</string>
+    <string>lilium</string>
     <key>CFBundleIdentifier</key>
-    <string>org.ioquake.${PRODUCT_NAME}</string>
+    <string>moe.clover.${PRODUCT_NAME}</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -397,7 +398,7 @@ fi
 
 PLIST="${PLIST}
     <key>NSHumanReadableCopyright</key>
-    <string>QUAKE III ARENA Copyright © 1999-2000 id Software, Inc. All rights reserved.</string>
+    <string>${PRODUCT_NAME} Copyright © 1999-2005 id Software, 2005-2018 ioquake3 contributors.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
@@ -442,6 +443,31 @@ function action()
 action "${BUNDLEBINDIR}/${EXECUTABLE_NAME}"				"${IOQ3_CLIENT_ARCHS}"
 action "${BUNDLEBINDIR}/${DEDICATED_NAME}"				"${IOQ3_SERVER_ARCHS}"
 
+#
+# enable this to create multi-arch libraries and symlinks. however it doesn't
+# work well with the default zip behavior (duplicates files instead of keeping
+# symlinks).
+#
+MERGE_LIBS=0
+
+if [ $MERGE_LIBS -eq 0 ]; then
+
+# renderers
+cp ${IOQ3_RENDERER_GL1_ARCHS} "${BUNDLEBINDIR}/"
+cp ${IOQ3_RENDERER_GL2_ARCHS} "${BUNDLEBINDIR}/"
+
+# game
+cp ${IOQ3_CGAME_ARCHS} "${BUNDLEBINDIR}/${BASEDIR}/"
+cp ${IOQ3_GAME_ARCHS} "${BUNDLEBINDIR}/${BASEDIR}/"
+cp ${IOQ3_UI_ARCHS} "${BUNDLEBINDIR}/${BASEDIR}/"
+
+# missionpack
+cp ${IOQ3_MP_CGAME_ARCHS} "${BUNDLEBINDIR}/${MISSIONPACKDIR}/"
+cp ${IOQ3_MP_GAME_ARCHS} "${BUNDLEBINDIR}/${MISSIONPACKDIR}/"
+cp ${IOQ3_MP_UI_ARCHS} "${BUNDLEBINDIR}/${MISSIONPACKDIR}/"
+
+else
+
 # renderers
 action "${BUNDLEBINDIR}/${RENDERER_OPENGL1_NAME}"		"${IOQ3_RENDERER_GL1_ARCHS}"
 action "${BUNDLEBINDIR}/${RENDERER_OPENGL2_NAME}"		"${IOQ3_RENDERER_GL2_ARCHS}"
@@ -463,3 +489,5 @@ action "${BUNDLEBINDIR}/${MISSIONPACKDIR}/${UI_NAME}"		"${IOQ3_MP_UI_ARCHS}"
 symlinkArch "${CGAME}"	"${CGAME}"	""	"${BUNDLEBINDIR}/${MISSIONPACKDIR}"
 symlinkArch "${GAME}"	"${GAME}"	""	"${BUNDLEBINDIR}/${MISSIONPACKDIR}"
 symlinkArch "${UI}"		"${UI}"		""	"${BUNDLEBINDIR}/${MISSIONPACKDIR}"
+
+fi # MERGE_LIBS
