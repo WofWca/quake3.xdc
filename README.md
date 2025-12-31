@@ -10,7 +10,7 @@ _ZTM's Flexible HUD mod for ioquake3_ was created in 2013 to fullfil one person'
 In 2014, _ZTM's Flexible HUD mod for ioquake3 R2_ added support for aspect correct widescreen HUD and field of view. This was based on code that zturtleman previously developed for [Spearmint](https://github.com/clover-moe/spearmint). In 2018, _ZTM's Flexible HUD mod for ioquake3 R4_ added support for Quake 3: Team Arena; also utilizing code for Spearmint.
 
 _ZTM's Flexible HUD mod for ioquake3_ is based on [Lilium Arena](https://github.com/clover-moe/lilium-arena).
-_ZTM's Flexible HUD mod for ioquake3_ code commits: [compare/upstream...master](https://github.com/clover-moe/flexible-hud-for-ioq3/compare/upstream...master)
+_ZTM's Flexible HUD mod for ioquake3_ code commits: [compare/lilium-arena...master](https://github.com/clover-moe/flexible-hud-for-ioq3/compare/lilium-arena...master)
 
 
 ## License
