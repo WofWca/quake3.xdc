@@ -168,7 +168,7 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
         font-weight: initial;
     "
 >
-    <details><summary>Play Quake III Arena Demo</summary>
+    <details id="play-demoq3-details"><summary>Play Quake III Arena Demo</summary>
         <h3>Please select game resources</h3>
         <p>
             Download demo game resources from
@@ -210,7 +210,7 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
         <br>
     </details>
     <br>
-    <p>
+    <p id="non-demoq3-options">
         <a href="./index.html?basegame=baseoa-minimal">Play Open Arena</a><br>
         if you don't want to bother uploading anything.
         <!-- Let's always have a way to upload full game files
@@ -463,6 +463,13 @@ const basegame =
     query.get('basegame') ??
     localStorage.getItem('defaultBasegame') ??
     'demoq3';
+
+if (query.has('reason-invalid-game-folder')) {
+    // The server is running demoq3. Let's make sure that it's clear
+    // that we _have to_ upload demoq3 files to connect to the current server.
+    document.getElementById('play-demoq3-details').open = true;
+    document.getElementById('non-demoq3-options').style.display = 'none';
+}
 
 /** @type {(files: Array<[filePath: string, file: Promise<Uint8Array>]>}) => void} */
 let gotPk3Files;
