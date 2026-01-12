@@ -44,7 +44,9 @@ CG_CVAR( cg_zoomFov, "cg_zoomfov", "22.5", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_fov, "cg_fov", "90", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_viewsize, "cg_viewsize", "100", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_shadows, "cg_shadows", "1", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_gibs, "cg_gibs", "1", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_gibs, "cg_gibs", "1.0", CVAR_ARCHIVE,
+	"Make a bloody explosion when a player takes a lot of damage.\n"
+	"The bigger the value the more pieces." )
 CG_CVAR( cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE,
 	"Vanilla gibs, from 1999. "
 	"When set to 1, takes priority "
