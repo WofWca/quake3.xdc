@@ -230,7 +230,7 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_fov, "cg_fov", "90", CVAR_ARCHIVE },
 	{ &cg_viewsize, "cg_viewsize", "100", CVAR_ARCHIVE },
 	{ &cg_shadows, "cg_shadows", "1", CVAR_ARCHIVE  },
-	{ &cg_gibs, "cg_gibs", "1", CVAR_ARCHIVE  },
+	{ &cg_gibs, "cg_gibs", "1.0", CVAR_ARCHIVE  },
 	{ &cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE  },
 	{ &cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE  },
 	{ &cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "250", CVAR_ARCHIVE  },
