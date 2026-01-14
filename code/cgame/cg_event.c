@@ -1222,7 +1222,18 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		if (cg_oldGibs.integer) {
 			CG_GibPlayerOld( cent->lerpOrigin );
 		} else {
-			CG_GibPlayer( cent->lerpOrigin, cent->lerpAngles, es->pos.trDelta );
+			if ( es->number == cg.snap->ps.clientNum ) {
+				// Apparently at this point `es->pos.trDelta` doesn't yet have
+				// the knockback from the damage that gibbed us,
+				// so we have to differentiate between self and non-self,
+				// and use `cg.predictedPlayerState.velocity`
+				// if it's ourself.
+				CG_GibPlayer( cent->lerpOrigin, cent->lerpAngles,
+					cg.predictedPlayerState.velocity );
+			} else {
+				CG_GibPlayer( cent->lerpOrigin, cent->lerpAngles,
+					es->pos.trDelta );
+			}
 		}
 		break;
 
