@@ -104,6 +104,7 @@ vmCvar_t	cg_gibsInheritPlayerVelocity;
 vmCvar_t	cg_gibsExtraRandomVelocity;
 vmCvar_t	cg_gibsExtraVerticalVelocity;
 vmCvar_t	cg_gibsBounceFactor;
+vmCvar_t	cg_gibsRotationFactor;
 vmCvar_t	cg_drawTimer;
 vmCvar_t	cg_drawFPS;
 vmCvar_t	cg_drawSnapshot;
@@ -236,6 +237,7 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "250", CVAR_ARCHIVE  },
 	{ &cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "100", CVAR_ARCHIVE  },
 	{ &cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE  },
+	{ &cg_gibsRotationFactor, "cg_gibsRotationFactor", "1.0", CVAR_ARCHIVE  },
 	{ &cg_draw2D, "cg_draw2D", "1", CVAR_ARCHIVE  },
 	{ &cg_drawStatus, "cg_drawStatus", "1", CVAR_ARCHIVE  },
 	{ &cg_drawTimer, "cg_drawTimer", "0", CVAR_ARCHIVE  },
