@@ -69,6 +69,8 @@ vmCvar_t	g_restarted;
 vmCvar_t	g_logfile;
 vmCvar_t	g_logfileSync;
 vmCvar_t	g_blood;
+vmCvar_t	g_oldGibs;
+vmCvar_t	g_gibsMissileDirectionKnockbackWeight;
 vmCvar_t	g_podiumDist;
 vmCvar_t	g_podiumDrop;
 vmCvar_t	g_allowVote;
@@ -151,6 +153,19 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_debugAlloc, "g_debugAlloc", "0", 0, 0, qfalse },
 	{ &g_motd, "g_motd", "", 0, 0, qfalse },
 	{ &g_blood, "com_blood", "1", 0, 0, qfalse },
+	{ &g_oldGibs, "g_oldGibs", "0", CVAR_ARCHIVE, 0, qfalse },
+	// How much the movement direction of a missile affects the knockback direction
+	// when gibbing, as opposed to the direction from the center of the explosion.
+	// This makes sure that if the missile hits the player's feet,
+	// the gibs will fly up, so that there is not a big difference
+	// between hitting the player's feet and the ground not far
+	// from the player's feet.
+	//
+	// Setting to 1 restores the old behavior.
+	//
+	// Note that this affects not just the gibs
+	// but also the camera velocity of the gibbed player.
+	{ &g_gibsMissileDirectionKnockbackWeight, "g_gibsMissileDirectionKnockbackWeight", "0.5", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_podiumDist, "g_podiumDist", "80", 0, 0, qfalse },
 	{ &g_podiumDrop, "g_podiumDrop", "70", 0, 0, qfalse },
