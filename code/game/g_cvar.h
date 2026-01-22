@@ -102,6 +102,20 @@ G_CVAR( g_debugDamage, "g_debugDamage", "0", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_debugAlloc, "g_debugAlloc", "0", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_motd, "g_motd", "", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_blood, "com_blood", "1", NO_FLAGS, NO_TRACK, NULL )
+G_CVAR( g_oldGibs, "g_oldGibs", "0", CVAR_ARCHIVE, NO_TRACK, NULL )
+G_CVAR( g_gibsMissileDirectionKnockbackWeight, "g_gibsMissileDirectionKnockbackWeight", "0.5", CVAR_ARCHIVE, NO_TRACK,
+	"When gibbing someone, how much the movement direction of a missile "
+	"affects the knockback direction, "
+	"as opposed to the direction from the center of the explosion.\n"
+	"This makes sure that if the missile hits the player's feet, "
+	"the gibs will fly up, so that there is not a big difference "
+	"between hitting the player's feet and the ground not far "
+	"from the player's feet.\n"
+	"\n"
+	"Setting to 1 restores the old (vanilla) behavior.\n"
+	"\n"
+	"Note that this affects not just the gibs "
+	"but also the camera velocity of the gibbed player." )
 
 G_CVAR( g_podiumDist, "g_podiumDist", "80", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_podiumDrop, "g_podiumDrop", "70", NO_FLAGS, NO_TRACK, NULL )
