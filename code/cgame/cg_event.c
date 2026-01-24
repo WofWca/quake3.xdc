@@ -1228,11 +1228,14 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				// so we have to differentiate between self and non-self,
 				// and use `cg.predictedPlayerState.velocity`
 				// if it's ourself.
+				// `cent->pe.torso` also appears to be not good here.
 				CG_GibPlayer( cent->lerpOrigin, cent->lerpAngles,
-					cg.predictedPlayerState.velocity );
+					cg.predictedPlayerState.velocity,
+					&cg.predictedPlayerEntity.pe.torso );
 			} else {
 				CG_GibPlayer( cent->lerpOrigin, cent->lerpAngles,
-					es->pos.trDelta );
+					es->pos.trDelta,
+					&cent->pe.torso );
 			}
 		}
 		break;
