@@ -52,7 +52,14 @@ CG_CVAR( cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE,
 	"When set to 1, takes priority "
 	"over (almost) all the other `cg_gibs*` vars." )
 CG_CVAR( cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "250", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_gibsRandomVelocityFromKnockback, "cg_gibsRandomVelocityFromKnockback", "0.15", CVAR_ARCHIVE,
+	"Scale how much random velocity (spread) the gibs gain "
+	"from damage (knockback)." )
+CG_CVAR( cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "175", CVAR_ARCHIVE,
+	"Like `cg_gibsRandomVelocityFromKnockback`, "
+	"but add a *fixed* amount of random velocity to each piece.\n"
+	"Ensures that even if the player was gibbed with the machine gun, "
+	"the gibs would still fly apart somewhat." )
 CG_CVAR( cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "100", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE,
 	"Fraction of speed that gibs preserve when bouncing off a surface" )
