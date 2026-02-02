@@ -492,7 +492,7 @@ const char *BuildShaderStateConfig( void );
 //
 qboolean CanDamage (gentity_t *targ, vec3_t origin);
 void G_Damage (gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_t dir, vec3_t point, int damage, int dflags, int mod);
-void GibEntity( gentity_t *self, int killer );
+void GibEntity( gentity_t *self, int killer, const int damageBloodFallback );
 // The shotgun does `G_Damage` multiple times, per each pellet.
 // Normally that would mean that if the target is at 1 HP,
 // only one pellet would hit them.
@@ -743,6 +743,7 @@ extern	vmCvar_t	g_doWarmup;
 extern	vmCvar_t	g_blood;
 extern	vmCvar_t	g_oldGibs;
 extern	vmCvar_t	g_gibsMissileDirectionKnockbackWeight;
+extern	vmCvar_t	g_gibsNewEvGibPlayerParmProtocol;
 extern	vmCvar_t	g_allowVote;
 extern	vmCvar_t	g_teamAutoJoin;
 extern	vmCvar_t	g_teamForceBalance;

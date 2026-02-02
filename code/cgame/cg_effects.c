@@ -634,7 +634,7 @@ Generated a bunch of gibs launching out from the bodies location
 #define	GIB_VELOCITY		250
 #define	GIB_JUMP			250
 void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
-					const vec3_t playerVelocity,
+					const vec3_t playerVelocity, const int knockbackSpeed,
 					const lerpFrame_t *bodyAnimation ) {
 	vec3_t	baseOrigin, origin, velocity;
 	// Generally only the head should have pitch,
@@ -648,7 +648,10 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	// to account for crounching.
 	float playerHeight = 32 - MINS_Z;
 	float playerRadius = PLAYER_WIDTH;
-	float baseRandomVelocity = cg_gibsExtraRandomVelocity.value;
+	float baseRandomVelocity =
+		cg_gibsExtraRandomVelocity.value +
+		cg_gibsRandomVelocityFromKnockback.value * knockbackSpeed;
+
 	vec3_t playerVelocityScaled;
 	float jump = cg_gibsExtraVerticalVelocity.value;
 	int numGibs = cg_gibs.value * DEFAULT_NUM_GIBS;

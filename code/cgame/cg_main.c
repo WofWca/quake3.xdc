@@ -102,6 +102,7 @@ vmCvar_t	cg_gibs;
 vmCvar_t	cg_oldGibs;
 vmCvar_t	cg_gibsInheritPlayerVelocity;
 vmCvar_t	cg_gibsExtraRandomVelocity;
+vmCvar_t	cg_gibsRandomVelocityFromKnockback;
 vmCvar_t	cg_gibsExtraVerticalVelocity;
 vmCvar_t	cg_gibsBounceFactor;
 vmCvar_t	cg_gibsRotationFactor;
@@ -234,7 +235,8 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_gibs, "cg_gibs", "1.0", CVAR_ARCHIVE  },
 	{ &cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE  },
 	{ &cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE  },
-	{ &cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "250", CVAR_ARCHIVE  },
+	{ &cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "175", CVAR_ARCHIVE  },
+	{ &cg_gibsRandomVelocityFromKnockback, "cg_gibsRandomVelocityFromKnockback", "0.15", CVAR_ARCHIVE  },
 	{ &cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "100", CVAR_ARCHIVE  },
 	{ &cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE  },
 	{ &cg_gibsRotationFactor, "cg_gibsRotationFactor", "1.0", CVAR_ARCHIVE  },
@@ -1986,6 +1988,7 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	cgs.levelStartTime = atoi( s );
 
 	CG_ParseServerinfo();
+	CG_ParseSysteminfo();
 
 	// load the new map
 	CG_LoadingString( "collision map" );
