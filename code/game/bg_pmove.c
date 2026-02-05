@@ -1928,13 +1928,13 @@ void PmoveSingle (pmove_t *pmove) {
 	if ( pmove->cmd.buttons & BUTTON_AUTO_ATTACK ) {
 		// TODO: different firing patterns for different weapons? e.g. rocket launcher activates if shooting below target's feet
 		// TODO: lead moving targets?
-		memcpy(muzzle, pm->ps->origin, sizeof(vec3_t));
+		VectorCopy(pm->ps->origin, muzzle);
 		muzzle[2] += pm->ps->viewheight;
-		memcpy(start, muzzle, sizeof(vec3_t));
+		VectorCopy(muzzle, start);
 		VectorMA( start, 8192, pml.forward, end );
 
 		for (i = 0; i < sizeof(spreads) / sizeof(spreads[0]); i++) {
-			memcpy(movedEnd, end, sizeof(vec3_t));
+			VectorCopy(end, movedEnd);
 			VectorMA( movedEnd, 500.f*spreads[i][0], pml.right, movedEnd );
 			VectorMA( movedEnd, 500.f*spreads[i][1], pml.up, movedEnd );
 			pm->trace(&trace, start, NULL, NULL, movedEnd, pm->ps->clientNum, MASK_PLAYERSOLID | CONTENTS_CORPSE);
