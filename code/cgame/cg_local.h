@@ -1466,7 +1466,7 @@ void CG_ScorePlum( int client, vec3_t org, int score );
 
 void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 				const vec3_t playerVelocity, const int knockbackSpeed,
-				const lerpFrame_t *bodyAnimation );
+				const lerpFrame_t *bodyAnimation, const int randSeed );
 void CG_GibPlayerOld( vec3_t playerOrigin );
 void CG_BigExplode( vec3_t playerOrigin );
 
