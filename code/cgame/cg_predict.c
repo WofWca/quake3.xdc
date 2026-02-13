@@ -802,7 +802,7 @@ void CG_PredictPlayerState( void ) {
 			cg_pmove.cmd.serverTime = ((cg_pmove.cmd.serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
 		}
 
-		cg_pmove.cg_autoAttack = cg_autoAttack.integer;
+		cg_pmove.autoAttack = cg_autoAttack.integer && cgs.g_autoAttack;
 		cg_pmove.autoAttackTimer = cg.autoAttackTimer;
 		cg_pmove.autoAttackDelay =
 		AUTOATTACK_DELAY_MS + cg.snap->ping + AUTOATTACK_CLIENT_EXTRA_DELAY;

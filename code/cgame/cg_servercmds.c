@@ -180,6 +180,16 @@ void CG_ParseServerinfo( void ) {
 //unlagged - server options
 }
 
+void CG_ParseSysteminfo( void ) {
+	const char	*info;
+
+	info = CG_ConfigString( CS_SYSTEMINFO );
+
+	cgs.g_autoAttack =
+		atoi( Info_ValueForKey( info, "g_autoAttack" ) )
+		& 0x01;
+}
+
 /*
 ==================
 CG_ParseWarmup
@@ -309,6 +319,8 @@ static void CG_ConfigStringModified( void ) {
 	// do something with it if necessary
 	if ( num == CS_MUSIC ) {
 		CG_StartMusic();
+	} else if ( num == CS_SYSTEMINFO ) {
+		CG_ParseSysteminfo();
 	} else if ( num == CS_SERVERINFO ) {
 		CG_ParseServerinfo();
 	} else if ( num == CS_WARMUP ) {
