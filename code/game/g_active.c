@@ -1035,7 +1035,7 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.pmove_fixed = pmove_fixed.integer | client->pers.pmoveFixed;
 	pm.pmove_msec = pmove_msec.integer;
 
-	pm.cg_autoAttack = client->pers.cg_autoAttack;
+	pm.autoAttack = g_autoAttack.integer && client->pers.cg_autoAttack;
 	pm.autoAttackTimer = client->autoAttackTimer;
 	pm.autoAttackDelay = AUTOATTACK_DELAY_MS;
 
