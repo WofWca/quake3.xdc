@@ -632,7 +632,6 @@ const qhome = '/home/web_user/.q3a';
 // Fool Emscripten into thinking the browser supports pointer lock.
 if (!document.body.requestPointerLock) document.body.requestPointerLock = () => true;
 
-let kickedInitialBots = false;
 let firstMainLoop = true;
 let shadersCompiled = 0;
 let shadersTotal = 57;
@@ -778,24 +777,6 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         newUrl.searchParams.set('basegame', changedBasegameTo_);
                         location.assign(newUrl);
                     }, 500);
-                }
-            } else if (msg?.startsWith('Client') && msg.endsWith('challenge ping')) {
-                // "Connected with ... challenge ping"
-                // kick all bots when someone connects.
-                // FYI there is also `set bot_minplayers`,
-                // but it's not great because it will keep the bots
-                // until there is enough players,
-                // instead of kicking all bots, and will also keep kicking bots
-                // even if you added them manually.
-
-                if (!kickedInitialBots) {
-                    // I don't know a better way to execute a command.
-                    // See https://discourse.ioquake.org/t/how-to-execute-commands-using-another-program-in-web-emscripten-version-stdin/2046
-                    window.dispatchEvent(
-                        // See below, `bind KP_SLASH`.
-                        new KeyboardEvent('keydown', { code: 'NumpadDivide' })
-                    );
-                    kickedInitialBots = true;
                 }
             }
             console.error(msg);
@@ -1012,30 +993,15 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         );
                     }, 1000)
                 } else {
-                    // TODO improvement: in the full game there are more bots
-                    // to choose from.
-                    // Unfortunately `addbot random` is not available
-                    // in baseq3a mod.
-                    // For demoq3 we use ztm-flexible-hud mod,
-                    // which has support for `random` bot.
-                    //
                     // `+exec setNextmap.cfg` seems to be needed because
                     // map rotation seems to be broken by `+map ...`.
                     // Otherwise `nextmap` is set to `map_restart 0`,
                     // despite it being present in `autoexec.cfg`.
-                    const bots =
-                        basegame === 'demoq3'
-                        ? ['random', 'random', 'random', 'random']
-                        : basegame === 'baseq3'
-                        ? ['sarge', 'daemia', 'visor', 'stripe']
-                        : basegame === 'baseoa-mini'
-                        ? ['sarge', 'sarge', 'grism', 'grism']
-                        : ['sarge', 'sarge', 'sarge', 'sarge']
+
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
                         +map ${randomMap()}
-                        ${bots.map(b => `+addbot ${b} ${botSkill}`).join(' ')}
                         +exec setNextmap.cfg
                         `.trim().split(/\s+/));
 
@@ -1242,6 +1208,23 @@ if (filesAlreadyCreated) {
  */
 function writeCommonPersistentFiles(module, basegame) {
     module.FS.mkdirTree(`${qhome}/${basegame}`);
+
+    // TODO improvement: in the full game there are more bots
+    // to choose from.
+    // Unfortunately `addbot random` is not available
+    // in baseq3a mod.
+    // For demoq3 we use ztm-flexible-hud mod,
+    // which has support for `random` bot.
+    const bots =
+        basegame === 'demoq3'
+        ? ['random', 'random', 'random', 'random']
+        : basegame === 'baseq3'
+        ? ['sarge', 'daemia', 'visor', 'stripe']
+        : basegame === 'baseoa-mini'
+        ? ['sarge', 'sarge', 'grism', 'grism']
+        : ['sarge', 'sarge', 'sarge', 'sarge']
+    const addBots = bots.map(b => `addbot ${b} ${botSkill}`).join('; ');
+
     module.FS.writeFile(`${qhome}/${basegame}/autoexec.cfg`,
 `set in_joystick 1
 set in_joystickUseAnalog 1
@@ -1293,11 +1276,11 @@ bind F6 "vstr customVarOnMainMenuPress"
 // Also, F11 is associated with "full screen".
 unbind F11
 
-// "map_restart" with no delay, so as to not induce
-// "try hard" feelings in players.
-// "map_restart 0" seems to break map rotation
-// by assigning to "nextmap" var, so we manually set it again.
-bind KP_SLASH "kickbots; map_restart 0; set nextmap vstr d1; unbind KP_SLASH"
+bind "F8" "vstr customVarToggleBots"
+set customVarKickBots "kickbots; kick allbots; set customVarToggleBots vstr customVarAddBots;  echo Kicked bots"
+set customVarAddBots "${addBots};              set customVarToggleBots vstr customVarKickBots; echo Added bots"
+set customVarToggleBots "vstr customVarAddBots"
+// bot_minplayers 4
 
 // https://github.com/ec-/baseq3a/pull/53
 // Only applies when pak8a.pk3 mod is present (not in the demo version).
