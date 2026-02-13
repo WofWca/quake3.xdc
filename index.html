@@ -1002,6 +1002,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
                         +map ${randomMap()}
+                        +vstr customVarKickOrAddBots
                         +exec setNextmap.cfg
                         `.trim().split(/\s+/));
 
@@ -1277,8 +1278,11 @@ bind F6 "vstr customVarOnMainMenuPress"
 unbind F11
 
 bind "F8" "vstr customVarToggleBots"
-set customVarKickBots "kickbots; kick allbots; set customVarToggleBots vstr customVarAddBots;  echo Kicked bots"
-set customVarAddBots "${addBots};              set customVarToggleBots vstr customVarKickBots; echo Added bots"
+// customVarKickOrAddBots will be executed at game start,
+// such that if we had bots enabled / disabled the last time we played,
+// we can add / not add them the next time.
+set customVarKickBots "kickbots; kick allbots; set customVarToggleBots vstr customVarAddBots;  seta customVarKickOrAddBots vstr customVarKickBots; echo Kicked bots"
+set customVarAddBots "${addBots};              set customVarToggleBots vstr customVarKickBots; seta customVarKickOrAddBots vstr customVarAddBots; echo Added bots"
 set customVarToggleBots "vstr customVarAddBots"
 // bot_minplayers 4
 
