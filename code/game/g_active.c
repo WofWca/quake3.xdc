@@ -1035,6 +1035,10 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.pmove_fixed = pmove_fixed.integer | client->pers.pmoveFixed;
 	pm.pmove_msec = pmove_msec.integer;
 
+	pm.cg_autoAttack = client->pers.cg_autoAttack;
+	pm.autoAttackTimer = client->autoAttackTimer;
+	pm.autoAttackDelay = AUTOATTACK_DELAY_MS;
+
 	VectorCopy( client->ps.origin, client->oldOrigin );
 
 #ifdef MISSIONPACK
@@ -1089,6 +1093,8 @@ void ClientThink_real( gentity_t *ent ) {
 
 	ent->waterlevel = pm.waterlevel;
 	ent->watertype = pm.watertype;
+
+	client->autoAttackTimer = pm.autoAttackTimer;
 
 	// execute client events
 	ClientEvents( ent, oldEventSequence );

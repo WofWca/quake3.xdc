@@ -1232,8 +1232,6 @@ typedef struct playerState_s {
 	int			loopSound;
 	int			jumppad_ent;	// jumppad entity hit this frame
 
-	int 		autoAttackTimer;	// auto attack timer
-
 	// not communicated over the net at all
 	int			ping;			// server to game info for scoreboard
 	int			pmove_framecount;
@@ -1267,8 +1265,6 @@ typedef struct playerState_s {
 #define BUTTON_FOLLOWME		1024
 
 #define	BUTTON_ANY			2048			// any key whatsoever
-
-#define BUTTON_AUTO_ATTACK	4096 		// automatic shooting for touchscreen controls
 
 #define	MOVE_RUN			120			// if forwardmove or rightmove are >= MOVE_RUN,
 										// then BUTTON_WALKING should be set
