@@ -178,6 +178,7 @@ vmCvar_t 	cg_scorePlum;
 // this is done server-side now
 //vmCvar_t 	cg_smoothClients;
 //unlagged - smooth clients #2
+vmCvar_t 	cg_autoAttack;
 vmCvar_t	pmove_fixed;
 //vmCvar_t	cg_pmove_fixed;
 vmCvar_t	pmove_msec;
@@ -344,6 +345,8 @@ static cvarTable_t cvarTable[] = {
 // this is done server-side now
 //	{ &cg_smoothClients, "cg_smoothClients", "0", CVAR_USERINFO | CVAR_ARCHIVE},
 //unlagged - smooth clients #2
+	// TODO: actually detect touchscreen controls and enable this only if they are being used currently, instead of with a cvar
+	{ &cg_autoAttack, "cg_autoAttack", "0", CVAR_USERINFO},
 	{ &cg_cameraMode, "com_cameraMode", "0", CVAR_CHEAT},
 
 	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO},

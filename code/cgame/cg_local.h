@@ -652,6 +652,14 @@ typedef struct {
 	playerState_t savedPmoveStates[NUM_SAVED_STATES];
 	int			stateHead, stateTail;
 //unlagged - optimized prediction
+	// This is used in `Pmove` and it should match the value of
+	// `gclient_t.autoAttackTimer`.
+	//
+	// It would be better to have this on `playerState_t`
+	// so that the server would tell clients the "true" value,
+	// but that would break network compatibility with vanilla engines
+	// and servers.
+	int autoAttackTimer;
 } cg_t;
 
 
@@ -1190,6 +1198,7 @@ extern  vmCvar_t		cg_scorePlum;
 // this is done server-side now
 //extern	vmCvar_t		cg_smoothClients;
 //unlagged - smooth clients #2
+extern	vmCvar_t		cg_autoAttack;
 extern	vmCvar_t		pmove_fixed;
 extern	vmCvar_t		pmove_msec;
 //extern	vmCvar_t		cg_pmove_fixed;
