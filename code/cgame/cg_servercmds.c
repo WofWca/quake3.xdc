@@ -199,6 +199,10 @@ void CG_ParseSysteminfo( void ) {
 	sv_fps.value = sv_fps.integer;
 	Com_sprintf( sv_fps.string, sizeof( sv_fps.string ), "%d", sv_fps.integer );
 //unlagged - server options
+
+	cgs.g_autoAttack =
+		atoi( Info_ValueForKey( info, "g_autoAttack" ) )
+		& 0x01;
 }
 
 

@@ -1038,6 +1038,9 @@ typedef struct {
 	char			redTeam[MAX_QPATH];
 	char			blueTeam[MAX_QPATH];
 
+	// parsed from systeminfo
+	qboolean		g_autoAttack;
+
 	int				voteTime;
 	int				voteYes;
 	int				voteNo;
