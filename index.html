@@ -1224,7 +1224,10 @@ function writeCommonPersistentFiles(module, basegame) {
         : basegame === 'baseoa-mini'
         ? ['sarge', 'sarge', 'grism', 'grism']
         : ['sarge', 'sarge', 'sarge', 'sarge']
-    const addBots = bots.map(b => `addbot ${b} ${botSkill}`).join('; ');
+    const addBots = bots.map((b, i) => {
+        const msecDelay = 1000 + i * 2000;
+        return `addbot ${b} ${botSkill} free ${msecDelay}`
+    }).join('; ');
 
     module.FS.writeFile(`${qhome}/${basegame}/autoexec.cfg`,
 `set in_joystick 1
