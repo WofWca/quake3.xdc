@@ -211,7 +211,7 @@ canvas { max-width: 100%; max-height: 100%; min-width: 100%; min-height: 100%; o
     </details>
     <br>
     <p id="non-demoq3-options">
-        <a href="./index.html?basegame=baseoa-minimal">Play Open Arena</a><br>
+        <a href="./index.html?basegame=baseoa-mini">Play Open Arena</a><br>
         if you don't want to bother uploading anything.
         <!-- Let's always have a way to upload full game files
         without downloading demo, in case it goes offline,
@@ -512,7 +512,7 @@ if (!username || !model) {
     }
     localStorage.setItem('username', username);
 
-    const models = basegame === 'baseoa-minimal'
+    const models = basegame === 'baseoa-mini'
         ? ['sarge']
         : ['sarge', 'visor', 'major', 'major/daemia', 'major', 'major/daemia', 'grunt', 'grunt/stripe']; // only these are available in the demo, plus red/blue versions but those wouldn't be fair
     model = models[Math.random() * models.length | 0];
@@ -572,7 +572,7 @@ function randomFromArray(arr) {
 const availableMaps =
     basegame === 'baseq3'
     ? fullGameMaps
-    : basegame === 'baseoa-minimal'
+    : basegame === 'baseoa-mini'
     ? ['wrackdm17']
     : knownDemoMaps;
 function randomMap() {
@@ -906,7 +906,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             // the engine can auto-switch to it
             // without spitting out the "Invalid game folder" error
             // in case that this user has never launched Open Arena.
-            const BASEGAME_BASEOA_MIN = 'baseoa-minimal'
+            const BASEGAME_BASEOA_MIN = 'baseoa-mini'
             if (localStorage.getItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN)) !== 'true') {
                 const baseoa = fetch(`${buildPath}/openarena-mini.pk3`)
                     .then(r => r.arrayBuffer())
@@ -1025,7 +1025,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         ? ['random', 'random', 'random', 'random']
                         : basegame === 'baseq3'
                         ? ['sarge', 'daemia', 'visor', 'stripe']
-                        : basegame === 'baseoa-minimal'
+                        : basegame === 'baseoa-mini'
                         ? ['sarge', 'sarge', 'grism', 'grism']
                         : ['sarge', 'sarge', 'sarge', 'sarge']
                     module.arguments.push(...`
@@ -1132,17 +1132,17 @@ if (filesAlreadyCreated) {
             if (query.has('reason-invalid-game-folder')) {
                 return
             }
-            const queryKey = 'tried-baseoa-minimal-to-connect-to-server';
+            const queryKey = 'tried-baseoa-mini-to-connect-to-server';
             if (query.get(queryKey) === 'true') {
                 return
             }
 
             console.log(
                 `There is a server already, let's get out of the "upload demo file" screen and try to connect to the server.\n` +
-                `We'll switch to basegame=baseoa-minimal, which we are sure to have, and the engine will auto-switch to the right game.`
+                `We'll switch to basegame=baseoa-mini, which we are sure to have, and the engine will auto-switch to the right game.`
             );
             const newUrl = new URL(location.href);
-            newUrl.searchParams.set('basegame', 'baseoa-minimal');
+            newUrl.searchParams.set('basegame', 'baseoa-mini');
             newUrl.searchParams.set(queryKey, 'true');
             location.assign(newUrl);
             // TODO I think we need some UI to tell people
@@ -1298,7 +1298,7 @@ set r_mode -2 // make game use desktop resolution
 ${
 // No need for "very high quality" on a game with all models and textures
 // compressed to bare minimum.
-basegame !== 'baseoa-minimal'
+basegame !== 'baseoa-mini'
 ?
 `set r_picmip 0 // full texture detail
 set r_lodBias -2 // don't use lower detail models far away
@@ -1327,7 +1327,7 @@ set cg_fov 90
 set cg_deferPlayers 0 // load player models when they connect instead of substituting a random model
 
 ${
-basegame === 'baseoa-minimal'
+basegame === 'baseoa-mini'
 ?
 `// "Unlagged" mod
 // https://github.com/OpenArena/gamecode/blob/d371ff1482d9c00c543b29186d26d4d875b3bb0a/code/game/g_main.c#L306-L312
