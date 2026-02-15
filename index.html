@@ -464,9 +464,12 @@ const basegame =
     localStorage.getItem('defaultBasegame') ??
     'demoq3';
 
-if (query.has('reason-invalid-game-folder')) {
+if (
+    query.has('hide-non-demoq3-options') ||
     // The server is running demoq3. Let's make sure that it's clear
     // that we _have to_ upload demoq3 files to connect to the current server.
+    query.has('reason-invalid-game-folder')
+) {
     document.getElementById('play-demoq3-details').open = true;
     document.getElementById('non-demoq3-options').style.display = 'none';
 }
