@@ -458,7 +458,7 @@ window.addEventListener("keydown", (e) => {
     }, { capture: true });
 
 const query = new URLSearchParams(window.location.search);
-/** @type {'demoq3' | 'baseq3' | 'openarena-minimal' | string} */
+/** @type {'demoq3' | 'baseq3' | 'openarena-mini' | string} */
 const basegame =
     query.get('basegame') ??
     localStorage.getItem('defaultBasegame') ??
@@ -908,14 +908,14 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             // in case that this user has never launched Open Arena.
             const BASEGAME_BASEOA_MIN = 'baseoa-minimal'
             if (localStorage.getItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN)) !== 'true') {
-                const baseoa = fetch(`${buildPath}/openarena-minimal.pk3`)
+                const baseoa = fetch(`${buildPath}/openarena-mini.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(r => new Uint8Array(r));
 
                 module.FS.mkdirTree(`${qhome}/${BASEGAME_BASEOA_MIN}`);
                 writeCommonPersistentFiles(module, BASEGAME_BASEOA_MIN);
                 module.FS.writeFile(
-                    `${qhome}/${BASEGAME_BASEOA_MIN}/openarena-minimal.pk3`,
+                    `${qhome}/${BASEGAME_BASEOA_MIN}/openarena-mini.pk3`,
                     await baseoa
                 );
             }
