@@ -79,7 +79,7 @@ From now on the development steps are as follows:
 2. Upack the `.wasm32.js` and `.wasm32.wasm` files here.
 3. Download the `QVM.zip` artifact from
    <https://github.com/WofWca/baseq3a/tree/baseq3a-free-version-and-my-stuff>.
-   This is a version of the "baseq3a" mod with non-free assets removed
+   This is a version of the "baseq3a" mod with assets removed
    and with some of our patches.
    You may also use the free version, with no extra patches:
    <https://github.com/ec-/baseq3a/pull/59>.
