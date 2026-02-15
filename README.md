@@ -84,9 +84,10 @@ From now on the development steps are as follows:
    You may also use the free version, with no extra patches:
    <https://github.com/ec-/baseq3a/pull/59>.
 4. Extract `pak8a.pk3` from `QVM.zip` here.
-<!-- TODO add stuff about Open Arena, how to make this small build. -->
+5. Download <https://github.com/WofWca/quake3-mini>,
+   rename it to `openarena-mini.pk3`.
 
-5. We also are using a file explorer ui for the Emscripten Filesystem API, so users can edit some files and mod the game.
+6. We also are using a file explorer ui for the Emscripten Filesystem API, so users can edit some files and mod the game.
    1. Copy the .iife.js file from the dist folder of the [emscripten-fs-file-explorer-ui](https://www.npmjs.com/package/emscripten-fs-file-explorer-ui) npm package and use it in one of the html files following the npm package instructions.
    2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in webxdc context (download links are used in the file explorer to export files)
 
