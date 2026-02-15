@@ -1279,6 +1279,13 @@ bind PAD0_RIGHTSTICK_CLICK "+button3"
 // so maybe this will be of use to some people.
 bind F4 "togglemenu"
 
+// The "main menu" is kind of hard to discover otherwise.
+// You have to press "exit game", which is interpreted as "close whole window".
+// This should hopefully improve the situation.
+set customVarOnMainMenuPress "echo Press again to exit to main menu;\
+    set customVarOnMainMenuPress quit;"
+bind F6 "vstr customVarOnMainMenuPress"
+
 // By default F11 is "screenshot", but firstly,
 // they turn out to be just all black in the web version.
 // Secondly they're not accessible by regular users
