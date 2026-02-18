@@ -421,8 +421,9 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 	G_UndoTimeShiftFor( ent );
 //unlagged - backward reconciliation #2
 
-	// Do what has been postponed in `G_Damage` due to `ShouldPostponeDeath`.
-	// assert( ShouldPostponeDeath( MOD_SHOTGUN ) );
+	// Do what has been postponed in `G_Damage`
+	// due to `ShouldPostponeDeathOrGib`.
+	// assert( ShouldPostponeDeathOrGib( MOD_SHOTGUN ) );
 	ent2 = &g_entities[0];
 	for (i = 0; i < level.num_entities; i++, ent2++) {
 		if ( !ent2->inuse ) {
