@@ -60,11 +60,17 @@ CG_CVAR( cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "175", CVAR_A
 	"but add a *fixed* amount of random velocity to each piece.\n"
 	"Ensures that even if the player was gibbed with the machine gun, "
 	"the gibs would still fly apart somewhat." )
-CG_CVAR( cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "100", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "150", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE,
 	"Fraction of speed that gibs preserve when bouncing off a surface" )
 CG_CVAR( cg_gibsRotationFactor, "cg_gibsRotationFactor", "1.0", CVAR_ARCHIVE,
 	"Scale how fast gib pieces will rotate, depending on damage (knockback)." )
+CG_CVAR( cg_gibsBetterCameraOnGib, "cg_gibsBetterCameraOnGib", "1", CVAR_USERINFO | CVAR_ARCHIVE,
+	"When you get gibbed, makes your camera get knocked farther away "
+	"thanks to it being smaller than your player's bounding box, "
+	"and thus not having friction with the ground until it falls down.\n"
+	"Mostly noticeable when getting gibbed with a shotgun or a railgun.\n"
+	"Doesn't work on vanilla servers." )
 CG_CVAR( cg_draw2D, "cg_draw2D", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_drawStatus, "cg_drawStatus", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_drawTimer, "cg_drawTimer", "0", CVAR_ARCHIVE, NULL )
