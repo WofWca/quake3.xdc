@@ -54,6 +54,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define CROUCH_VIEWHEIGHT	12
 #define DEAD_MAXS_Z			-8
 #define	DEAD_VIEWHEIGHT		-16
+// Make sure to keep `mins[2]` negative so that player origin doesn't sink
+// into the ground, to guard against weird behavior
+// like sounds not being played (because they're "behind the wall")
+// or something.
+#define	NEW_GIBBED_MINS_Z		-2
+#define NEW_GIBBED_HEIGHT_DIFF	NEW_GIBBED_MINS_Z - MINS_Z
+#define	NEW_GIBBED_MAXS_Z		DEAD_MAXS_Z + NEW_GIBBED_HEIGHT_DIFF
+#define	NEW_GIBBED_VIEWHEIGHT	DEAD_VIEWHEIGHT + NEW_GIBBED_HEIGHT_DIFF
 
 //
 // config strings are a general means of communicating variable length strings

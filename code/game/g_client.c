@@ -734,6 +734,9 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->pers.predictItemPickup = qtrue;
 	}
 
+	client->pers.cg_gibsBetterCameraOnGib =
+		atoi( Info_ValueForKey( userinfo, "cg_gibsBetterCameraOnGib" ) );
+
 	// set name
 	Q_strncpyz ( oldname, client->pers.netname, sizeof( oldname ) );
 	s = Info_ValueForKey (userinfo, "name");
