@@ -1276,6 +1276,13 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				// Just use the default knockback speed for 100 damage.
 				: 100 * 1000 / COMBAT_PLAYER_MASS;
 
+			// Apparently at this point `es->pos.trDelta` doesn't yet have
+			// the knockback from the damage that gibbed us,
+			// so we have to differentiate between self and non-self.
+			vec3_t *vel = es->number == cg.snap->ps.clientNum
+				? &cg.predictedPlayerState.velocity
+				: &es->pos.trDelta;
+
 			lerpFrame_t torsoAnimation = es->number == cg.snap->ps.clientNum
 				// `cent->pe.torso` appears to be not good for self.
 				? cg.predictedPlayerEntity.pe.torso
@@ -1311,20 +1318,8 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 			torsoAngles[YAW] = torsoAnimation.yawAngle;
 			torsoAngles[ROLL] = 0;
 
-			if ( es->number == cg.snap->ps.clientNum ) {
-				// Apparently at this point `es->pos.trDelta` doesn't yet have
-				// the knockback from the damage that gibbed us,
-				// so we have to differentiate between self and non-self,
-				// and use `cg.predictedPlayerState.velocity`
-				// if it's ourself.
-				CG_GibPlayer( cent->lerpOrigin, torsoAngles,
-					cg.predictedPlayerState.velocity, knockbackSpeed,
-					&torsoAnimation, randSeed );
-			} else {
-				CG_GibPlayer( cent->lerpOrigin, torsoAngles,
-					es->pos.trDelta, knockbackSpeed,
-					&torsoAnimation, randSeed );
-			}
+			CG_GibPlayer( cent->lerpOrigin, torsoAngles, *vel, knockbackSpeed,
+				&torsoAnimation, randSeed );
 		}
 		break;
 
