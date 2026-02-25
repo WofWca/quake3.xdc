@@ -1241,51 +1241,15 @@ set j_forward "0.005"
 set j_side "0.005"
 set j_pitch "0.005"
 set j_yaw "0.01"
-bind PAD0_LEFTSTICK_LEFT "+moveleft"
-bind PAD0_LEFTSTICK_RIGHT "+moveright"
-bind PAD0_LEFTSTICK_UP "+forward"
-bind PAD0_LEFTSTICK_DOWN "+back"
-bind PAD0_DPAD_LEFT "+moveleft"
-bind PAD0_DPAD_UP "+forward"
-bind PAD0_DPAD_RIGHT "+moveright"
-bind PAD0_DPAD_DOWN "+back"
-bind PAD0_RIGHTSTICK_LEFT "+left"
-bind PAD0_RIGHTSTICK_RIGHT "+right"
-bind PAD0_RIGHTSTICK_UP "+lookup"
-bind PAD0_RIGHTSTICK_DOWN "+lookdown"
-bind PAD0_RIGHTTRIGGER "+attack"
-bind PAD0_LEFTTRIGGER "+zoom"
-bind PAD0_A "+moveup"
-bind PAD0_B "weapnext"
-bind PAD0_X "weapprev"
-bind PAD0_Y "weapon 1"
-bind PAD0_LEFTSHOULDER "+zoom"
-bind PAD0_RIGHTSHOULDER "+attack"
-bind PAD0_START "togglemenu"
-bind PAD0_BACK "+button3"
-bind PAD0_LEFTSTICK_CLICK "+zoom"
-bind PAD0_RIGHTSTICK_CLICK "+button3"
-
-// "ESCAPE" conflicts with "exit fullscreen",
-// which is rather annoying,
-// so maybe this will be of use to some people.
-bind F4 "togglemenu"
 
 // The "main menu" is kind of hard to discover otherwise.
 // You have to press "exit game", which is interpreted as "close whole window".
 // This should hopefully improve the situation.
 set customVarOnMainMenuPress "echo Press again to exit to main menu;\
     set customVarOnMainMenuPress quit;"
-bind F6 "vstr customVarOnMainMenuPress"
+// bind F6 "vstr customVarOnMainMenuPress" // We bind in init.cfg
 
-// By default F11 is "screenshot", but firstly,
-// they turn out to be just all black in the web version.
-// Secondly they're not accessible by regular users
-// and thus just waste storage.
-// Also, F11 is associated with "full screen".
-unbind F11
-
-bind "F8" "vstr customVarToggleBots"
+// bind "F8" "vstr customVarToggleBots" // We bind in init.cfg
 // customVarKickOrAddBots will be executed at game start,
 // such that if we had bots enabled / disabled the last time we played,
 // we can add / not add them the next time.
@@ -1293,10 +1257,6 @@ set customVarKickBots "kickbots; kick allbots; set customVarToggleBots vstr cust
 set customVarAddBots "${addBots};              set customVarToggleBots vstr customVarKickBots; seta customVarKickOrAddBots vstr customVarAddBots; echo Added bots"
 set customVarToggleBots "vstr customVarAddBots"
 // bot_minplayers 4
-
-// https://github.com/ec-/baseq3a/pull/53
-// Only applies when pak8a.pk3 mod is present (not in the demo version).
-set cg_oldGibs 0
 
 set r_mode -2 // make game use desktop resolution
 
@@ -1319,16 +1279,11 @@ set r_lodCurveError 10000 // smoother curves far away (cheat protected)`
 
 set g_warmup 0 // baseq3a mod has it set to 20 by default. But we're casual here.
 set r_mode -2
-set cg_fovAdjust 1
-// These two are from ztm-flexible-hud mod.
-set cg_fovGunAdjust 1
-set cg_fovAspectAdjust 1
 set com_maxfps 0
 set r_swapInverval 1
 set net_enabled 1
 set r_fullscreen 0
 set r_ignoreGLErrors 1
-set cg_fov 90
 set cg_deferPlayers 0 // load player models when they connect instead of substituting a random model
 
 ${
@@ -1379,6 +1334,57 @@ set customVarPrintMotd "\
     echo F8: add / kick bots; \
     echo tilde: toggle console;"
 bind "W" "vstr customVarPrintMotd; +forward; bind W +forward;"
+
+bind PAD0_LEFTSTICK_LEFT "+moveleft"
+bind PAD0_LEFTSTICK_RIGHT "+moveright"
+bind PAD0_LEFTSTICK_UP "+forward"
+bind PAD0_LEFTSTICK_DOWN "+back"
+bind PAD0_DPAD_LEFT "+moveleft"
+bind PAD0_DPAD_UP "+forward"
+bind PAD0_DPAD_RIGHT "+moveright"
+bind PAD0_DPAD_DOWN "+back"
+bind PAD0_RIGHTSTICK_LEFT "+left"
+bind PAD0_RIGHTSTICK_RIGHT "+right"
+bind PAD0_RIGHTSTICK_UP "+lookup"
+bind PAD0_RIGHTSTICK_DOWN "+lookdown"
+bind PAD0_RIGHTTRIGGER "+attack"
+bind PAD0_LEFTTRIGGER "+zoom"
+bind PAD0_A "+moveup"
+bind PAD0_B "weapnext"
+bind PAD0_X "weapprev"
+bind PAD0_Y "weapon 1"
+bind PAD0_LEFTSHOULDER "+zoom"
+bind PAD0_RIGHTSHOULDER "+attack"
+bind PAD0_START "togglemenu"
+bind PAD0_BACK "+button3"
+bind PAD0_LEFTSTICK_CLICK "+zoom"
+bind PAD0_RIGHTSTICK_CLICK "+button3"
+
+// "ESCAPE" conflicts with "exit fullscreen",
+// which is rather annoying,
+// so maybe this will be of use to some people.
+bind F4 "togglemenu"
+
+bind F6 "vstr customVarOnMainMenuPress"
+
+// By default F11 is "screenshot", but firstly,
+// they turn out to be just all black in the web version.
+// Secondly they're not accessible by regular users
+// and thus just waste storage.
+// Also, F11 is associated with "full screen".
+unbind F11
+
+bind "F8" "vstr customVarToggleBots"
+
+// https://github.com/ec-/baseq3a/pull/53
+// Only applies when pak8a.pk3 mod is present (not in the demo version).
+seta cg_oldGibs 0
+
+seta cg_fovAdjust 1
+// These two are from ztm-flexible-hud mod.
+seta cg_fovGunAdjust 1
+seta cg_fovAspectAdjust 1
+seta cg_fov 90
 `, { encoding: 'utf8' });
 
     module.FS.mkdirTree(`${qhome}/${basegame}`);
