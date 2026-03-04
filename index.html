@@ -1256,6 +1256,11 @@ set customVarAddBots "${addBots};              set customVarToggleBots vstr cust
 set customVarToggleBots "vstr customVarAddBots"
 // bot_minplayers 4
 
+// We bind in init.cfg
+set customVarToggleRecord "vstr customVarToggleRecord_1"
+set customVarToggleRecord_1 "record;     set customVarToggleRecord vstr customVarToggleRecord_2"
+set customVarToggleRecord_2 "stoprecord; set customVarToggleRecord vstr customVarToggleRecord_1"
+
 set r_mode -2 // make game use desktop resolution
 
 ${
@@ -1330,6 +1335,7 @@ set customVarPrintMotd "\
     echo F4: main menu; \
     echo F6: mainer menu: switch game, edit config files, install mods, etc; \
     echo F8: add / kick bots; \
+    echo F10: record demo (go to Mainer Menu -> File Explorer to download it); \
     echo tilde: toggle console;"
 bind "W" "vstr customVarPrintMotd; +forward; bind W +forward;"
 
@@ -1373,6 +1379,8 @@ bind F6 "vstr customVarOnMainMenuPress"
 unbind F11
 
 bind "F8" "vstr customVarToggleBots"
+
+bind F10 "vstr customVarToggleRecord"
 
 // https://github.com/ec-/baseq3a/pull/53
 // Only applies when pak8a.pk3 mod is present (not in the demo version).
