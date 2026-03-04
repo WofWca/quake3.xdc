@@ -1,6 +1,6 @@
-# Quake III Arena - webxdc edition
+# Quake III Arena - WebXDC edition
 
-This is a [webxdc](https://webxdc.org) (in-chat mini-apps) port
+This is a [WebXDC](https://webxdc.org) (in-chat mini-apps) port
 of the 1999 first-person shooter Quake III Arena,
 with multiplayer support.
 
@@ -9,9 +9,9 @@ with multiplayer support.
 ## Usage
 
 1. Install [Delta Chat](https://delta.chat) (or another messenger
-   that supports [webxdc](https://webxdc.org)).
+   that supports [WebXDC](https://webxdc.org)).
 2. Download [the bundled `.xdc` file](https://github.com/WofWca/quake3.xdc/releases/latest/download/quake3.xdc).
-   Alternatively, download from the [webxdc store](https://webxdc.org/apps/#wofwca-quake3).
+   Alternatively, download from the [WebXDC store](https://webxdc.org/apps/#wofwca-quake3).
    (The file is just a `.zip` archive renamed to `.xdc`).
 3. Open the Delta Chat messenger.
 4. Create a Delta Chat account (it will not ask you for your email or phone!).
@@ -89,7 +89,7 @@ From now on the development steps are as follows:
 
 6. We also are using a file explorer ui for the Emscripten Filesystem API, so users can edit some files and mod the game.
    1. Copy the .iife.js file from the dist folder of the [emscripten-fs-file-explorer-ui](https://www.npmjs.com/package/emscripten-fs-file-explorer-ui) npm package and use it in one of the html files following the npm package instructions.
-   2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in webxdc context (download links are used in the file explorer to export files)
+   2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in WebXDC context (download links are used in the file explorer to export files)
 
 And here is some extra stuff:
 
@@ -110,7 +110,7 @@ And here is some extra stuff:
 
 - HumbleNet is not really needed.
   Because it works on top of WebRTC,
-  and then we mock WebRTC API to make it work on top of webxdc instead.
+  and then we mock WebRTC API to make it work on top of WebXDC instead.
 - We should have properly forked https://github.com/jdarpinian/ioq3
   and implemented a build CI,
   instead of just saving the bundled website assets.
@@ -121,8 +121,8 @@ Not really.
 
 If you are already using a native version of [ioquake3](https://ioquake3.org/)
 or <https://thelongestyard.link> and are happy with it,
-then there is no need to migrate to this [webxdc](https://webxdc.org) version.
-In fact, you should expect higher ping in the webxdc version,
+then there is no need to migrate to this [WebXDC](https://webxdc.org) version.
+In fact, you should expect higher ping in the WebXDC version,
 due to the reliability layer overhead of the transport that it uses.
 Unreliable + unordered transport is not yet available in Delta Chat,
 but it is being considered, as of 2025-05.
@@ -130,4 +130,4 @@ but it is being considered, as of 2025-05.
 This project is simply a version of <https://thelongestyard.link>
 that is a little more convenient to run if you're already using
 [Delta Chat](https://delta.chat) or another messenger
-that supports [webxdc](https://webxdc.org).
+that supports [WebXDC](https://webxdc.org).

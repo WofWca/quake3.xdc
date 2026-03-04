@@ -583,7 +583,7 @@ function randomMap() {
 
 let multiplayer = !!server;
 if (multiplayer) {
-    // Hide in webxdc, "copy link" is pointless there
+    // Hide in WebXDC, "copy link" is pointless there
     //
     // multiplayerMessage.style.display = 'block';
     // ui.style.display = '';
@@ -1308,7 +1308,7 @@ set sv_maxclients 128
 
 ${globalThis.webxdc != undefined
     ? (
-        '// webxdc connection is reliable + ordered as of 2025-05,\n' +
+        '// WebXDC connection is reliable + ordered as of 2025-05,\n' +
         '// so duplicating packets is of no use.\n' +
         'set cl_packetdup 0\n'
     ) : ''
