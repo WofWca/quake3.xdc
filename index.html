@@ -700,10 +700,9 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             } else if (msg === '----- Client Shutdown (Client quit) -----') {
                 // They pressed "Exit" (close the entire game process).
 
-                // Not sure `saveFiles` will work right before navigation,
-                // but why not try
-                saveFiles();
-                location.assign('./main-menu.html');
+                saveFiles().finally(() => {
+                    location.assign('./main-menu.html');
+                })
             } else if (msg === '==== ShutdownGame ====') {
                 // If they didn't quit the entire game,
                 // they got to the main menu of the game.
@@ -915,13 +914,15 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             pk3FilesPromise = undefined;
             gotPk3Files = undefined;
 
-            saveFiles = () => {
+            saveFiles = () => new Promise((resolve, reject) => {
                 module.FS.syncfs(false, (err) => {
                     if (err) {
                         console.error(err);
                         debugger;
+                        reject(err)
                         return;
                     }
+                    resolve()
                     // Be careful with these lines. `saveFiles()`
                     // is also called outside of `preRun`.
                     // Currently it's fine because we only assign to `saveFiles`
@@ -929,7 +930,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
                     localStorage.setItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN), 'true');
                 });
-            };
+            });
             saveFiles();
 
             if (multiplayer) {
