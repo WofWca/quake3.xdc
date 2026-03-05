@@ -188,6 +188,8 @@ void CG_ParseSysteminfo( void ) {
 	cgs.g_autoAttack =
 		atoi( Info_ValueForKey( info, "g_autoAttack" ) )
 		& 0x01;
+	cgs.g_gibsNewEvGibPlayerParmProtocol =
+		atoi( Info_ValueForKey( info, "g_gibsNewEvGibPlayerParmProtocol" ) );
 }
 
 /*

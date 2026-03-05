@@ -79,13 +79,6 @@ void P_DamageFeedback( gentity_t *player ) {
 
 
 	client->ps.damageCount = count;
-
-	//
-	// clear totals
-	//
-	client->damage_blood = 0;
-	client->damage_armor = 0;
-	client->damage_knockback = 0;
 }
 
 
@@ -1365,6 +1358,50 @@ void ClientEndFrame( gentity_t *ent ) {
 	// store the client's position for backward reconciliation later
 	G_StoreHistory( ent );
 //unlagged - backward reconciliation #1
+
+	//
+	// clear damage totals
+	//
+	ent->client->damage_blood = 0;
+	ent->client->damage_armor = 0;
+	ent->client->damage_knockback = 0;
+
+//unlagged - smooth clients #1
+	// mark as not missing updates initially
+	ent->client->ps.eFlags &= ~EF_CONNECTION;
+
+	// see how many frames the client has missed
+	frames = level.framenum - ent->client->lastUpdateFrame - 1;
+
+	// don't extrapolate more than two frames
+	if ( frames > 2 ) {
+		frames = 2;
+
+		// if they missed more than two in a row, show the phone jack
+		ent->client->ps.eFlags |= EF_CONNECTION;
+		ent->s.eFlags |= EF_CONNECTION;
+	}
+
+	// did the client miss any frames?
+	if ( frames > 0 && g_smoothClients.integer ) {
+		// yep, missed one or more, so extrapolate the player's movement
+		G_PredictPlayerMove( ent, (float)frames / sv_fps.integer );
+		// save network bandwidth
+		SnapVector( ent->s.pos.trBase );
+	}
+//unlagged - smooth clients #1
+
+//unlagged - backward reconciliation #1
+	// store the client's position for backward reconciliation later
+	G_StoreHistory( ent );
+//unlagged - backward reconciliation #1
+
+	//
+	// clear damage totals
+	//
+	ent->client->damage_blood = 0;
+	ent->client->damage_armor = 0;
+	ent->client->damage_knockback = 0;
 
 	// set the bit for the reachability area the client is currently in
 //	i = trap_AAS_PointReachabilityAreaIndex( ent->client->ps.origin );

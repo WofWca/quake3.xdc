@@ -346,6 +346,27 @@ qboolean ShotgunPellet( vec3_t start, vec3_t end, gentity_t *ent ) {
 				continue;
 			}
 #endif
+
+			// The below piece of code has been added in
+			// https://github.com/ec-/baseq3a/pull/60.
+			// When shooting through a corpse, gib it,
+			// but don't "absorb" the pellet, i.e. allow to hit a player
+			// through a corpse.
+			// This is mostly to compensate for the balance changes
+			// that are introduced by the removal of the `self->r.maxs[2] = -8;`
+			// (`SetDeadHeight`) line in `player_die`.
+			// But it's probably also sensible otherwise that corpses
+			// affect "more serious" gameplay less.
+			// See
+			// - https://github.com/ioquake/ioq3/issues/794
+			// - https://github.com/OpenArena/gamecode/pull/349
+			if ( traceEnt->client && traceEnt->client->ps.pm_type == PM_DEAD ) {
+				G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_SHOTGUN );
+				passent = traceEnt->s.number;
+				VectorCopy( tr.endpos, tr_start );
+				continue;
+			}
+
 			if( LogAccuracyHit( traceEnt, ent ) ) {
 				hitClient = qtrue;
 			}
@@ -364,6 +385,7 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 	vec3_t		end;
 	vec3_t		forward, right, up;
 	qboolean	hitClient = qfalse;
+	gentity_t	*ent2;
 
 //unlagged - attack prediction #2
 	// use this for testing
@@ -398,6 +420,33 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 	// put them back
 	G_UndoTimeShiftFor( ent );
 //unlagged - backward reconciliation #2
+
+	// Do what has been postponed in `G_Damage`
+	// due to `ShouldPostponeDeathOrGib`.
+	// assert( ShouldPostponeDeathOrGib( MOD_SHOTGUN ) );
+	ent2 = &g_entities[0];
+	for (i = 0; i < level.num_entities; i++, ent2++) {
+		if ( !ent2->inuse ) {
+			continue;
+		}
+
+		if ( ent2->client && ent2->client->ps.pm_type == PM_DEAD ) {
+			SetDeadHeight( ent2 );
+			SetFlNoKnockback( ent2 );
+		}
+
+		if ( ent2->gibScheduled ) {
+			// Note that this is technically differerent from vanilla,
+			// because vanilla passes `0` as `eventParm if we are gibbing
+			// a body from body queue.
+			int killer = ent->s.number;
+			// Just fall back to "half of all the pellets hit".
+			int damageFallback = DEFAULT_SHOTGUN_DAMAGE * s_quadFactor
+				* DEFAULT_SHOTGUN_DAMAGE / 2;
+			GibEntity( ent2, killer, damageFallback );
+		}
+		ent2->gibScheduled = qfalse;
+	}
 }
 
 

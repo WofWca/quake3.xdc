@@ -59,7 +59,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define	MAX_STEP_CHANGE		32
 
 #define	MAX_VERTS_ON_POLY	10
-#define	MAX_MARK_POLYS		256
+#define	MAX_MARK_POLYS		1024
 
 #define STAT_MINUS			10	// num frame for '-' stats digit
 
@@ -1039,6 +1039,7 @@ typedef struct {
 	char			blueTeam[MAX_QPATH];
 
 	// parsed from systeminfo
+	int				g_gibsNewEvGibPlayerParmProtocol;
 	qboolean		g_autoAttack;
 
 	int				voteTime;
@@ -1124,6 +1125,14 @@ extern	vmCvar_t		cg_bobroll;
 extern	vmCvar_t		cg_swingSpeed;
 extern	vmCvar_t		cg_shadows;
 extern	vmCvar_t		cg_gibs;
+extern	vmCvar_t		cg_oldGibs;
+extern	vmCvar_t		cg_gibsInheritPlayerVelocity;
+extern	vmCvar_t		cg_gibsExtraRandomVelocity;
+extern	vmCvar_t		cg_gibsRandomVelocityFromKnockback;
+extern	vmCvar_t		cg_gibsExtraVerticalVelocity;
+extern	vmCvar_t		cg_gibsBounceFactor;
+extern	vmCvar_t		cg_gibsRotationFactor;
+extern	vmCvar_t		cg_gibsBetterCameraOnGib;
 extern	vmCvar_t		cg_drawTimer;
 extern	vmCvar_t		cg_drawFPS;
 extern	vmCvar_t		cg_drawSnapshot;
@@ -1160,6 +1169,8 @@ extern	vmCvar_t		cg_noPlayerAnims;
 extern	vmCvar_t		cg_showmiss;
 extern	vmCvar_t		cg_footsteps;
 extern	vmCvar_t		cg_addMarks;
+extern	vmCvar_t		cg_bounceMarksMinImpactSpeed;
+extern	vmCvar_t		cg_bounceSoundMinImpactSpeed;
 extern	vmCvar_t		cg_brassTime;
 extern	vmCvar_t		cg_gun_frame;
 extern	vmCvar_t		cg_gun_x;
@@ -1502,7 +1513,10 @@ void CG_LightningBoltBeam( vec3_t start, vec3_t end );
 #endif
 void CG_ScorePlum( int client, vec3_t org, int score );
 
-void CG_GibPlayer( vec3_t playerOrigin );
+void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
+				const vec3_t playerVelocity, const int knockbackSpeed,
+				const lerpFrame_t *bodyAnimation, const int randSeed );
+void CG_GibPlayerOld( vec3_t playerOrigin );
 void CG_BigExplode( vec3_t playerOrigin );
 
 void CG_Bleed( vec3_t origin, int entityNum );
