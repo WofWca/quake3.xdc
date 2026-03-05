@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -774,6 +775,12 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	int		inwater;
 
 	cg.time = serverTime;
+
+//unlagged - lag simulation #1
+	// adjust the clock to reflect latent snaps
+	cg.time -= cg_latentSnaps.integer * (1000 / sv_fps.integer);
+//unlagged - lag simulation #1
+
 	cg.demoPlayback = demoPlayback;
 
 	// update cvars
