@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -2591,6 +2592,11 @@ void CG_Player( centity_t *cent ) {
 
 	// add powerups floating behind the player
 	CG_PlayerPowerups( cent, &torso );
+
+//unlagged - client options
+	// add the bounding box (if cg_drawBBox is 1)
+	CG_AddBoundingBox( cent );
+//unlagged - client options
 }
 
 

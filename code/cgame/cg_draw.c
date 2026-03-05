@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -1749,7 +1750,9 @@ static void CG_DrawLagometer( void ) {
 	int		color;
 	float	vscale;
 
-	if ( !cg_lagometer.integer || cgs.localServer ) {
+//unlagged - misc
+	if ( !cg_lagometer.integer /* || cgs.localServer */) {
+//unlagged - misc
 		CG_DrawDisconnect();
 		return;
 	}

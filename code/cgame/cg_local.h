@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -447,6 +448,10 @@ typedef struct {
 // occurs, and they will have visible effects for #define STEP_TIME or whatever msec after
 
 #define MAX_PREDICTED_EVENTS	16
+
+//unlagged - optimized prediction
+#define NUM_SAVED_STATES (CMD_BACKUP + 2)
+//unlagged - optimized prediction
  
 typedef struct {
 	int			clientFrame;		// incremented each frame
@@ -641,6 +646,12 @@ typedef struct {
 	char			testModelName[MAX_QPATH];
 	qboolean		testGun;
 
+//unlagged - optimized prediction
+	int			lastPredictedCommand;
+	int			lastServerTime;
+	playerState_t savedPmoveStates[NUM_SAVED_STATES];
+	int			stateHead, stateTail;
+//unlagged - optimized prediction
 } cg_t;
 
 
@@ -1078,6 +1089,10 @@ typedef struct {
 	// media
 	cgMedia_t		media;
 
+//unlagged - client options
+	// this will be set to the server's g_delagHitscan
+	int				delagHitscan;
+//unlagged - client options
 } cgs_t;
 
 //==============================================================================
@@ -1171,7 +1186,10 @@ extern	vmCvar_t		cg_noVoiceChats;
 extern	vmCvar_t		cg_noVoiceText;
 #endif
 extern  vmCvar_t		cg_scorePlum;
-extern	vmCvar_t		cg_smoothClients;
+//unlagged - smooth clients #2
+// this is done server-side now
+//extern	vmCvar_t		cg_smoothClients;
+//unlagged - smooth clients #2
 extern	vmCvar_t		pmove_fixed;
 extern	vmCvar_t		pmove_msec;
 //extern	vmCvar_t		cg_pmove_fixed;
@@ -1204,6 +1222,26 @@ extern  vmCvar_t		cg_recordSPDemo;
 extern  vmCvar_t		cg_recordSPDemoName;
 extern	vmCvar_t		cg_obeliskRespawnDelay;
 #endif
+
+//unlagged - client options
+extern	vmCvar_t		cg_delag;
+extern	vmCvar_t		cg_debugDelag;
+extern	vmCvar_t		cg_drawBBox;
+extern	vmCvar_t		cg_cmdTimeNudge;
+extern	vmCvar_t		sv_fps;
+extern	vmCvar_t		cg_projectileNudge;
+extern	vmCvar_t		cg_optimizePrediction;
+extern	vmCvar_t		cl_timeNudge;
+extern	vmCvar_t		cg_latentSnaps;
+extern	vmCvar_t		cg_latentCmds;
+extern	vmCvar_t		cg_plOut;
+//unlagged - client options
+
+//unlagged - cg_unlagged.c
+void CG_PredictWeaponEffects( centity_t *cent );
+void CG_AddBoundingBox( centity_t *cent );
+qboolean CG_Cvar_ClampInt( const char *name, vmCvar_t *vmCvar, int min, int max );
+//unlagged - cg_unlagged.c
 
 //
 // cg_main.c
@@ -1465,6 +1503,9 @@ localEntity_t *CG_MakeExplosion( vec3_t origin, vec3_t dir,
 // cg_snapshot.c
 //
 void CG_ProcessSnapshots( void );
+//unlagged - early transitioning
+void CG_TransitionEntity( centity_t *cent );
+//unlagged - early transitioning
 
 //
 // cg_info.c
