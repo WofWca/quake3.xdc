@@ -1,6 +1,8 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
+Some portions Copyright (C) 2026 WofWca.
 
 This file is part of Quake III Arena source code.
 
@@ -171,7 +173,34 @@ void CG_ParseServerinfo( void ) {
 	trap_Cvar_Set("g_redTeam", cgs.redTeam);
 	Q_strncpyz( cgs.blueTeam, Info_ValueForKey( info, "g_blueTeam" ), sizeof(cgs.blueTeam) );
 	trap_Cvar_Set("g_blueTeam", cgs.blueTeam);
+
+//unlagged - server options
+	// we'll need this for deciding whether or not to predict weapon effects
+	cgs.delagHitscan = atoi( Info_ValueForKey( info, "g_delagHitscan" ) );
+	trap_Cvar_Set("g_delagHitscan", va("%i", cgs.delagHitscan));
+//unlagged - server options
 }
+
+/*
+==================
+CG_ParseSysteminfo
+==================
+*/
+void CG_ParseSysteminfo( void ) {
+	const char	*info;
+
+	info = CG_ConfigString( CS_SYSTEMINFO );
+
+//unlagged - server options
+	sv_fps.integer = atoi( Info_ValueForKey( info, "sv_fps" ) );
+	if ( sv_fps.integer == 0 ) {
+		sv_fps.integer = 20;
+	}
+	sv_fps.value = sv_fps.integer;
+	Com_sprintf( sv_fps.string, sizeof( sv_fps.string ), "%d", sv_fps.integer );
+//unlagged - server options
+}
+
 
 /*
 ==================
@@ -304,6 +333,8 @@ static void CG_ConfigStringModified( void ) {
 		CG_StartMusic();
 	} else if ( num == CS_SERVERINFO ) {
 		CG_ParseServerinfo();
+	} else if ( num == CS_SYSTEMINFO ) {
+		CG_ParseSysteminfo();
 	} else if ( num == CS_WARMUP ) {
 		CG_ParseWarmup();
 	} else if ( num == CS_SCORES1 ) {

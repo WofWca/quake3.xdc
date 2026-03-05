@@ -1,0 +1,422 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>Frequently-asked Questions</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+
+<P><H2><U><A NAME="FAQ">Frequently-asked Questions</A></U></H3>
+
+<P>This section is mostly intended to answer questions <I>for</I> mod developers.  So please, if you are a mod developer, feel free to point to this document rather than explaining everything yourself.  I'll try to address everything I've ever been asked about server-side lag compensation here.
+
+<P><I>cl_timenudge</I> is another very misunderstood option, so you'll see a lot of that as well.
+
+<P>The other parts of Unlagged don't really need explaining.  Heck, nobody ever asks about skip correction, though they all benefit.  They'll hardly notice it's there, though it's been weeks since they had to aim at a guy who was nearly impossible to rail...not that I'm bitter or anything...
+
+<P>(I'm really not, actually.  I understand that it's difficult to notice the <I>absence</I> of something.)
+
+<P>Here are the questions answered:
+
+<UL>
+	<LI><A HREF="#HDUW">How does Unlagged work?</A>
+	<LI><A HREF="#HHCIP">How high can I ping?</A>
+	<LI><A HREF="#WTBILIKHA">What's this built-in lag I keep hearing about?</A>
+	<LI><A HREF="#IHAMCEAWTNDWIIR">I've heard a million conflicting explanations about what <I>cl_timenudge</I> does.  What is it, really?</A>
+	<LI><A HREF="#DUTNMYLJTOP">Doesn't using <I>cl_timenudge</I> make you look jerky to other players?</A>
+	<LI><A HREF="#IJGSAAC">I just got shot around a corner!</A>
+	<LI><A HREF="#WSITMISBWA">Wait &ndash; so is there more I should be worried about?</A>
+	<LI><A HREF="#IJRAMBIHOIJRAHBIM">I just railed and missed...but I hit &ndash; or &ndash; I just railed and hit...but I missed!</A>
+	<LI><A HREF="#DUGHPTA">Does Unlagged give high pingers the advantage?</A>
+	<LI><A HREF="#DUSUTWB">Doesn't Unlagged screw up the weapon balance?</A>
+	<LI><A HREF="#WDTRSLTOWIS">Why do the rail shots look totally off when I spectate?</A>
+	<LI><A HREF="#WPN">What's <I>cg_projectileNudge</I>?</A>
+	<LI><A HREF="#WSC">What's skip correction?</A>
+	<LI><A HREF="#WATPJABH">What are the phone jacks above players' heads?</A>
+	<LI><A HREF="#WTP">What's &ldquo;true ping?&rdquo;</A>
+	<LI><A HREF="#ISFPSHT20SR">Is setting <I>sv_fps</I> higher than 20 still recommended?</A>
+</UL>
+
+<P><BR>
+
+<P><H3><B><A NAME="HDUW">How does Unlagged work?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>Everybody knows that when you play online, it takes a bit for your attacks (or any movement, really) to reach the server.  The most annoying part about that is that, with a class of weapons called &ldquo;hitscan&rdquo; (in Quake 3, the machinegun, shotgun, lightning gun, and railgun), you have to aim ahead of your targets.
+
+<P>Unlagged compensates for that by:
+<OL>
+	<LI>Remembering where every player has been, back to about a second ago
+	<LI>Doing hit tests against your potential targets based on where you <I>saw</i> them, rather than where they <I>are</I>
+</OL>
+
+<P>If you have a consistent enough connection, the server knows <I>exactly</I> where you saw your target when you pressed the button.  That's not too far out: it sent you the information on where to draw them in the first place.
+
+<P>The end result is that you can put your crosshair on your target, fire, and hit.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>Unlagged uses a technique called &ldquo;backward reconciliation&rdquo; for hitscan weapons' hit tests.  For the duration of a hit test, it moves players to where you saw them when you fired.  (It knows because it sent you the player origins in the first place, it saves that information up in a history queue, and your fire command contains a timestamp.)  After the hit test, it moves them back.
+
+<P>Moving player entities around like that is perfectly fine, as long as the entities' states are restored exactly, and as long as no code runs which requires players in their correct state while the server is in a backward-reconciled state.  Unlagged is very careful about such things, so it doesn't present any problems.
+
+<P><BR>
+
+<P><H3><B><A NAME="HHCIP">How high can I ping?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>You can pretty much ping as high as you like, but there's a built-in limit of about 800.  Unrelated, nasty-to-your-gameplay things start happening around 450-500, though, so 800 is nearly infinite in that regard.
+
+<P>Projectiles aren't compensated for, however, so it's still best practice to find a server where your ping is relatively low.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>Unlagged stores up to 17 player states.  On a server where <I>sv_fps</I> is set to 20 (most servers, since that's the default), this means it stores 850ms of data.  With Quake 3's built-in lag accounted for, that means you can ping up to 800 and have it still work.
+
+<P>As mentioned in the Common Answer, nasty things start happening when you ping above 450ms.  Player prediction, in particular, gets bad: if you get 125 FPS, predicting your own player's state becomes impossible to do correctly, since the client engine will only store 64 previous commands.
+
+<P><BR>
+
+<P><H3><B><A NAME="WTBILIKHA">What's this built-in lag I keep hearing about?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>If the client game has only one set of information about a player &ndash; his current position, heading, and speed &ndash; it can't represent very well what's going on on the server.  It needs two sets, so it can draw the player between them.
+
+<P>If it needs two sets, it has to wait before releasing the information to be drawn.  That means what you see is a perpetually a little behind what's actually going on, in addition to those same effects being caused by your ping.  That's what the &ldquo;built-in lag&rdquo; refers to.
+
+<P>Since most servers run at 20 FPS, they send information every 50ms.  Because of this, the built-in lag is usually said to be 50ms.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>In order to accurately represent what's happening on the server, the client game needs to <I>interpolate</I> player states.  It can't interpolate without two states to interpolate between, so the client engine always holds a server snapshot until the next one arrives.  Then it will release the earlier one to the client game.
+
+<P>Most servers run at 20 FPS, so the amount of time the snapshot is held is usually 50ms.
+
+<P><BR>
+
+<P><H3><B><A NAME="IHAMCEAWTNDWIIR">I've heard a million conflicting explanations about what <I>cl_timenudge</I> does.  What is it, really?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>This is directly related to the previous question, so please digest that part first.  If you don't get that part, you might as well skip this answer.
+
+<P><I>cl_timenudge</I> tells your client to either 1) wait less, or 2) wait more, before releasing information to be drawn.  Remember how the client game needs two sets of information to draw a player accurately?  A negative <I>cl_timenudge</I> setting will cause your client to release information earlier, at the expense of accuracy.  A positive <I>cl_timenudge</I> setting will cause it to wait more, effectively simulating Internet lag.
+
+<P>As it is, setting <I>cl_timenudge</I> negative in vanilla Quake 3 and most mods will make other players look &ldquo;jerky.&rdquo;  Unlagged fixes that tendency, which makes negative <I>cl_timenudge</I> values a much more viable way of reducing the effects of Internet lag.  As far as I know, only one non-Unlagged mod, CPMA, does the same thing.  (The fix may also make it into OSP in the future sometime because of that.)
+
+<P>Settings below -30 and above 30 are absolutely meaningless.  Yes, that means even a negative <I>cl_timenudge</I> setting can't rid you completely of the built-in lag.
+
+<P>If you are playing a mod with 50ms lag correction (like OSP, CPMA, or an Unlagged mod with full lag compensation switched off), using a large negative <I>cl_timenudge</I> can screw up your weapon visuals a bit.  However, if you want extra lag compensation, you might just choose to do it anyway at the expense of those things.
+
+<P>Also, if you have <I>cl_timenudge</I> set to a large negative value in <I>any</I> mod, be aware that where you see other players will not be as correct as if you had it set to 0.  That's what you pay in order to lead your instant-hit attacks less &ndash; though what you pay is much less in Unlagged.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>For the most part, the Common Answer will suffice.  I have a few things to clarify, though.
+
+<P>When <I>cl_timenudge</I> has a negative value, every non-player entity is simply extrapolated earlier.  This is just fine, because these entities only require one set of information for extrapolation anyway, and those entities were going to be processed late because of the &ldquo;built-in lag.&rdquo;  That means, with a negative <I>cl_timenudge</I> everything you see except players is perfectly accurate &ndash; it's just a little earlier than it would be otherwise.
+
+<P>Now, by default, when the player entities are run through the trajectory function (and they will be because the client game will assume they need to be extrapolated), the output origin is the same as the input origin.  They'll only move when a new snapshot arrives.  That's what makes players look like they're moving at 20 FPS while everything else is smooth.
+
+<P>The change Unlagged and CPMA make is to turn those player entities into extrapolating entities if they don't interpolate, so that the trajectory function will extrapolate them properly.  In this way, with a negative <I>cl_timenudge</I> value, they'll be extrapolated just like every other entity.
+
+<P>The trade-off is occasional extrapolation error, but that's much, much better than having the players move at 20 FPS.  Personally, I believe Unlagged's behavior is more correct.  It's definitely more useful.
+
+<P><BR>
+
+<P><H3><B><A NAME="DUTNMYLJTOP">Doesn't using <I>cl_timenudge</I> make you look jerky to other players?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>No, definitely not, in any way, shape, or form.  It does not suppress commands, nor does it put inconsistent timestamps in them.  (Those are the only two ways in which it could.)
+
+<P>If you perceive it to be so, you are perceiving the effects of something else &ndash; probably the &ldquo;jerky&rdquo; player's problematic outgoing connection.
+
+<P><BR>
+
+<P><H3><B><A NAME="IJGSAAC">I just got shot around a corner!</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>Sort of.  What actually happened was that, when your attacker saw you, you really <I>were</I> in plain sight, to him.
+
+<P>You didn't think you would get total hitscan lag compensation for free, did you?
+
+<P>At any rate, if all you're worried about is getting &ldquo;shot around a corner,&rdquo; the effects aren't that big of a deal.  You can get used to that.  Just remember that Unlagged helps other people hit you in exactly the same way that it helps you hit other people.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>The answer isn't much different.  You, as the target, were backward reconciled to the point where your attacker saw you, which was in plain sight.  There's nothing buggy or weird about it &ndash; it's just a side-effect.  Lag compensation by client-side hit tests has exactly the same problem.
+
+<P><BR>
+
+<P><H3><B><A NAME="WSITMISBWA">Wait &ndash; so is there more I should be worried about?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>That depends on whether or not you're the kind of player that actually <I>does</I> something about impending hitscan attacks.  (Most casual players really don't.)  If you don't, you have nothing further to worry about.
+
+<P>Imagine yourself timing someone else's rail attacks.  You jump to the side just before one comes by.  The thing is, the hit test against you is done where your attacker saw you, which was before you jumped.  You get hit anyway.
+
+<P>There are numerous scenarios like this, and all of them have the same solution: <B>whatever you were going to do, do it earlier.</B>  How much earlier mostly depends on your attacker's ping.  It actually doesn't take that long to get used to.
+
+<P>Personally, I believe there's hardly a problem when all the players in a game are pinging within 100ms of each other.  That describes most casual and almost all competitive games.
+
+<P>The remaining casual games can handle a larger ping spread easily.  It's the competitive games in which the ping spread is greater than 100ms that you start having fairness issues.  
+
+<P><BR>
+
+<P><H3><B><A NAME="IJRAMBIHOIJRAHBIM">I just railed and missed...but I hit &ndash; or &ndash; I just railed and hit...but I missed!</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><TABLE WIDTH="100%" CELLPADDING=0 CELLSPACING=0><TR><TD>
+
+<P>Yes, and &ndash; as much as I love to say it, but it's true &ndash; it's probably not Unlagged's fault.  What you're seeing happens in Quake 3 anyway.  It's just more noticeable when your rail trail appears immediately.
+
+<P>Okay, there <I>is</I> one new thing in Unlagged that could cause the <I>perception</I> of this happening.  It's that the hit sounds and knockback are delayed, but the rail trail isn't.  By the time the hit sound comes, the target might have moved away.  That can make it <I>look</I> like a false hit.
+
+<P>Anyway, there are four common reasons for false hits and false misses.  Here they are:
+
+<P><B>Axial or misrepresentative bounding boxes</B>
+
+<P><SPAN STYLE="float: right; width: 320px; border: none; padding: 10px">
+<P><IMG SRC="images/bbox1.jpg">
+<FONT SIZE=2><I>Picture 1: Bounding Box</I></FONT>
+
+<P><IMG SRC="images/bbox2.jpg">
+<FONT SIZE=2><I>Picture 2: Rotated 45 Degrees</I></FONT>
+
+<P><IMG SRC="images/bbox3.jpg">
+<FONT SIZE=2><I>Picture 3: Flying Forward</I></FONT>
+
+<P><IMG SRC="images/bbox4.jpg">
+<FONT SIZE=2><I>Picture 4: Flying Sideways</I></FONT>
+
+<P><IMG SRC="images/bbox5.jpg">
+<FONT SIZE=2><I>Picture 5: Flying Backward</I></FONT>
+
+<P><IMG SRC="images/bbox6.jpg">
+<FONT SIZE=2><I>Picture 6: Jumping</I></FONT>
+
+<P><IMG SRC="images/bbox7.jpg">
+<FONT SIZE=2><I>Picture 7: Just Hit Bouncepad</I></FONT>
+
+<P><IMG SRC="images/bbox8.jpg">
+<FONT SIZE=2><I>Picture 8: Swimming</I></FONT>
+</SPAN>
+
+<P>The pictures on the right are taken in third-person with <I>cg_drawBBox</I> set to 1.  This is a cheat-protected option in Unlagged that draws player bounding boxes.  A bounding box is basically the hit zone.  Every player's bounding box, regardless of which model they use, is exactly the same size.
+
+<P>What varies between player models is how representative the player model is of the bounding box.  I took the pictures with Bitterman, the model I use.
+
+<P><B>Picture 1</B> shows Bitterman standing in one place.  The bounding box representation of him is alright &ndash; it's just got empty spaces up both of his sides because he's sort of thin.  Hitting one of those empty sides would definitely look like a false hit.
+
+<P><B>Picture 2</B> shows Bitterman in exactly the same spot, but rotated 45 degrees.  <B>Notice that his bounding box did not rotate with him.</B>  That's not a bug in the <I>cg_drawBBox</I> code &ndash; that's actually the way Quake 3 does bounding boxes.  It's the &ldquo;axial&rdquo; part: they are always in the same orientation in relation to the map.  (&ldquo;Axial,&rdquo; incidentally, means &ldquo;along an axis&rdquo; &ndash; like all 12 edges of the bounding box.)
+
+<P>At ground level, it's about <B>1.4 times easier</B> to hit a player if you're at a 45-degree angle to him in relation to the map.  If you're up about 22 degrees, it's about <B>1.6 times easier</B>.
+
+<P>Yeah, so Quake 3 without lag compensation is the ultimate in consistency, right?  No &ndash; but that's what I hear from a lot of Unlagged naysayers.  (Please excuse my bitter attitude toward people who refuse to understand things.)
+
+<P><B>Picture 3</B> shows Bitterman flying forward.  This is also what it looks like when a player is strafe-jumping.  Right: he's forward in the bounding box, leaving the back half empty.  This is where a lot of &ldquo;you can shoot behind people and still hit them&rdquo; accusations come from.
+
+<P><B>Picture 4</B> is Bitterman flying sideways.  Notice the empty space in the corners.  <B>Picture 5</B> is Bitterman flying backward.  Notice the big, fat empty space at the bottom.
+
+<P>My very favorite, though, has got to be <B>Picture 6</B>.  It's Bitterman doing a standing jump.  Granted, most player models don't have this problem with a standing jump (though all have it at least a little bit), but it illustrates how bad things can get.  Bitterman's player model, when jumping, as this picture shows, can generate both a false hit and a false miss.
+
+<P>The next two, however, happen to the same degree with every player model.
+
+<P><B>Picture 7</B> shows Bitterman just after he hit one of the bouncepads by the railgun in q3dm17.  Notice that he's almost completely outside of his bounding box.  Right: you can hit all that empty space and still hit Bitterman, or you can think you hit Bitterman and actually miss him.  After about a half a second of flying through the air, the player model is put back where he belongs.
+
+<P><B>Picture 8</B> is Bitterman swimming.  Swimming players aren't exactly upright, so they have to fit into their bounding boxes <I>somehow</I>, so this is forgivable.  Except that bounding boxes could be altered for players who are swimming in the water...
+
+<P>Maybe I'll add that to Unlagged sometime.
+
+<P>Anyway, there it is: your player models aren't always the exact representation of &ldquo;reality&rdquo; that you always thought they were.
+
+<P>You can take this one of two ways, I suppose: you can whine and moan about it, or you can use it to your advantage.  You choose.
+
+<P>Personally, if I were a professional player, I would learn the orientations of the player bounding boxes in all the maps I played.  (It's pretty intuitive: they usually line up exactly with the major walls in the map.  It's not a coincidence, it's a constraint placed upon map makers by their tools.)  Then I would favor hitscan weapons when I was at a 45-degree angle to my target horizontally, and even moreso when I was 22 degrees up.
+
+<P>I would also find a player model to use that was very misrepresentative of my bounding box (to use against the n00bs), and find an enemy model (since most pro games happen with OSP or CPMA, where you can set your enemy's model) that was very representative.  I would memorize the best places to aim at for any animation of that enemy model.  For instance, it's always best to shoot at the middle of Bitterman's back when he's strafe-jumping.
+
+<P><B>Rail trail duration</B>
+
+<P>This may be obvious, but it should be said: it takes a little while for your brain to register that a new thing is in your field of vision.  That counts for rail trails.
+
+<P>Also, since the rail trail tends to hang out a bit (400ms, give or take a few), it's easy for it to look like the initial slug missed.
+
+<P>Since your brain tends to judge hits and misses with the rail trail (it sort of draws attention to itself) unless you're concentrating on the crosshair, it could mess you up.  I suggest turning the rail trail duration down by setting <I>cg_railTrailTime</I> to 100.  That's what I do, anyway.  It was amazing how much more consistent my rail shots became after I did that.
+
+<P><B>Prediction error</B>
+
+<P>When you move, it takes about half your ping for the server to get an update that you did. Basically, you see yourself ahead of where you really are on the server. This is the &ldquo;prediction&rdquo; part: your own game predicting where you'll be. It's why sometimes you get hit with rockets that you think you dodged and you dodge rockets that look like they should hit you. It of course gets worse the higher your ping is.
+
+<P>Now, your game can't always know where you'll be.  It can't know for certain whether or not you'll be hit by a rocket, for instance.  If you get hit by one, your game will learn that from the server, and will have to handle &ldquo;prediction error.&rdquo;  It does this by easing you into your correct position over the course of 1/10 second.  That's one reason rocket jumping with a high ping looks so weird.
+
+<P>It takes a bit of time (about half your ping) for your game to find out that you got hit, though.  During this time, your predicted position is completely off.  What happens if you fire a railgun during that time?
+
+<P>Right: where you think you fired from isn't where the server thinks you fired from, and you might miss.  Or you might think you missed, but hit anyway.
+
+<P>Unfortunately, there's nothing much we can do about this one.  We just have to deal with it, and assume the server is always correct when it judges a hit test.
+
+<P>Another common event besides getting hit by a rocket that will cause prediction error is brushing up against another player.  That's why sometimes hit tests in close-up battles look so off.  They're not, really &ndash; it's just that your game thought you would be in a different place than you actually ended up.
+
+<P><B>Missed snapshots, late snapshots, and missed commands</B>
+
+<P>A &ldquo;snapshot&rdquo; is a chunk of data that you get from the server, sent at the end of every server frame.  If the server's <I>sv_fps</I> is set to 20, you get 20 of these in a second.  This is how your game knows what's going on around you.  A snapshot contains information about other players, projectiles, items, you name it &ndash; anything not part of the map itself.
+
+<P>If you miss a snapshot, where you see other players will not be correct.  Exactly what kind of &ldquo;not correct&rdquo; isn't necessarily important.  It's that the server, not able to know which snapshots you got and which you didn't, will assume you got them all, and do all of your hit tests accordingly.  What the server thinks you saw and what you really saw will not be the same thing.
+
+<P>If you have red lines in the lower section of your lag-o-meter, you've got this problem.
+
+<P>Receiving snapshots late can cause problems as well.  Your client has to keep drawing stuff while it hasn't received an update from the server, and it figures out where to put things by guessing (<I>extrapolating</I>, actually).  Sometimes the guesses aren't quite right, and again, what the server thinks you saw and what you really saw will not be the same thing.
+
+<P>If you have yellow bits at the top of your lag-o-meter and you aren't using a negative <I>cl_timenudge</I>, there's a good chance you've got this problem.
+
+<P>Outgoing packet loss can also cause problems.  If a command from you that tells the server to fire your gun doesn't get to the server, it'll get taken care of in the next command.  If that one doesn't get there, it'll be taken care of in the one after that, and so on.  If this kind of thing happens, the server will get a different idea about the time you pressed the fire button than when you actually did.
+
+<P>If your lag-o-meter's green line looks really jagged, you may have this problem.
+
+<P>Fortunately, all of these problems are hardly ever bad enough that they'll totally screw your hit tests over.  If they're bad enough to do that, they usually cause other problems that keep you from having a decent game anyway.  For the most part, they'll just make things look weird every once in a while.
+
+<P><B>Combinations</B>
+
+<P>You're going to get combinations of all these effects.  Sometimes the combination will end up subtractive (they'll sort of cancel each other out), and sometimes they'll end up additive.
+
+<P>In any case, I must repeat this: everything I've described happens <I>with or without</I> Unlagged.  They're just easier to see when full lag compensation is enabled.
+
+</TD></TR></TABLE>
+
+<P><BR>
+
+<P><H3><B><A NAME="DUGHPTA">Does Unlagged give high pingers the advantage?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>Though many have theorized that this is the case (and even asserted it as fact and used it in speaking out against lag compensation), Unlagged does not give high pingers any extra advantage over low pingers.
+
+<P>It's obviously going to be more of a help to them.  If one friend of mine has a buck and another has five, I'm definitely going to have to give more money to the friend with only one dollar if I want them each to have ten.
+
+<P>&ldquo;Ah hah!  But do they each really have ten now?&rdquo; somebody says.  Then he names some scenario, and I show him how it works out perfectly fair.  (It's actually never perfectly fair, because even if it appears so, the low-pinger's commands to fire will always reach the server first.  He will always win if the situation comes down to a race to fire.)  Here are two common ones.
+
+<P><B>The high pinger can shoot around corners.</B>  Alright, tossing aside the notion that his target was in plain sight when he fired, sure, it looks like that.  Reverse the situation, though: if the high pinger is the target and the low pinger is the attacker, the low pinger sees the &ldquo;shooting around corners&rdquo; effect to <I>exactly the same degree</I> as the low pinger did in the original situation.
+
+<P>(And to the people who say they don't pay their exorbitant broadband fees to play like an HPB, I say cry me a river, go jump in a lake, whatever.  If they don't see any value in lack of prediction error, actually being able to <I>use</I> projectile weapons in close-up battles, seeing things more exactly as they happen, always winning a race to fire condition, and not having to deal with having half their commands or snapshots either dropped or suppressed, I don't want to talk.  gg sportsmanship.)
+
+<P><I>Every</I> assertion of this type becomes quite benign as soon as you reverse the situation.  Also, don't forget that, even after you reverse it, the low pinger still wins the race to fire and thus has at least a slight advantage in every case.
+
+<P><B>The high pinger can make tons of shots that should miss.</B>  One low-pinger I know tried an interesting experiment: he started some large downloads and played an Unlagged mod.  He reported hitting things he shouldn't have &ndash; what I call false hits.
+
+<P>Well of course he did.  He also caused most of his received snapshots to arrive inconsistently or never arrive at all.  The top of his lag-o-meter had an awful lot of yellow, which means the things his game was rendering didn't match up with what the server thought it rendered.  It probably ended up dropping his outgoing packets as well, or making them late enough that the server dropped them.  These kinds of conditions are simply not good for consistency.  (There's a more complete explanation of the effects of bad network conditions at the end of the previous question.)
+
+<P>Even if your friendly neighborhood high pinger has connection problems that bad, they're not going to <I>help</I> his rail percentage.  They'll more likely hurt it.  Which would you rather have: good network conditions, where players you aim at are guaranteed to be where you saw them for hit tests; or bad network conditions, where the players you aim at have a good chance of actually being elsewhere?
+
+<P>One thing to keep in mind, though, is that the high pingers who have stuck it out with Quake 3 probably have better aim than most, on average.  If you give some of them a lag-compensated hitscan weapon, they can be downright scary.
+
+<P><BR>
+
+<P><H3><B><A NAME="DUSUTWB">Doesn't Unlagged screw up the weapon balance?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>It changes the weapon balance, certainly.  Since, under normal networking conditions, your hitscan weapons never become less effective, they tend to get used more.
+
+<P>What's difficult to determine is exactly when the game gets too overbalanced in favor of hitscan weapons.  At what ping a player switches from running through tight corridors holding a rocket launcher to holding a shotgun really depends on the player.
+
+<P>Even though I don't have any concrete data (I don't think anyone has), I can offer some observations, based on quite a few months of watching players adapt to hitscan lag compensation.
+
+<P>It seems like it takes about a month for things to get back to normal.  Players will favor hitscan weapons for a while, being simply enchanted by the fact that they can use them so well.  The lightning gun, in particular, gets a lot of time.  After a month or so, the players swing back toward their normal weapon selection, realizing that it's more effective &ndash; that it's still better to bounce a player with a rocket and rail him in the air than to try to rail him twice.
+
+<P>You end up with players who hardly change their game at all, players who will change their game a little more, players who will rely on nothing but hitscan weapons, and everything in between.  Fortunately, the vast majority will be the second group.  What a player ends up doing depends on his style and ping.
+
+<P>So as far as I've seen, it doesn't totally change the weapon balance around.  It more restores it to LAN play than screws it up.
+
+<P>Obviously, if you're playing a total conversion mod in which almost all the weapons are hitscan, things will be different.
+
+<P><BR>
+
+<P><H3><B><A NAME="WDTRSLTOWIS">Why do the rail shots look totally off when I spectate?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>When you play the game with lag compensation on, your hitscan attacks are <I>predicted</I>.  Even though they haven't really happened yet (your commands need to get to the server before they'll happen), your game shows you what <I>probably will</I> happen.  Things look generally consistent.
+
+<P>When you spectate another player who's playing with lag compensation on, you see pretty much exactly what's happening on the server.
+
+<P>The server does hit tests based on where the attacker saw his potential targets, rather than where they are.  That means, for a positive hit test, the rail shaft will be drawn through where the hit target used to be.  You'll see the rail shaft at that position, and the target at his new position.  There will be a discrepancy, and the rail trial may look like it actually missed.
+
+<P>That's it.  There's no cheating going on, no weirdness &ndash; just a visual inconsistency that it's impossible to get rid of without creating inconsistency of other types.
+
+<P><BR>
+
+<P><H3><B><A NAME="WPN">What's <I>cg_projectileNudge</I>?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>I mentioned already that the position you see yourself in is &ldquo;predicted.&rdquo;  It takes a little while (about half your ping) for your position on the server to match your predicted position.  This can make it difficult to dodge projectiles sometimes.
+
+<P>If you set <I>cg_projectileNudge</I> to your ping, it'll be easier.  In return, you deal with projectiles looking like they stick into walls before blowing up, and projectiles looking like they start far away from the other player's muzzle.  (That last one is fine, though, since it's reflecting your window of useful action.)  It's all visual.
+
+<P>Anyway, set this to your ping if you can deal with those visual problems.  Personally, I love it for online rocket battles.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>Again, same as above, but with clarifications.  The reason for the visual problems is that <I>cg_projectileNudge</I> causes rockets to be extrapolated to a time further in the future.  It won't let them go through map geometry, though, so it stops them at the point where they'll strike.
+
+<P><BR>
+
+<P><H3><B><A NAME="WSC">What's skip correction?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P><U>Common Answer</U>
+
+<P>A player's position on the server is only ever changed when the server gets an update from the player.  (The player's client sends an update after every client frame.)  Skipping happens when a server frame goes by without an update from the player.  When that happens, in the next snapshot you get from the server, the player will be in exactly the same position he was in the previous snapshot.
+
+<P>Enough of that will make a player skip around.
+
+<P>Unlagged's skip correction will move a player even if there was no update.  Sometimes it's wrong, but not often enough (or it's not wrong enough) that it'll be worse than the actual skipping.  Usually it's much, much better.
+
+<P><BR>
+
+<P><U>Technical Answer</U>
+
+<P>Clarification: Unlagged &ndash; with full lag compensation both on and off &ndash; does hit tests against what you see.  The player's true state isn't actually changed when there's no update, but the state the other clients see is changed.  The skip correction can work without messing up the skipping player.
+
+<P><BR>
+
+<P><H3><B><A NAME="WATPJABH">What are the phone jacks above players' heads?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>You'll see a phone jack above a player's head if enough server frames go by without an update from him that the server can't correct for the skipping.  Usually this indicates that the player has a problematic ougoing connection, or a bad path to the server.
+
+<P><BR>
+
+<P><H3><B><A NAME="WTP">What's &ldquo;true ping?&rdquo;</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>When the server has <I>g_truePing</I> set to 1 (the default), it uses a different method to calculate players' pings.  The old method is more or less a hardware ping: how long it takes packets to make a round trip.  This doesn't take into account built-in latencies or <I>cl_timenudge</I> at all.
+
+<P>Your ping will probably show a little higher (like 8ms or so), but this way it's <I>more useful</I>.  It gives you a better picture of the kind of lag you're dealing with.
+
+<P><BR>
+
+<P><H3><B><A NAME="ISFPSHT20SR">Is setting <I>sv_fps</I> higher than 20 still recommended?</A></B> (<A HREF="#FAQ">top</A>)</H3>
+
+<P>It's a somewhat common practice to raise the server framerate to 30 or 40 to make the gameplay &ldquo;smoother.&rdquo;  What &ldquo;smoother&rdquo; means in this case is that Quake 3's built-in 50ms lag becomes 33ms or 25ms, and everyone sees things a bit more like how they happen on the server.
+
+<P>Those are really the only two reasons to do it.  Now, when Unlagged is running, full compensation or not, the built-in lag is taken care of completely.  There goes one reason.  It also does every hit test based on what players <I>see</I> rather than what's actually <I>happening</I>, so the second reason isn't any longer valid either.
+
+<P>It does have some detrimental effects:
+
+<UL>
+	<LI>More incoming bandwidth is required of players
+	<LI><I>cl_timenudge</I> can't extrapolate as much, meaning it's less effective (this becomes an issue when <I>sv_fps</I> is over 33)
+	<LI>Higher pings (it seems the client engine holds onto snapshots a little longer)
+	<LI>Other players may be &ldquo;jerkier&rdquo; since more samples mean less smoothing in general
+	<LI>The new skip correction becomes less effective
+</UL>
+
+<P>So no, I wouldn't advise higher server framerates.  There aren't any advantages anymore, and there are plenty of disadvantages.
+
+<P><BR>

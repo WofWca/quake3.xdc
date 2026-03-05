@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>A Solution</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+<P><H2><U><B><A NAME="AS">A Solution</A></B></U></H2>
+
+<P><BR>
+
+<P>That's right, it's only <I>a</I> solution.  There are plenty of others, such as &ldquo;push latency&rdquo; (remember that from QuakeWorld?) and client-side hit tests, and none without drawbacks.  What we'll be doing is called &ldquo;backward reconciliation.&rdquo;  Its only real drawback is that some of its effects affect more than just the player it helps, and in negative ways.  I'll explain exactly how later, and why I don't think it's
+generally a problem.
+
+<P><BR>
+
+<P><H3><B><A NAME="TP">The Problems</A></B></H3>
+
+<P>Here's what we'll be trying to solve:
+
+<UL>
+	<LI><B>Internet latency.</B> This is the most obvious. It's the time it takes for packets to get from one place to another.
+	<LI><B>&ldquo;Built-in&rdquo; latencies.</B> These are niggly little things like the time it takes the client to draw a frame, the time it takes a server to process player commands and run a frame, and the notorious &ldquo;built-in 50ms lag.&rdquo;
+	<LI><B>Skipping.</B> This is where a player has a bad enough connection that he doesn't move as smoothly as a player with a good connection.  These players are harder to hit, especially with instant-hit weapons.
+	<LI><B>Discrete movement.</B> This is also called &ldquo;framerate-dependent behavior.&rdquo; We'll try to solve this as it applies to attacking other players. (pmove_fixed is an attempt at solving this as it applies to consistent movement.)
+</UL>
+
+<P>You might not have given much thought to how framerate-dependent behavior affects hit consistency before.  Recall that players' states are only updated when the server receives a command, which is sent every client frame.  That means a player who is holding a steady 125 FPS will &ndash; all other factors not considered &ndash; move much more smoothly on the server than one who gets 30 FPS.  Keep in mind that your commands (including attacks) will arrive asynchronously from the server frame and snapshot, just like these other players' commands, and answer this question: if you're going to attack one of them with a railgun, which would you rather aim at?
+
+<P>Right: the player who does 125 FPS.  His movement on the server more closely resembles what your client is showing you.  The other, compared to your nice, smooth representation, will probably be &ldquo;jerky.&rdquo;
+
+<P>&ldquo;Skipping&rdquo; happens when a server frame goes by without a command from the skipping client.  The player's origin in the snapshot will be the same as in the previous snapshot. Intermittent, small periods of non-movement like that cause skipping.  We can smooth it out, but never fix it entirely.
+
+<P>It's caused by 1) packet loss; 2) low framerates (try setting com_maxfps to 5 online sometime and see what other players say about your &ldquo;connection&rdquo;); and 3) inconsistent arrival times, which is usually caused by bad or overloaded routing.  (Many routers, giving low priority to UDP packets, will save up UDP packets and send them in spurts when they have a lot of TCP traffic.)  Any combination of those to any degree can do it as well.
+
+<P>Skipping happens to a lesser degree than what I just described to almost every player.  Most players' commands don't reach the server in a perfectly consistent manner, which causes a sort of <I>micro</I>-skipping.  Most of the time, their attackers can't notice, because they get a 20 FPS subsample of the player's movement, which tends to smooth it out.
+
+<P>Quake 3's &ldquo;built-in 50ms lag&rdquo; is actually only 50ms when the server is running at 20 FPS (sv_fps 20) &ndash; which most do.  It's caused by the need to interpolate rather than extrapolate the states of other players.  To interpolate, you need two known values, so in this case you need two snapshots.  The client engine waits, then, for one extra snapshot before releasing the most current snapshot to the client game.  What you see is smooth and mostly like what actually happened on the server, but 50ms behind what your ping tells you it should be.
+
+<P>
+
+<TABLE><TR><TD>
+
+<P><SPAN STYLE="float: right; width: 75%; border: none; padding: 10px">
+<P><IMG SRC="images/latency_on_aim.jpg" WIDTH=100%>
+<FONT SIZE=2><I>Picture 1: The Effects of Latency on Aim</I></FONT>
+</SPAN>
+
+<P>Internet latency might be an obvious problem, but it's not always obvious how it affects the game.
+
+<P>The picture on the right shows the effects of latency as it applies to aiming at another player with an instant-hit weapon. Imagine you have the railgun, and you're pinging 200.  You won't see Xaero at the yellow or white positions, you see him at the red one.
+
+<P>If you press the attack button at this instant, your command with the button press will reach the server when Xaero is at the white position.  So this is where you'll have to aim in order to hit him.
+
+</TD></TR></TABLE>
+
+<BR>
+
+<TABLE><TR><TD>
+
+<P><SPAN STYLE="float: right; width: 75%; border: none; padding: 10px">
+<P><IMG SRC="images/player_prediction.jpg" WIDTH=100%>
+<FONT SIZE=2><I>Picture 2: Xaero's Predicted States</I></FONT>
+</SPAN>
+
+<P>Now consider that everyone sees themselves ahead of where they really are on the server.  Their states are <I>predicted</I>. Assume that Xaero is a player who pings under 50, and take look at
+the next picture, which I also created with my mad Photoshop skillz.
+
+<P>The blue circles indicate where Xaero sees himself.  The first (leftmost) one is where he sees himself when you see him at his red position.  The second is where he sees himself when your rail attack (hopefully) hits him.
+
+<P>One thing, thankfully, that we <I>don't</I> have to is worry about is your own prediction when we do the lag compensation.  That's because, by the time your command with the button press reaches the server, your movement will have reached it as well, and your state on the server will match your predicted state. Prediction <I>error</I> will cause problems, but we'll talk about that later.
+
+</TD></TR></TABLE>
+
+<P><BR>
+
+<P><H3><B><A NAME="TS">The Solution</A></B></H3>
+
+<P>We'll keep a history.  That's the first thing.  The server needs to &ldquo;remember&rdquo; what states every player has been in for every snapshot, back a few hundred milliseconds.
+
+<P>Just before a snapshot is sent to every client (at the end of G_RunFrame()), we'll store every player's origin in a queue. The origin we'll store is the <I>final</I>, <I>snapped</I> origin &ndash;
+the actual origin sent to every client.  That way we can be sure that when we use the history, it will most accurately reflect what each client drew.
+
+<P>When it's time to do an instant-hit attack, we'll wrap up the trace call.  Before the trace, we'll <I>backward reconcile</I> (time shift, move back, whatever) every player who is <I>not the attacker</I> to the state the attacker saw them in when he fired. After the trace, we'll move them all back to their original states. <B>It is important that this backward-reconciled state last as short a time as possible.</B>  Though the system more accurately represents what the attacker saw, it's a little unstable at this point (possibly with players slightly embedded in map geometry and other weird things
+like that), and needs to get into its previous, stable state as soon as possible.
+
+<P>(Don't worry at all about not having players at their right positions for a few moments. As long as no code that depends on players being in the right positions &ndash; such as spawning dead bodies &ndash; is run while the server is in this state, the game will be perfectly fine.)
+
+<P>Take a look at picture 2 again.  If the server backward reconciles like I described, you can fire at Xaero in the red position.  When your attack reaches the server, Xaero will be in his white position.  He'll be moved to his red position for the hit test, then moved directly back to his white position.
+
+<P>Bam!  We have a zero-ping rail.
+
+<P><BR>
+
+<P><H3><B><A NAME="AP">Another Problem</A></B></H3>
+
+<P>Now is a perfect time to explain the negative efffects. We'll keep going with our current example.  What does Xaero see?
+
+<P>If Xaero bothers to look, he sees a rail trail lancing empty space at his red position, while he's at the rightmost blue position.  That's not going to look right.  So there's one problem, but it's only visual.
+
+<P>Now imagine, instead of Xaero flying through the air, he's dodging around a corner.  His position on the server (and also his predicted position) is around the corner, safe.  He sees a rail trail beside him, and it hits him anyway.  Whether that's a visual problem or a gameplay problem depends on Xaero's intent.
+
+<P>Next, imagine Xaero is &ldquo;dodging&rdquo; your rail attacks by timing them, and jumping to one side when he thinks you'll fire.  He jumps, and would normally have dodged your attack.  But he's backward reconciled to where he was when you saw him, and is hit.  That's a gameplay problem.
+
+<P>These problems seem different on the outset, but they're really all the same thing: Xaero's movement effectively has latency added to it with respect to getting hit by instant-hit weapons.
+
+<P>Here's why I don't think it's usually an issue:
+
+<UL>
+	<LI>It's not hard to adjust to.  Whatever Xaero was going to do to protect himself from an instant-hit attack, he should simply <B>do it sooner</B>.  That's very feasible in almost every situation.
+	<LI>It's almost unnoticeable, and extremely easy to adjust to, when everyone on a server is pinging within 100ms or so of each other.  That's almost always the case on a public server, and even more so in a competition.
+	<LI>In exchange for a little bother, you get instant-hit weapons that don't lose their effectiveness with higher pings. This will affect some mods more than others, of course &ndash; mainly realism mods with all those nifty guns.
+	<LI>You can't really &ldquo;dodge&rdquo; an instant-hit attack anyway.  Yes, you can time rail shots and all that, but I'm talking about seeing one coming and doing something about it after you <I>know</I> it's coming.  (Incidentally, that's exactly why Unlagged doesn't include lag compensation for projectile weapons: you <I>can</I> dodge those.)
+	<LI>The low pinger still has either 1) every advantage, or 2) an exactly fair fight with the high pinger.
+</UL>
+
+<P>Here's where I think it may not be optimal:
+
+<UL>
+	<LI>In a competition environment where the ping spread is greater than 100
+	<LI>In mods where movement is important enough with respect to aim
+</UL>
+
+<P><BR>
+
+<P><H3><B><A NAME="AFS">A Free Solution (or two)</A></B></H3>
+
+<P>Here's one of the nicest things about this solution: you get solutions to two other problems, <B>for free</B>, and the backward reconciliation code sets you up for solutions to other problems as well.
+
+<P>Here's a free one: a solution for discrete movement. Your hit consistency no longer relies on your target having a high framerate and a consistent connection.  It all depends on <I>your</I> framerate, and partially on your connection consistency.
+
+<P>Here's another free one: a solution for built-in latencies, like Quake 3's built-in 50ms lag.  These are automatically corrected for along with Internet latency.
+
+<P>Here's a set up: a solution for skipping.  Since now the traces are done against how players were <I>seen</I> you can adjust just that before the server game sends a snapshot, without adjusting a player's true position.  So how does that help? You can smooth out the state of a player who would otherwise be skipping around without messing up his actual movement.  By predicting what his new state would be if the server had received a command in the last frame, you can make him appear to move more normally to everyone else while he skips about on the server, and their shots against him will land just fine.
+
+<P>How about CPMA's and OSP's 50ms lag correction?  We're already set up for it.  You can backward reconcile everyone by 50ms <I>always</I>.  (The Unlagged 2.01 code reflects that: if a player opts out of full lag compensation, or if it's switched off server-side, it still backward reconciles by 50ms for the hit tests.)  You also backward reconcile all players by 50ms while projectiles are being advanced,
+and do a little clean-up projectile extrapolation on the client. Though the process may be a little different, this is almost exactly how those mods do it.
+
+<P>Here's another fun one that I'm planning on adding to Ultra Freeze Tag: letting spectators spectate another player by pointing and clicking on him. You couldn't do that easily without backward reconciliation.  (You could do it client-side, which would be a pain.)  Without some kind of lag compensation, you would have to lead your shots, which would kind of suck for a feature like that.
+
+<P>Anyway, we've done plenty of theorizing.  Let's do this thang.
+
+<P ALIGN=RIGHT><A HREF="code.html">Next: The Code</A>
+
+</BODY>
+</HTML>

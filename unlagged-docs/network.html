@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>Quake 3 Networking Primer</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+<P><H2><U><A NAME="Q3NP">Quake 3 Networking Primer</A></U></H2>
+
+<P>This section gives a brief overview of what goes on between the client and the server.  It's not complete, and it may not be entirely accurate, since most of the information I learned second-hand, or inferred from the game source and from extensive testing.  Still, it should be adequate.  It certainly is consistent with all of my observations and tests so far.
+
+<P>It's also very necessary to understand if you want to implement any kind of lag compensation at all.  Many mod-authoring readers will need to adjust the Unlagged code to fit their games. That will be considerably easier if they have a solid understanding of what's going on and how it works.
+
+<P><BR>
+
+<P><H3><B><A NAME="T">Terminology</A></B></H3>
+
+<P>In order to make sure what I write (and you read) brings to your mind images similar to what I imagine when I'm writing about them, we'll have to go through some terminology.  Hopefully it's not too dry.
+
+<P><B>Snapshot:</B> a chunk of data sent from the server to the client that represents what's going on on the server, at the end of every server frame. (The term's reference to photography is very apt.)  The client's
+representation of this data (in models or polygons rendered, and sounds played) is the starting point for how the player perceives the game world.
+
+<P>Since the client game runs at a different rate than the server (usually at a faster rate), it cannot
+always represent this data exactly as it receives it.  It must <I>interpolate</I> or <I>extrapolate</I>.
+
+<P>A snapshot may contain (but is not limited to): positions (origins) and velocities of other players, origins and velocities of non-player entities such as rockets, sounds to be played and effects to be drawn (events), scoreboard information, and custom client commands.
+
+<P>We'll not concern ourselves with exactly what is included in a snapshot (or excluded according to the client's potentially visible set) or any compression techniques.  Our biggest concern is with what player origins are sent.
+
+<P><B>Command:</B> One command is sent from the client to the server every client frame. A command consists of the following data:
+
+<UL>
+	<LI>a timestamp: the client clock time that the command took place (corresponds with cg.time in the client game code)
+	<LI>the player's view angles (Euler coordinates in pitch-yaw-roll order) in fixed-point format
+	<LI>a bit field that describes which buttons are currently being held down
+	<LI>a weapon number
+	<LI>the player's desired forward, right, and up movement
+</UL>
+
+<P>Aside from custom commands such as &ldquo;quit,&rdquo; this is all the server uses to react to player input.
+
+<P><B>Interpolate:</B> to estimate a value between two known values.  Generally, the Quake 3 client game determines other player origins by interpolating between two known origins, which it obtains from two corresponding snapshots.
+
+<P><B>Extrapolate:</B> to estimate a value beyond one known value, using additional data.  For
+example, rocket origins are extrapolated using a base origin, a
+velocity, and a time delta.
+
+<P><B>Prediction:</B> when the client or server takes a guess at how something in the future will happen.  The kinds of prediction we talk about are of course special cases of extrapolation.  And normally, when we talk about
+Quake 3 prediction, we refer only to the client game predicting where its own player will be by the time the client's commands reach the server.  (Unlagged has other uses for prediction, such as smoothing out players who would otherwise be skipping around.)
+
+<P><B>Prediction error:</B> when the prediction is wrong.  It must be corrected for, which introduces some of the most severe visual problems when it happens on the client &ndash; depending on how far ahead the client was predicting.
+
+<P><B>Frame:</B> a regularly-scheduled (or semi-regularly-scheduled) period of time in which the server or client gets things done.  (In case you were wondering, that's about as specific a definition as we can get.)
+
+<P><BR>
+
+<P><H3><B><A NAME="P">Process</A></B></H3>
+
+<P>There's no need to describe every tiny detail of the process.  Here's a rough sketch of what goes on on the server, though:
+
+<OL>
+	<LI>The server accepts client commands as they arrive.  It makes one call to the VM per client command.  This is the only time that players are ever updated.  (That's why, when someone has a bad connection from their client to the server, they'll freeze in place or skip.)  (See ClientThink() in g_active.c)
+	<LI>At 50ms intervals (if sv_fps is 20), a VM call is made to run a frame.  All non-player objects (and bots) are advanced at this time.  (See G_RunFrame() in g_main.c)
+	<LI>After the VM call to advance non-player objects, the server prepares and sends a snapshot to every client.
+	<LI>Repeat.
+</OL>
+
+<P>On the client:
+
+<OL>
+	<LI>The client engine makes a VM call to draw the active frame.  (See CG_DrawActiveFrame() in cg_view.c)
+	<LI>Almost immediately, the client game checks for a new snapshot.  If there's a new one, it sets cg.snap to the old one and cg.nextSnap to the new one.  If there's not one at all, it sets cg.snap to the old one and cg.nextSnap to NULL.  (See CG_ProcessSnapshots() in cg_snapshot.c)
+	<LI>The client game processes new commands and predicts its own client's state.  Barring prediction error, this is the state the client will be in by the time its commands reach the server and are processed.  (See CG_PredictPlayerState() in cg_predict.c)
+	<LI>All entities in the old snapshot (cg.snap) are processed.  This involves interpolating or extrapolating states, firing events, and adding audio and visual representation.  (See CG_AddCEntity() in cg_ents.c)
+	<LI>More processing is done that doesn't apply to lag compensation, and the frame is actually rendered.
+	<LI>After the VM call to draw the active frame, the client engine processes input and sends a command to the server.  This command will be processed client-side on step #3 in the next iteration.
+	<LI>Repeat.
+</OL>
+
+<P>There's obviously a lot more going on than what's listed, but I've listed what we're concerned with for
+dealing with the many faces of &ldquo;lag.&rdquo;
+
+<P ALIGN=RIGHT><A HREF="solution.html">Next: A Solution</A>
+
+</BODY>
+</HTML>

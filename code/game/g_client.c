@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -689,6 +690,27 @@ static void ClientCleanName(const char *in, char *out, int outSize)
 }
 
 
+static int ClampAndWarn( int clientNum, const char *varName,
+	int value, int min, int max )
+{
+	int newValue = value;
+
+	if ( value < min ) {
+		newValue = min;
+	} else if ( value > max ) {
+		newValue = max;
+	}
+
+	if ( value != newValue ) {
+		trap_SendServerCommand( clientNum,
+			va("print \"%s is out of range [%i, %i], setting from %i to %i\n\"",
+				varName, min, max, value, newValue ) );
+	}
+
+	return newValue;
+}
+
+
 /*
 ===========
 ClientUserInfoChanged
@@ -733,6 +755,50 @@ void ClientUserinfoChanged( int clientNum ) {
 	} else {
 		client->pers.predictItemPickup = qtrue;
 	}
+
+//unlagged - client options
+	// see if the player has opted out
+	s = Info_ValueForKey( userinfo, "cg_delag" );
+	if ( !atoi( s ) ) {
+		client->pers.delag = 0;
+	} else {
+		client->pers.delag = atoi( s );
+	}
+
+	// see if the player is nudging his shots
+	s = Info_ValueForKey( userinfo, "cg_cmdTimeNudge" );
+	client->pers.cmdTimeNudge =
+		// clamp the value between 0 and 999
+		// negative values would suck - people could conceivably shoot other
+		// players *long* after they had left the area, on purpose
+		ClampAndWarn( clientNum, "cg_cmdTimeNudge", atoi( s ), 0, 999 );
+
+	// see if the player wants to debug the backward reconciliation
+	s = Info_ValueForKey( userinfo, "cg_debugDelag" );
+	if ( !atoi( s ) ) {
+		client->pers.debugDelag = qfalse;
+	}
+	else {
+		client->pers.debugDelag =
+			ClampAndWarn( clientNum, "cg_debugDelag", atoi( s ), 0, 1 );
+	}
+
+	// see if the player is simulating incoming latency
+	s = Info_ValueForKey( userinfo, "cg_latentSnaps" );
+	client->pers.latentSnaps =
+		ClampAndWarn( clientNum, "cg_latentSnaps", atoi( s ), 0, 99999 );
+
+	// see if the player is simulating outgoing latency
+	s = Info_ValueForKey( userinfo, "cg_latentCmds" );
+	client->pers.latentCmds =
+		ClampAndWarn( clientNum, "cg_latentCmds", atoi( s ), 0, MAX_LATENT_CMDS - 1 );
+
+	// see if the player is simulating outgoing packet loss
+	s = Info_ValueForKey( userinfo, "cg_plOut" );
+	client->pers.plOut =
+		// no more than 100% packet loss
+		ClampAndWarn( clientNum, "cg_plOut", atoi( s ), 0, 100 );
+//unlagged - client options
 
 	// set name
 	Q_strncpyz ( oldname, client->pers.netname, sizeof( oldname ) );
@@ -976,6 +1042,16 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 //	if ( !client->areabits )
 //		client->areabits = G_Alloc( (trap_AAS_PointReachabilityAreaIndex( NULL ) + 7) / 8 );
 
+//unlagged - backward reconciliation #5
+	// announce it
+	if ( g_delagHitscan.integer ) {
+		trap_SendServerCommand( clientNum, "print \"This server is Unlagged: full lag compensation is ON!\n\"" );
+	}
+	else {
+		trap_SendServerCommand( clientNum, "print \"This server is Unlagged: full lag compensation is OFF!\n\"" );
+	}
+//unlagged - backward reconciliation #5
+
 	return NULL;
 }
 
@@ -1103,6 +1179,13 @@ void ClientSpawn(gentity_t *ent) {
 	// and never clear the voted flag
 	flags = ent->client->ps.eFlags & (EF_TELEPORT_BIT | EF_VOTED | EF_TEAMVOTED);
 	flags ^= EF_TELEPORT_BIT;
+
+//unlagged - backward reconciliation #3
+	// we don't want players being backward-reconciled to the place they died
+	G_ResetHistory( ent );
+	// and this is as good a time as any to clear the saved state
+	ent->client->saved.leveltime = 0;
+//unlagged - backward reconciliation #3
 
 	// clear everything but the persistant data
 

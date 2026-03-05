@@ -1,0 +1,227 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>What Next?</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+
+<P><H2><U><A NAME="WN">What Next?</A></U></H3>
+
+<P>Alright, so you've put all this nifty code in.  How do you know that it works?  Have you got ideas for other features based on this new stuff?
+
+<P><BR>
+
+<P><H3><B><A NAME="TTT">Test, Test, Test!</A></B></H3>
+
+<P>This might seem obvious to a lot of you, but it has to be said: if it's not working as designed, there's no point in having it.  That goes for all of it.
+
+<P>There are ways I've found for testing many of these features that work very well, so in this section I'll share them.  There's no point in all of us discovering these things independently.
+
+<P><BR>
+
+<P><U>Turn on the Lag-o-meter for local games</U>
+
+<P>This one's great for testing anything at all that has to do with <I>cl_timenudge</I>.  Locate CG_DrawLagometer() in cg_draw.c, and change the first few lines to this:
+
+<PRE>
+if ( !cg_lagometer.integer /* || cgs.localServer */) {
+	CG_DrawDisconnect();
+	return;
+}
+</PRE>
+
+<P>You'll also need to know how to read the thing.  Luckily, it isn't that difficult.  Each column in the top line represents a client frame, and each column in the bottom line represents a server snapshot.
+
+<P>The middle of the top line represents when the client is at the beginning of a snapshot.  Values above (always yellow) represent extrapolation (cg.nextSnap is NULL), and values below (always blue) represent interpolation (both cg.snap and cg.nextSnap are defined).  Playing locally, you'll see yellow every once in a while.  Setting cl_timenudge to a negative value will show more yellow, and setting it positive will show more blue.
+
+<P>The height of a column on the lower line represents the time it took for a round trip.  Red columns are missed snapshots, and yellow columns are suppressed snapshots.
+
+<P><BR>
+
+<P><U>Use the lag simulation code</U>
+
+<P>This is as good a place as any to describe exactly what these options do.
+
+<P><B>cg_latentSnaps:</B> specifies how far back the client game will go for snapshots.  If you set this to 1, your client will effectively receive every snapshot one snapshot late.  This will probably add 50ms to your ping.  (It's actually <I>1000 / sv_fps</I> that gets added.)
+
+<P><B>cg_latentCmds:</B> specifies how far back the server game will go for commands.  If you set this to 1, the server will effectively receive every command one command late.  How much this affects your ping depends on what your framerate is.  If you run at 125 FPS, each increment of one will add about 8ms to your ping.
+
+<P>If you want to simulate lag as exactly as possible, set <I>cg_latentSnaps</I> to some number, and then change <I>cg_latentCmds</I> to add just as much latency.  If you want finer control than multiples of 100ms (which is what you'd get with that method), you can regard <I>cg_latentSnaps</I> as your major control and <I>cg_latentCmds</I> as your minor control.  They don't actually have to be perfectly balanced &ndash; in fact, it hardly matters at all, since the effects are almost exactly the same no matter where your latency comes from.
+
+<P>If you have a high framerate, you may have problems simulating latency without freezing up altogether.  The most you can get if you do 125 FPS, for example, is about 400-450.  (Set <I>cg_showmiss</I> to 1 to see why.)  Try lowering your maximum framerate if you freeze up.
+
+<P><B>cg_plOut:</B> specifies what percentage of commands to drop.  For example, setting it to 50 will drop half of all your commands.
+
+<P>All of these settings are compatible with <I>cl_timenudge</I>, <I>cg_cmdTimeNudge</I>, <I>pmove_fixed</I>, and all server-side backward reconciliation settings.  The only thing that suffers is <I>cg_optimizePrediction</I> when you use <I>cg_latentCmds</I> &ndash; it has to be switched off.
+
+<P><BR>
+
+<P><U>Use cg_debugDelag</U>
+
+<P>I must reiterate that this option probably the most important Unlagged debugging tool there is.
+
+<P>Here's a typical dump:
+
+<P><TABLE BGCOLOR=#400000><TR><TD>
+<PRE><FONT STYLE="color: #FFFF00">Int: time: 68360, j: 68350, k: 68400, origin: 974.00 1873.60 264.00</FONT>
+<FONT STYLE="color: #00FFFF">frac: 0.2000, origin1: 976.00 1875.00 264.00, origin2: 966.00 1868.00 264.00</FONT>
+<FONT STYLE="color: #FF0000">Rec: time: 68360, j: 68350, k: 68400, origin: 974.00 1873.60 264.00</FONT>
+<FONT STYLE="color: #00FF00">frac: 0.2000, origin1: 976.00 1875.00 264.00, origin2: 966.00 1868.00 264.00</FONT>
+<FONT STYLE="color: #FFFFFF">level.time: 68400, est time: 68415, level.time delta: 40, est real ping: 55</FONT></PRE>
+</TD></TR></TABLE>
+
+<P>The first two lines (yellow and cyan) are dumped by the client.  This is when it does its own client-side hit test.  The next two are dumped by the server, and the data corresponds with the data shown by the client.  (In fact, for an un-tweaked Unlagged client, when the client is interpolating, the numbers should all be exactly the same.)  The remaining line is also dumped by the server.
+
+<P>The fields in the first line are the client clock, the server times of the two snapshots that were used for interpolation, and the origin of the target that was hit.  The fields in the second line are the interpolation fraction, and the two origins used for interpolation.  The third and fourth lines of course are the same data, but they're the data that the server uses for backward reconciliation, where the first and second are the data the client uses for rendering.
+
+<P>The fields in the last line are the server clock, the estimated actual server clock, the difference between the command time and the server clock, and the difference between the command time and the estimated actual server clock.
+
+<P>Here's another dump:
+
+<P><TABLE BGCOLOR=#400000><TR><TD>
+<PRE><FONT STYLE="color: #FFFF00">Ext: time: 80868, j: 80850, k: 80850, origin: 1694.77 1174.93 510.53</FONT>
+<FONT STYLE="color: #00FFFF">frac: 0.0000, origin1: 1688.00 1175.00 516.00, origin2: 1688.00 1175.00 516.00</FONT>
+<FONT STYLE="color: #FF0000">No rec: time: 80868, j: 80850, k: 80850, origin: 1688.91 1175.39 516.14</FONT>
+<FONT STYLE="color: #00FF00">frac: 0.0000, origin1: 1688.91 1175.39 516.14, origin2: 1688.91 1175.39 516.14</FONT>
+<FONT STYLE="color: #FFFFFF">level.time: 80850, est time: 80889, level.time delta: -18, est real ping: 21</FONT></PRE>
+</TD></TR></TABLE>
+
+<P>The big difference here is that cl_timenudge was -30 when it was dumped.  That's reflected in the prefix to the yellow line: the &ldquo;Ext:&rdquo; means <I>extrapolated</I>.  (Yes, and you bright ones have already figured out that &ldquo;Int:&rdquo; means <I>interpolated</I>.)  It's also reflected in the red line: the &ldquo;No rec&rdquo; means no backward reconciliation took place.
+
+<P><I>cl_timenudge</I> is added to the command time, so the command time in this instance was too early for the server to backward reconcile with.  There wasn't any two previous states to interpolate between in the history.
+
+<P>Online, when you play with a negative <I>cl_timenudge</I> and lag compensation enabled, you'll get &ldquo;Rec:&rdquo; lines from the server instead.  (Unless you play with a larg cg_cmdTimeNudge, of course.)  The client and server origins will also match up much more closely.
+
+<P><BR>
+
+<P><U>Use cg_drawBBox</U>
+
+<P>This is my favorite thing for convincing people that it's mostly perception causing the false positive and false negative hit tests.  It's amazing how much BS is produced by player models not fitting well into their bounding boxes.  I'll talk about that later in the FAQ.  Anyway, testing with this set to 1 will ease your mind about a lot of things that wouldn't look right otherwise.
+
+<P>Whether or not you want to fix up the visuals is up to you.
+
+<P><BR>
+
+<P><U>Attack prediction console dumps</U>
+
+<P>Console dumps are very useful for testing attack prediction.  There are numerous commented-out <I>printf</I> statements all around the code marked by &ldquo;//unlagged - attack prediction&rdquo;, which you can use for making sure random seeds match and making sure that predicted events are suppressed properly.
+
+<P><BR>
+
+<P><U>Simulating player &ldquo;skip&rdquo;</U>
+
+<P>A player skips when a server frame goes by without a client command.  A client command is sent every client frame.  That means you can set <I>com_maxfps</I> to some number under <I>sv_fps</I> to make yourself skip &ndash; simulate a player who has routing problems or is dropping outgoing packets.  I like 5 and 10, personally.  If your testing buddy sees you moving in a reasonably smooth manner when <I>com_maxfps</I> is set to one of those values, the skip correction is working.
+
+<P>You can also set <I>cg_plOut</I> to some number near 100 and see how it handles that.
+
+<P><BR>
+
+<P><U>Projectile nudge and early transitioning tests</U>
+
+<P>The 50ms projectile nudge visual fix-up is easy, if you're adding the <I>cg_projectileNudge</I> feature.  Set it to some insane number and watch a bot shoot a rocket at you.  You'll know right away if it's working.
+
+<P>Early transitioning is a little harder.  Projectile nudge by itself will make rockets seem to stick in the floor a bit before blowing up, and make fast projectiles (like plasma bolts) first appear far away.  If the early transitioning is working, neither of these things will happen.  Also, if you're the sensitive type, your rockets will feel a lot more responsive.
+
+<P>For concrete evidence, you can dump to the console a projectile's base time and the client clock when the projectile is first rendered.  (You'll have to add a member to <I>centity_t</I> to do that, but it's just a little <I>qboolean</I> value.)  If early transitioning is working right, the numbers will be closer together.
+
+<P><BR>
+
+<P><U>cl_timenudge extrapolation testing</U>
+
+<P>Unfortunately, there's not much by way of empirical evidence you can collect on this.  There are a few things you can do to verify it perceptually, though.
+
+<P>First of all, if it's working, other players will move much, much more smoothly when you use a negative <I>cl_timenudge</I> setting than they did before.
+
+<P>You can bind one key to set <I>cl_timenudge</I> to -30, and another to set it to 0.  Watch another player moving, and switch between the two settings quickly.  When <I>cl_timenudge</I> changes to -30, he should jump ahead a little.
+
+<P>You can also turn off the 50ms lag correction and the full lag compensation, set <I>cl_timenudge</I> to -30, set <I>cg_drawBBox</I> to 1, and rail bots.  Your aim should feel <I>almost</I> as if you had the 50ms lag correction turned on.
+
+<P><BR>
+
+<P><U>Player prediction optimization testing</U>
+
+<P>Bind a key to &ldquo;toggle cg_optimizePrediction&rdquo;.  Do different actions &ndash; such as standing in one place, backing into a corner, strafing along a curve, and just running around &ndash; on both settings.  Notice the framerate differences.  Make sure you try it with different pings, because the higher you ping the more the optimization matters.  Also keep in mind that the optimization is more effective on lower-end CPUs, with low detail settings, and in other instances where the graphics card is doing a comparatively small amount of work.
+
+<P>There's also some code marked by &ldquo;// debug code&rdquo; in CG_PredictPlayerState().  The comments in the code will show you how to use it.
+
+<P>Turn on <I>cg_showmiss</I> to see when IsUnacceptableError() returns nonzero.  It'll also let you know when an event was missed or duplicated.
+
+<P>Test with <I>cg_predictItems</I> both on and off.  Have some busy FFA games.  Listen for item pickup sounds to make sure they happen.  (Keep in mind that if you use <I>pmove_fixed</I> and your framerate hovers around the fixed framerate, the client may drop sounds if you haven't fixed that bug.)
+
+<P><BR>
+
+<P><H3><B><A NAME="PE">Possible Extensions</A></B></H3>
+
+<P>Here are some things I've thought up that may be of use to some of you, and general descriptions of how they would work.
+
+<P><BR>
+
+<P><U>Backward reconciliation limit</U>
+
+<P>This one's probably the most obvious: how would you implement a limit to how much backward reconciliation will take place?
+
+<P>First of all, realize that with <I>NUM_CLIENT_HISTORY</I> defined as 17, the upper limit is 850ms if the server's <I>sv_fps</I> is set to the default, 20.  That'll cover pings up to 800.  (There are definite problems when pings climb too high &ndash; such as not having enough backup commands to do a full predict, which will screw over your prediction when you ping above 450 or so if you get 125 FPS &ndash; and 800 is sort of regarded as the upper limit.)
+
+<P>The function you'll need to change is G_DoTimeShiftFor() in g_unlagged.c.  First, calculate the maximum backward reconciliation time: <I>level.previousTime + ent->client->frameOffset - g_maxDelagPing.integer</I>.  (You'd use <I>level.previousTime</I> instead of <I>level.time</I> to account for the built-in 50ms lag.)  Then calculate the normal backward reconciliation time: <I>ent->client->attackTime + ent->client->pers.cmdTimeNudge</I>.  Use the greater of the two values in the call to G_TimeShiftAllClients() and you're done.
+
+<P><BR>
+
+<P><U>100ms lag compensation</U>
+
+<P>This one is definitely out for any game like Quake 3.  The rail trail and shotgun effects would get totally screwed.  The lightning effects would be very difficult to fix.  The rail trail would appear behind players you hit.  The shotgun pellets, since every strike isn't dictated by the server (they're reconstructed on the client using a random seed), will also be screwed up.
+
+<P>However, for games in which every strike is dictated by the server and no weapon has a trail, this would work very well.
+
+<P>Calculate the backward reconciliation time as <I>level.previousTime + ent->client->frameOffset - 50</I> instead of <I>level.previousTime + ent->client->frameOffset</I>.  Use the greater of this and <I>ent->client->attackTime</I> in your call to G_TimeShiftAllClients().
+
+<P>Players who ping over 50 could also use a negative <I>cl_timenudge</I> to knock some lag off.  Players who ping under 50 wouldn't have to use <I>cl_timenudge</I>, since they'd effectively be fully compensated for anyway.
+
+<P><BR>
+
+<P><U>Adding a little lag</U>
+
+<P>It sounds funny, but it's true: a lot of people have asked for a feature which would &ldquo;lag&rdquo; their instant-hit weapons, at least a little bit.  The reason is that the lightning gun is perceived as much too powerful (indeed, it just might be) if all you need is a straight shot.  Id most certainly <I>did</I> balance the weapons after the netcode was complete, 50ms built-in lag and all.
+
+<P>If you want to do this, calculate the backward reconciliation time as <I>ent->client->attackTime + ent->client->pers.cmdTimeNudge + 50</I>.  Then make sure the time doesn't exceed the 50ms backward reconciliation time.  You'd need to do this even if it galls you to let players pinging under 50 have a straighter shaft, because at least 50ms of backward reconciliation is <I>necessary</I> for other features like skip correction.
+
+<P>One nice thing is that you wouldn't really have to fix up the visuals.  As it is, in vanilla Quake 3 netcode, events happen 50ms before player states in the same snapshot are used for interpolation anyway.  Nothing will have changed in the relative timing.
+
+<P><BR>
+
+<P><U>Dealing with spikes</U>
+
+<P>As it is, with full lag compensation enabled, firing before a huge lag spike can still get you a hit.  This may or may not be desirable, depending on how you look at things.
+
+<P>If you decide it isn't, you can constrain the backward reconciliation time using techniques similar to what I've already described.  You could use the client's ping (plus 50ms of course) +/-100ms as your upper and lower limit.
+
+<P><BR>
+
+<P><U>Backward reconciling movers</U>
+
+<P>One thing I haven't paid much attention to is how movers can get in the way of the backward reconciliation.  They are left in their true states while everything else that might get hit with an instant-hit attack is backward reconcilied or stationary.  This can lead to some obvious false positive and false negative hit tests.
+
+<P>On the other hand, it may not be so desirable from the target's point of view: getting railed &ldquo;through a closed door&rdquo; is probably worse than getting railed &ldquo;around corners.&rdquo;  On yet the other hand (I suppose we have three), situations in which it would be a question at all are very rare, even on maps with a lot of doors.  On our fourth hand, platforms may be a real problem in your mod, because a player riding a platform up may very well be backward reconciled to the inside of it.
+
+<P>It shouldn't be that difficult to keep a state history for every mover, just like for players, and backward reconcile them at the same time as the players.  If you do end up implementing this, I would be very interested to see what problems you run into, or conversely how easy it was if it ends up that way.
+
+<P><BR>
+
+<P><U>Point-and-click spectating</U>
+
+<P>I'm looking forward to getting this working in Ultra Freeze Tag.
+
+<P>In SpectatorThink() in g_active.c, you can backward reconcile all the players when there's a button press.  Run a trace, and see if it hits any players.  If it does, follow that player instead of cycling through the clients.
+
+<P>On the client, draw a crosshair for the spectator, and change it to a huge one that communicates &ldquo;Follow This Player!&rdquo; to the spectator when a client-side trace hits a player.
+
+<P>That would be seriously cool.  You wouldn't even have to worry about prediction error getting in the way.
+
+<P>A little more than a simple hit test may be in order, though, because following someone would require you to more or less rail them.  It would probably be better to constrain the players you'd follow to a cone (using the dot product of your forward vector and a normalized vector that points from you to the potential target), and choose the closest.  Run a trace, and if it misses (the client is not visible), try the next closest.
+
+<P>When I get it working, I'll release the code.
+
+<P ALIGN=RIGHT><A HREF="faq.html">Next: Frequently-asked Questions</A>
+
+</BODY>
+</HTML>

@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -2999,6 +3000,10 @@ int BotFindEnemy(bot_state_t *bs, int curenemy) {
 		if (EntityIsInvisible(&entinfo) && !EntityIsShooting(&entinfo)) {
 			continue;
 		}
+//unlagged - misc
+		// this has nothing to do with lag compensation, but it's great for testing
+		if ( g_entities[i].flags & FL_NOTARGET ) continue;
+//unlagged - misc
 		//if not an easy fragger don't shoot at chatting players
 		if (easyfragger < 0.5 && EntityIsChatting(&entinfo)) continue;
 		//

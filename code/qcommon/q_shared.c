@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -1460,3 +1461,29 @@ char *Com_SkipTokens( char *s, int numTokens, char *sep )
 	else
 		return s;
 }
+
+
+//unlagged - attack prediction #3
+// moved from g_weapon.c
+/*
+======================
+SnapVectorTowards
+
+Round a vector to integers for more efficient network
+transmission, but make sure that it rounds towards a given point
+rather than blindly truncating.  This prevents it from truncating 
+into a wall.
+======================
+*/
+void SnapVectorTowards( vec3_t v, vec3_t to ) {
+	int		i;
+
+	for ( i = 0 ; i < 3 ; i++ ) {
+		if ( to[i] <= v[i] ) {
+			v[i] = (int)v[i];
+		} else {
+			v[i] = (int)v[i] + 1;
+		}
+	}
+}
+//unlagged - attack prediction #3

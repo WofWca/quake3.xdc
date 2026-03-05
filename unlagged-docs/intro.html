@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>Introduction</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+
+<P><CENTER><H1><B>&ldquo;Lag&rdquo; Compensation Technique</B></H1></CENTER>
+<P><CENTER><B>and code that does it</B></CENTER>
+<P ALIGN=RIGHT>Neil &ldquo;haste&rdquo; Toronto
+
+<P><H2><U><A NAME="I">Introduction</A></U></H3>
+
+<P>Unlagged started as a mod for <I>me</I>.  I don't think there's any shame in that, since it ends up benefitting so many other people at the same time.  Still, I probably wouldn't have given the questions a second thought if I had a connection that got me sub-50 pings to a bunch of different servers...
+
+<P>I don't have the most evil of Internet connections, but it really is sporadic sometimes. It's not unusual for my ping to fluctuate between 100 and 150, which does terrible things to my rail aim.
+
+<P>Unlagged 1.0 was an attempt to fix that, using a server-side technique called &ldquo;backward reconciliation.&rdquo; Except for a bug in the interpolation code, it worked fairly well.
+
+<P>Unlagged 2.01 started in Ultra Freeze Tag, for which I finally gained a remote test server (thanks, Crimson!) and was able to do some serious debugging. Except for prediction error (which happens when, say, you get hit by a rocket right before you fire), the backward reconciliation is now as perfect as a client-side hit test.
+
+<P>After I finished that, things got out of hand, and here's what it includes now:
+
+<UL>
+	<LI>Full server-side lag compensation for instant-hit weapons (as in Unlagged 1.0, but this time perfectly accurate)
+	<LI>Client-side attack prediction for instant-hit weapons
+	<LI>Cheat-protected debugging options for making sure everything is working right, including lag simulation
+	<LI>Options to let you opt out of full lag compensation for some or all instant-hit weapons, or nudge your compensation a bit
+	<LI>Compensation for Quake 3's built-in 50ms lag for instant-hit weapons when players opt out of full lag compensation, and for all projectile weapons
+	<LI>Correction for &ldquo;skipping&rdquo; players (makes them much easier to hit)
+	<LI>Optimization for player prediction (yields 15-40% performance increase &ndash; or higher &ndash; depending on hardware and network latencies; many thanks to arQon of CPMA for bringing the problem to my attention and providing me with the first solution)
+	<LI>cg_projectileNudge to help in dodging projectiles
+	<LI>Early transitioning of missile entities (makes projectile weapons feel better and projectiles easier to dodge)
+	<LI>cl_timenudge actually extrapolates player movement (instead of making other players look &ldquo;jerky&rdquo;)
+	<LI>Option to show more accurate pings (taking into account lag simulation, built-in latencies, and cl_timenudge)
+	<LI>&ldquo;True lightning&rdquo; works properly
+</UL>
+
+<P>Unlagged 2.01 really is an attempt at making Internet play as smooth as possible, and it generally succeeds. I am aware that not everyone (including mod authors) agrees with full lag compensation for instant-hit weapons, and that's fine. You'll definitely want the rest of it even if you don't implement that part. Playing an Unlagged mod <I>without</I> full lag compensation and cl_timenudge at -30 feels almost like playing with 80ms shaved off of your ping.
+
+<P>We'll start by examining some Quake 3 networking fundamentals, both terminology and process. Then I'll describe the problems we're trying to solve and explain the solution we'll apply to them. After that, we finally merge the code in. (Most of it is cut-and-paste, but some of it may need changes made to it, depending on how different your mod is from vanilla Quake 3.) That will be followed by code walk-throughs, tips for testing, descriptions of possible extensions, and common questions and non-technical and technical answers to them.
+
+<P ALIGN=RIGHT><A HREF="network.html">Next: Quake 3 Networking Primer</A>
+
+</BODY>
+</HTML>

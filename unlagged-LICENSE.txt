@@ -1,0 +1,6 @@
+The majority of the code in this distribution is distributed under the GPL. See COPYING.txt.
+
+`unlagged-docs/`, `scripts/unlagged.shader` and `gfx/misc/bbox.jpg` are public domain.
+
+Hereby declared, undersigned, legalese, etc.,
+Neil Toronto

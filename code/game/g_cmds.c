@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -60,7 +61,10 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 		if ( cl->pers.connected == CON_CONNECTING ) {
 			ping = -1;
 		} else {
-			ping = cl->ps.ping < 999 ? cl->ps.ping : 999;
+//unlagged - true ping
+			//ping = cl->ps.ping < 999 ? cl->ps.ping : 999;
+			ping = cl->pers.realPing < 999 ? cl->pers.realPing : 999;
+//unlagged - true ping
 		}
 
 		if( cl->accuracy_shots ) {

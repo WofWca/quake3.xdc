@@ -1,6 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
+Some portions Copyright (C) 2006 Neil Toronto.
 
 This file is part of Quake III Arena source code.
 
@@ -446,6 +447,11 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ( level.intermissiontime ) {
 		return;
 	}
+
+//unlagged - backward reconciliation #2
+	// make sure the body shows up in the client's current position
+	G_UnTimeShiftClient( self );
+//unlagged - backward reconciliation #2
 
 	// check for an almost capture
 	CheckAlmostCapture( self, attacker );

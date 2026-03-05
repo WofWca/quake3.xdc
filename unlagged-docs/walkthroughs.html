@@ -1,0 +1,258 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>Code Walk-throughs</TITLE>
+<LINK REL=STYLESHEET TYPE="text/css" HREF="styles/page.css">
+</HEAD>
+<BODY LANG="en-US">
+<P><H2><U><A NAME="CWT">Code Walk-throughs</A></U></H2>
+
+<P>It seems overkill to write instructions for placing every single piece of new code.  At the same time, it really is necessary to describe the major portions of it, hence the existence of this section.
+
+<P><BR>
+
+<P><H3><B><A NAME="BR">Backward Reconciliation</A></B></H3>
+
+<P>We'll start here, because it's what every major Unlagged feature is built on.
+
+<P>The main source of our problems with &ldquo;lag&rdquo; (latencies and discrete movement) is the disparity between what the client interpolates from the information it receives from the server, and what's actually going on.  Backward reconciliation is an attempt (and a good one) at reducing that disparity.
+
+<P>I've already described in general terms what we'll do, so let's jump into the implementation.
+
+<P>Look for &ldquo;//unlagged - backward reconciliation #1&rdquo; in the code. The first hit in g_local.h defines <I>clientHistory_t</I>, a structure that defines a single entry in a client history queue. It contains a bounding box, an origin, and a timestamp. <I>gclient_s</I> contains an array of <I>NUM_CLIENT_HISTORY</I> entries of this type.  At the end of every server frame, for every client, we'll make a call to G_StoreHistory().
+
+<P>Now open up g_unlagged.c.  This is where the majority of the backward reconciliation logic is.  I'll give a short explanation of the functions:
+
+<P><B>void G_ResetHistory( gentity_t *ent ):</B> Resets a client's history, initializing every entry with the client's current origin and bounding box.
+
+<P><B>void G_StoreHistory( gentity_t *ent ):</B> Stores an entry in the client history, using the client's current origin and bounding box.  Notice that it doesn't store <I>ent-&gt;r.currentOrigin</I>, it stores <I>ent-&gt;</I><I>s.pos.trBase</I>. <B>This is very important.</B> The current origin is kept purely server-side, so we'll regard it as the client's actual origin.  The trajectory base is what's sent to every client.  When a client is interpolating between two origins to determine what state to draw a player in, this origin is one of them. The other origin is another trajectory base, from the next snapshot.
+
+<P><B>static void TimeShiftLerp( float frac, vec3_t start, vec3_t end, vec3_t result ):</B> Interpolates between two origins.  The important thing to note about this is that it uses the exact set of operations that the client does to avoid floating-point error.
+
+<P><B>void G_TimeShiftClient( gentity_t *ent, int time, qboolean debug, gentity_t *debugger ):</B>
+ This is where the backward reconciliation happens.  First, a loop determines which two history entries sandwich <I>time</I>.  It then saves the parts of the client's state that will change, interpolates between the two states to set the client's new state, and re-links the client's entity.  <B>This is also very important.</B> The server engine needs to be updated on the change, so not calling trap_LinkEntity() will cause strange problems.
+
+<P>Notice also that this function can dump a whole slew of debugging information to the console of a &ldquo;debugger&rdquo; player.  This is probably the most important piece of code when it comes to making sure things are working correctly.
+
+<P><B>void G_TimeShiftAllClients( int time, gentity_t *skip ):</B>  This basically calls G_TimeShiftClient() for every connected client, except the one it's supposed to skip.  It also determines whether or not the skipped client will have debugging information dumped to his console.
+
+<P><B>void G_DoTimeShiftFor( gentity_t *ent ):</B> Finally, we get to the interface.  This is what the other code almost always calls to do the backward reconciliation.  It determines exactly the time that the other clients should be backward-reconciled to, and calls G_TimeShiftAllClients() to do it. <B>If you want to exclude full backward reconciliation, this is where you do it.</B>
+
+<P><B>void G_UnTimeShiftClient( gentity_t *ent ):</B> Puts a client back into his true state, using the information saved in G_TimeShiftClient().  The call to trap_LinkEntity() here is also very important.
+
+<P><B>void G_UnTimeShiftAllClients( gentity_t *skip ):</B> Calls G_UnTimeShiftClient() for every connected client except <I>skip</I>.
+
+<P><B>void G_UndoTimeShiftFor( gentity_t *ent ):</B> This, like G_DoTimeShiftFor(), is the interface.  It does some cursory checks and calls G_UnTimeShiftAllClients().
+
+<P>The rest of g_unlagged.c is for skip correction.
+
+<P>Now look in the code for &ldquo;//unlagged - backward reconciliation #2&rdquo;.  These will be all the places in which players are backward reconciled or restored.  Most of it is easy enough, with a call to G_DoTimeShiftFor() before a trace, and a call to G_UndoTimeShiftFor() after.
+
+<P>The call to G_UnTimeShiftClient() in player_die() in g_combat.c needs special attention.  It's possible, for rail and shotgun attacks, for G_Damage() to be called while a player is in a backward-reconciled state.  Of the functions that G_Damage() can call, player_die() depends on the player being in the correct state. At the beginning of this, then, we put him back.  This won't affect him being restored later &ndash; he'll just be skipped.  In most mods, this is enough to keep things consistent.  However, if you have made changes to how players take damage, or to other code that is executed during a time shift, you may need to make some changes. (The easiest way to deal with it is usually to restrict the scope of the backwared-reconciled state.)
+
+<P>Also, note the direct calls to G_TimeShiftAllClients() and G_UnTimeShiftAllClients() in g_main.c.  These exist to backward reconcile players 50ms for the duration of all missile movement. (The missile thinking has been moved to execute after the rest of the non-player thinking to keep from having to backward reconcile players more than once.)  This will of course make other players easier to hit, at the expense of making projectiles harder to dodge.  By itself, it will also create some small visual problems.  We'll completely handle both of these issues on the client later.
+
+<P>The code marked by &ldquo;//unlagged - backward reconciliation #3&rdquo; resets a player's history at the right times.  &ldquo;Right times&rdquo; are always when a player's origin changes dramatically inside a server frame.  You may have to reset the history in other places, but luck is with us: it's easy to find all the right places.  Search in the code for every instance of <I>EF_TELEPORT_BIT</I> being changed.
+
+<P>&ldquo;//unlagged - backward reconciliation #4&rdquo; marks code dealing with time.  The first hit stores the command timestamp for the attack, which is used as the time to backward reconcile the other players to during instant-hit attacks when full lag compensation is enabled.  The rest deal with estimating the actual server time, which is necessary for backward reconciling only 50ms.
+
+<P>The &ldquo;//unlagged - backward reconciliation #5&rdquo; code is a simple way to notify clients of whether or not full lag compensation is enabled.
+
+<P><BR>
+
+<P><H3><B><A NAME="AP">Attack Prediction</A></B></H3>
+
+<P>If you've opted not to implement full lag compensation, go ahead and skip this section.
+
+<P>We can't do much about visual inconsistencies that show up for a lag-compensated player's targets, or for people who are spectating a lag-compensated player.  However, since full lag compensation is pretty much perfect (barring prediction error and really bad network conditions), we can fix it up for the attacker by predicting weapon effects.
+
+<P>Our first stop is &ldquo;//unlagged - attack prediction #1&rdquo; where it actually takes place.  The lightning gun is easy: you just draw it pointing straight at the crosshair if full lag compensation is enabled on both the server and the client.  The other instant-hit weapons aren't so easy, which is why the function that does it, CG_PredictWeaponEffects(), pretty much has its own source file.  The only entry point to that is a single call at the end of CG_FireWeapon().
+
+<P>To predict weapon effects, we calculate them as the server does and draw them immediately.  There are a few niggly little details to it, though.
+
+<P>First, if a client is predicting weapon effects, it'll have to suppress the corresponding events as it receives them from the server.  (The lightning shaft needs no such treatment, but the others do.)
+
+<P>Second, there is randomness to the effects.  We have to somehow synchronize the client and server.  Using a random seed does this nicely.  The problem is making sure the client and server use the same random seed.  We haven't got time to send a seed from the client to the server &ndash; we need something predictable.  We'll use the attack time for it, since it'll be random enough for our purposes, and it's known by both the client and the server.
+
+<P>The code marked by &ldquo;//unlagged - attack prediction #2&rdquo; is changes to random effects and event suppression.
+
+<P>Code marked by &ldquo;//unlagged - attack prediction #3&rdquo; makes the useful function SnapVectorTowards() available to both the client and server game.  It's now needed by the client since the server uses it to create effects, and the client needs to duplicate some of that functionality.
+
+<P><BR>
+
+<P><H3><B><A NAME="LCGH">Lag-compensated Grappling Hook</A></B></H3>
+
+<P>This one's easy enough.  All we do is make the grapple's end point's first step large enough to make up for the latency in firing.
+
+<P>Look for &ldquo;//unlagged - grapple&rdquo; in the code. It should all be contained within the fire_grapple() function.
+
+<P>One other thing you might want to do is add predicted release to the grapple.  Ultra Freeze Tag's grapple is off-hand, and I've defined <I>BUTTON_GRAPPLE</I> as 32 so it corresponds with &ldquo;+button5&rdquo;.  Here's UFT's predicted release:
+
+<P><PRE>
+if ( !(latestCmd.buttons & BUTTON_GRAPPLE) ) {
+	cg_pmove.ps->pm_flags &= ~PMF_GRAPPLE_PULL;
+}
+</PRE>
+
+<P>You would add something like that to CG_PredictPlayerState().  The safest place to do it is right before the prediction loop (the only loop &ndash; easy to spot).
+
+<P><BR>
+
+<P><H3><B><A NAME="SC">Skip Correction</A></B></H3>
+
+<P>One of the nicest things about how Quake 3 is written &ndash; with regards to skip correction, anyway &ndash; is that a player's actual state is somewhat divorced from the state that other clients use to render him.
+
+<P>BG_PlayerStateToEntityState() is where you go to see it in action.  In this function, a <I>playerState_t</I> is transformed into an <I>entityState_t</I>.  The <I>entityState_t</I> is what is actually sent to every client for rendering.  It's almost never used on the server at all for client entities.
+
+<P>I'll add one more piece of information before getting to the point: for backward reconciliation, we're storing part of an <I>entityState_t</I>.  Taken together, these ideas mean this: we can smooth out a player's movement without tampering with his actual state, and not have to worry about it breaking hit tests.  Remember, for every hit test &ndash; including projectile hit tests &ndash; players are in a backward-reconciled state.  This state uses <I>entityState_t </I>information.
+
+<P>So here's the plan: we'll keep track of the last frame number in which the server received a command from a client.  This is pretty easy &ndash; just set some value in the client struct to level.framenum inside of ClientThink_real().  If, at the end of a server frame, the client has missed one or two frames, we'll extrapolate what his origin <i>would have</i> been if he had continued at the same velocity, and send that to the other clients instead of his actual origin.
+
+<P>Take a look at the code marked by &ldquo;//unlagged - smooth clients #1&rdquo; &ndash; I believe the first hit demonstrates that part.  Also marked is the code that deals with setting the <I>EF_CONNECTION</I> flag and actually smoothing out movement for players who miss a frame.
+
+<P>A couple of things deserve special attention.  First, G_PredictPlayerMove() is defined in g_unlagged.c.  It's a subset (though a large subset) of the stepping and sliding code in bg_slidemove.c.  You pass it a player entity and a duration, and it will extrapolate the player's new position and store it in <I>ent-&gt;</I><I>s.pos.trBase</I>. (Notice that G_StoreHistory() is called only after that happens.) If you have changed any of the stepping and sliding code, you will have to make changes to this as well.
+
+<P>Second, the <I>EF_CONNECTION</I> flag is set when the server is not willing to extrapolate a laggy player's position.  This will put a phone jack over the player's head.  In my opinion, this is much more useful knowledge to any would-be attacker than was shown by the old method, when it actually worked.  (It didn't in the 1.29h codebase.)  Basically, it's a message from the server that says, &ldquo;this guy is still skipping, even though I'm trying to smooth him out.&rdquo;  It will also indicate connection problems, so you can tell the difference between a player who is standing still out of choice and a player who is standing still because he's &ldquo;lagged out.&rdquo;
+
+<P>Now we'll abolish <I>cg_smoothclients</I> altogether.  It never worked right anyway.  (It was supposed to cause a client to extrapolate up to 50ms when it didn't have enough information to interpolate, but it was using the wrong base time.  It would usually extrapolate 50ms no matter what.) We'll also reassign <I>g_smoothclients </I>to enabling and disabling the new skip correction feature.
+
+<P>The code marked by &ldquo;//unlagged- smooth clients #2&rdquo; does all this, and is pretty self-explanatory.
+
+<P><BR>
+
+<P><H3><B><A NAME="PN">Projectile Nudge / Early Transitioning of Missile Entities</A></B></H3>
+
+<P>So now, players are backward reconciled by 50ms for missile hit tests.  That makes projectiles easier to use, but also harder to dodge.  What do we do?
+
+<P>First, on the client, we'll advance every projectile 50ms.  The code that does this is marked by &ldquo;//unlagged - projectile nudge&rdquo;.  (It's simple enough to not need to be split into parts.)  The main logic is in CG_CalcEntityLerpPositions() in cg_ents.c, and is very straightforward.  The rest, scattered about in g_missile.c, is all about setting ent-&gt;s.otherEntityNum to projectiles' owner numbers. This is necessary for the <I>cg_projectileNudge</I> option.
+
+<P><I>cg_projectileNudge</I> allows you to advance other players' projectiles more than 50ms.  If you set it to your ping, you will see projectiles about where they will be by the time your commands to move reach the server.  This should make them easier to dodge.  (Personally, I love it.)  The trade-off is that projectiles will appear to have a very long first step (though I think this is fine since it reflects your window of useful action), and they will stick in the floor for a bit before exploding.
+
+<P>Now, advancing a rocket only 50ms ahead will create some small visual problems.  We can take care of these by transitioning missile entities and their explosions earlier.
+
+<P><I>cg.snap</I> contains the &ldquo;current&rdquo; server snapshot. <I>cg.nextSnap</I>, if not NULL, contains the &ldquo;next&rdquo; one.  Interestingly enough, entities are never processed until the client game makes <I>cg.nextSnap</I> into <I>cg.snap</I> (&ldquo;transitions&rdquo;).  That means, with regards to entities, your client game has information 50ms before it actually uses it!
+
+<P>There are certain expectations of order in the code as it is, but I've found that it's perfectly safe to transition <I>ET_MISSILE</I> and <I>ET_GENERAL</I> entities (missiles and their explosions) early.  The code marked by &ldquo;//unlagged - early transitioning&rdquo; does that.
+
+<P>This is the effect: players see missiles and explosions 50ms earlier than they normally would. Couple that with advancing projectiles by 50ms, and you have missiles and explosions that look perfectly normal again &ndash; but you feel like you're pinging 50ms less when you use them.  They are also no more difficult to dodge.
+
+<P>Everybody wins.  With these changes, 50ms of lag compensation for projectiles involves no trade-offs at all.
+
+<P><BR>
+
+<P><H3><B><A NAME="ETN">Extrapolating With cl_timenudge</A></B></H3>
+
+<P>It's a small change, but it's nifty.
+
+<P>Look for &ldquo;//unlagged - timenudge extrapolation&rdquo; in the code.  It's all contained within CG_CalcEntityLerpPositions() in cg_ents.c.
+
+<P>This new code will only be run if the preceeding <I>if</I> statements evaluate to false &ndash; in other words, if the entity's origin was <I>not</I> interpolated.
+
+<P>If you set <I>cl_timenudge </I>to a large negative value (like -30), cg.nextSnap will <I>almost always</I> be NULL.  That means other players' origins will <I>almost never</I> be interpolated.  The code drops through to do extrapolation. However, since a player's trajectory type is <I>TR_INTERPOLATE</I>, the trajectory evaluation function (BG_EvaluateTrajectory()) will simply return the input vector.
+
+<P>The input vector will only change when there's a new snapshot.  That's why other players look &ldquo;jerky&rdquo; when you use a large negative <I>cl_timenudge</I>.
+
+<P>The solution is simple: change players' trajectory types if they're not interpolated, so they'll be properly extrapolated.  That's all the code does.
+
+<P>The effect is nice: setting cl_timenudge to a negative value will no longer make other players look &ldquo;jerky.&rdquo;  The client game will basically predict up to 50ms of other players' movement for you.
+
+<P>One notice: this will <I>not</I> work with the old smoothclients behavior.  If you're not doing Unlagged's skip correction and you want to make it work, you'll need to fix smoothclients first.  It's simple: pass <I>level.time </I>into BG_PlayerStateToEntityStateExtrapolate() instead of <I>ent-&gt;client-&gt;ps.commandTime</I>.
+
+<P><BR>
+
+<P><H3><B><A NAME="PPO">Player Prediction Optimization</A></B></H3>
+
+<P>I suppose it would be correct to label this code as &ldquo;experimental&rdquo; since it hasn't had nearly as much time in the wild as the rest of it.  Even so, I'm very sure that it's working just fine, having tested it under various conditions myself and with other players.  A thorough analysis also shows that there is nothing that depends on the changed code that is broken.  Er...<I>probably</I>.  So if you find bugs, please let me know.
+
+<P>Recall that the server recevies a very small set of data to work with in processing player input, which represents more or less a few key presses and view angles.  Also, remember that where you see yourself is <I>predicted</I>, meaning basically that, barring prediction error, you see yourself where you will be on the server by the time your most recent command is processed by the server.
+
+<P>This all means that the client and the server need to process the input in exactly the same way in order to stay synchronized.  They accomplish this by each making a call to Pmove() for a command.  (This works because Pmove() is defined in bg_pmove.c, which is compiled into both the server and client game.)  The server only makes one call to Pmove() per command, but the client can make up to <I>63 calls to Pmove()</I> per command, depending on latency.
+
+<P>Alright, that's nuts, I hear you saying.  There's actually a really good reason for it.  (And there's no good reason that we can't optimize it, either.)  The simplest way of doing player prediction requires it.  Open up cg_predict.c, and take a look at CG_PredictPlayerState().  I'll describe the function, starting at the place which concerns us: where <I>cg.predictedPlayerState</I> is set to a player state from a valid snapshot.  (Look for the comment &ldquo;get the most recent information we have&rdquo; and you'll be starting in the right place.)
+
+<OL>
+	<LI>Assign <I>cg.predictedPlayerState</I> to a player state from a valid snapshot.  <B>This is where the prediction will start.</B>  Either <I>cg.snap-&gt;ps</I> or <I>cg.nextSnap-&gt;ps</I> represents our own player's true state on the server at the time the corresponding snapshot was sent.  It makes sense to start predicting from here.
+	<LI>Loop: get an old command, from 63 commands ago on up to the current command.  (<I>CMD_BACKUP</I> is defined as 64.)
+	<LI>If the command happened before the snapshot's player state was produced, or it happened on the previous map, go back to step #2 to get the next command.
+	<LI>If we've finally caught up to our last predicted player state, handle prediction error.
+	<LI>Call Pmove() to advance the player.
+	<LI>Check for touching predicted triggers (like bouncepads, teleporters, and items if we're predicting item pickups).
+	<LI>Go back to step #2 to process the next command.
+</OL>
+
+<P>After this loop is finished (after it's processed the latest available command), your player's predicted state will be valid, and will represent the state you should be in by the time these commands are processed by the server.
+
+<P>Here's the rub: the more commands you have to back up (in other words, the higher your ping is), the more Pmove() calls have to be made.  Pmove() calls are expensive, particularly the stepping and sliding code.  (Sliding can take an obscene amount of time, and stepping can double it.  It's mostly the trace calls that slow it down.)
+
+<P>One optimization we can make to this is to not repredict everything when we haven't got new information.  It's really only the first frame after a new snapshot is transitioned that we know anything new about our own state, so it's only then that we should have to repredict everything.  On other frames, we should be able to get away with running only one Pmove() because our predicted state <I>can't</I> be changed because of new information from the server.
+
+<P>That works, and that's what the code that arQon sent me did.  The only problem with it is that it
+tends to mess up player state events with regards to predicted item pickups.  He doesn't really have to worry about that (most CPMA players don't use that feature), but I do.  It <I>may</I> even rarely mess up player state events in general, since it may produce results that are different than they would be with no optimization.  (I haven't researched that very much, but I doubt that's really the case.)
+
+<P>So we'll do the optimization suggested in the function's comments, because it's safer.  Our particular implementation will leave the predicted player state in almost exactly the same state as it would be if we weren't optimizing.
+
+<P>We'll make a queue to hold all the player states after a Pmove().  When we process a command, we'll either call Pmove(), or <I>play back</I> a previous call to Pmove() by simply copying in an old predicted player state.  This will preserve the player state events.
+
+<P>Another thing we can do is this: when we get a new snapshot from the server, we can check the player state in it against its corresponding predicted player state from our queue.  If it matches, there is no need to fully repredict our player's state: we can start from the predicted player state instead. In that case, we still only need to run Pmove() once.
+
+<P>If we do that, a full predict will only happen if there is some kind of prediction error.  In normal play, it seems that happens, on average, about twice every second.  That's really good.  It's usually health or armor counting down, getting shot, and picking up items that does it &ndash; almost never from just running around.
+
+<P>Here's the new order of things:
+
+<OL>
+	<LI>Assign <I>cg.predictedPlayerState</I> to a player state from a valid snapshot.  <B>This is where the prediction will start.</B>  Either <I>cg.snap-&gt;ps</I> or <I>cg.nextSnap-&gt;ps</I> represents our own player's true state on the server at the time the corresponding snapshot was sent.
+	<LI>Check to see whether the snapshot we're using is different from the last one (whether it's 	new).
+	<OL TYPE=a>
+		<LI>If it's not, decide to start calling Pmove() after the last predicted command.  (This will cause Pmove() to be called only once.)
+		<LI>If it is, find the predicted player state that corresponds with the snapshot's player state.
+		<OL TYPE=i>
+			<LI>If it doesn't match, decide to start calling Pmove() right away.  (This will cause a full predict.)
+			<LI>If it does match, adjust the queue and decide to start calling Pmove() after the last predicted command.  (This will cause Pmove() to be called only once.)
+		</OL>
+	</OL>
+	<LI>Loop: get an old command, from 63 commands ago on up to the current command.
+	<LI>If it happened before the snapshot's player state was produced, or it happened on the previous map, go back to step #3 to get the next command.
+	<LI>If we've finally caught up to our last predicted player state, handle prediction error.
+	<LI>Check the command number against the number at which we decided we'd start calling Pmove().
+	<OL TYPE=a>
+		<LI>If we've passed it up, call Pmove().  Save the player state in the queue for later.
+		<LI>If we haven't, copy the correct saved player state from the queue into the predicted player state.
+	</OL>
+	<LI>Check for touching predicted triggers (like bouncepads, teleporters, and items if we're predicting item pickups).
+	<LI>Go back to step #3.
+</OL>
+
+<P>Look in the code for &ldquo;//unlagged - optimized prediction&rdquo; and you'll find all the changes.
+
+<P>A few things deserve special mention.  First is some commented-out code marked with &ldquo;// debug code&rdquo;.  Uncommenting these lines will dump a line per client frame to the console, indicating how many Pmove() calls were made and how many commands were played back from the player state queue on that frame.  This is very useful for making sure everything is working correctly.
+
+<P>A new function, IsUnacceptableError(), takes two player states as arguments and returns a value based on which parts are different.  If no parts are different, it returns zero.  It is important to note that this function will tolerate a 0.1 unit difference in the player origin, player velocity, and grapple point.  0.1 is more than enough to account for floating-point error, but not enough to cause any problems with player prediction.  (For reference, a player is 30 units wide.  That means  IsUnacceptableError() tolerates error up to 1/300 a player's width.)
+
+<P><I>cg_showmiss</I>, when nonzero, now also dumps a line to the console when IsUnacceptableError() returns nonzero (meaning the player states are different).  It also writes &ldquo;saved state miss&rdquo; to the console when the predicted player state's command time differs from its supposedly corresponding player state queue entry.  This should only happen for a little while after the value of <I>pmove_fixed</I> changes.  If it happens at any other time, something is wrong.
+
+<P><BR>
+
+<P><H3><B><A NAME="TPLS">True Ping / Lag Simulation</A></B></H3>
+
+<P>&ldquo;True ping&rdquo; is really quite simple.  Every command we receive has a timestamp.  If we subtract that from the our estimated server time, we get the ping.  That could be a little too sporadic to be useful, however, so we'll save up the pings in a queue and return their average.
+
+<P>That was easy.  Lag simulation is a little bit more difficult.
+
+<P>For almost all intents and purposes, it doesn't matter where your latency comes from.  The effects will end up exactly the same whether the latency happens on the way from the server to your client, or from your client to the server.  Nevertheless, we'll implement both types.
+
+<P>Server-to-client latency isn't too difficult.  The game engine is nice to us, and keeps a backlog of snapshots.  We'll simply grab an earlier snapshot than the one we'd normally get.  Look for the code marked by &ldquo;//unlagged - lag simulation #1&rdquo; in CG_ReadNextSnapshot().  That's the main logic.
+
+<P>We'll also have to fix up the client clock to reflect the latency, since the clock time is sent directly to the VM by the game engine, which has no clue that we're looking into the backlog.  Then, there are a couple of calls to CG_Error() that happen when the client believes it's insane.  During transitions between different values of <I>cg_latentSnaps</I>, it actually will be, so we have to turn them into calls to CG_Printf() instead.
+
+<P>On the server, we'll adjust the client's ping according to the value of <I>cg_latentSnaps</i>, and adjust the attack time so the backward reconciliation will work properly.  (We have to do that because when the client engine sends out commands, it puts the regular timestamps on them, again, having no clue that we're looking into the backlog for snapshots.)
+
+<P>That's it for server-to-client latency.  All of this is marked by &ldquo;//unlagged - lag simulation #1&rdquo;.
+
+<P>For client-to-server latency, we'll keep a queue of up to 64 past commands.  In ClientThink_real(), we'll grab an earlier one according to the value of <I>cg_latentCmds</I>.  The code marked by &ldquo;//unlagged - lag simulation #2&rdquo; does this.
+
+<P>The code marked by &ldquo;//unlagged - lag simulation #3&rdquo; does outgoing packet loss.  This one's pretty simple: it randomly skips the think function according to the client's <I>cg_plOut</I> setting.
+
+<P ALIGN=RIGHT><A HREF="whatnext.html">Next: What Next?</A>
+
+</BODY>
+</HTML>
