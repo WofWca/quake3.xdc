@@ -802,6 +802,11 @@ void CG_PredictPlayerState( void ) {
 			cg_pmove.cmd.serverTime = ((cg_pmove.cmd.serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
 		}
 
+		cg_pmove.autoAttack = cg_autoAttack.integer && cgs.g_autoAttack;
+		cg_pmove.autoAttackTimer = cg.autoAttackTimer;
+		cg_pmove.autoAttackDelay =
+		AUTOATTACK_DELAY_MS + cg.snap->ping + AUTOATTACK_CLIENT_EXTRA_DELAY;
+
 //unlagged - optimized prediction
 		// we check for cg_latentCmds because it'll mess up the optimization
 		if ( cg_optimizePrediction.integer && !cg_latentCmds.integer ) {
@@ -847,6 +852,8 @@ void CG_PredictPlayerState( void ) {
 			numPredicted++; // debug code
 		}
 //unlagged - optimized prediction
+
+		cg.autoAttackTimer = cg_pmove.autoAttackTimer;
 
 		moved = qtrue;
 
