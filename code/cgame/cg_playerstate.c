@@ -200,6 +200,10 @@ void CG_Respawn( void ) {
 
 	// select the weapon the server says we are using
 	cg.weaponSelect = cg.snap->ps.weapon;
+
+	// The server clears `gclient_t.autoAttackTimer` in `ClientSpawn`,
+	// so we also clear it on spawn.
+	cg.autoAttackTimer = 0;
 }
 
 extern char *eventnames[];

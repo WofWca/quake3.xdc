@@ -1861,14 +1861,6 @@ void PmoveSingle (pmove_t *pmove) {
 		pm->ps->eFlags &= ~EF_TALK;
 	}
 
-	// set the firing flag for continuous beam weapons
-	if ( !(pm->ps->pm_flags & PMF_RESPAWNED) && pm->ps->pm_type != PM_INTERMISSION && pm->ps->pm_type != PM_NOCLIP
-		&& ( pm->cmd.buttons & BUTTON_ATTACK ) && pm->ps->ammo[ pm->ps->weapon ] ) {
-		pm->ps->eFlags |= EF_FIRING;
-	} else {
-		pm->ps->eFlags &= ~EF_FIRING;
-	}
-
 	// clear the respawned flag if attack and use are cleared
 	if ( pm->ps->stats[STAT_HEALTH] > 0 && 
 		!( pm->cmd.buttons & (BUTTON_ATTACK | BUTTON_USE_HOLDABLE) ) ) {
@@ -1911,6 +1903,70 @@ void PmoveSingle (pmove_t *pmove) {
 	PM_UpdateViewAngles( pm->ps, &pm->cmd );
 
 	AngleVectors (pm->ps->viewangles, pml.forward, pml.right, pml.up);
+	
+	// If there is a target under the crosshair, attack.
+	// Intended for use with touchscreen controls.
+	// We trace a bunch of rays around the crosshair so that this isn't just a perfect aimbot.
+	// We start shooting when there's something roughly in the default crosshair circle.
+	// We add a small delay so that the user needs to have some aiming skill to keep opponents in their crosshairs for longer than one frame.
+	if ( pm->autoAttack ) {
+		vec3_t muzzle, start, end, movedEnd;
+		trace_t trace;
+		int i;
+		int hitSomething = 0;
+		float spreads[9][2] = {
+			{0.0f, 0.0f },
+			{1.f, 0.f },
+			{-1.f, 0.f },
+			{0.f, -1.f },
+			{0.f, 1.f},
+			{0.707f, 0.707f},
+			{-0.707f, 0.707f},
+			{0.707f, -0.707f},
+			{-0.707f, -0.707f},
+		};
+
+		// TODO: different firing patterns for different weapons? e.g. rocket launcher activates if shooting below target's feet
+		// TODO: lead moving targets?
+		VectorCopy(pm->ps->origin, muzzle);
+		muzzle[2] += pm->ps->viewheight;
+		VectorCopy(muzzle, start);
+		VectorMA( start, 8192, pml.forward, end );
+
+		for (i = 0; i < sizeof(spreads) / sizeof(spreads[0]); i++) {
+			VectorCopy(end, movedEnd);
+			VectorMA( movedEnd, 500.f*spreads[i][0], pml.right, movedEnd );
+			VectorMA( movedEnd, 500.f*spreads[i][1], pml.up, movedEnd );
+			pm->trace(&trace, start, NULL, NULL, movedEnd, pm->ps->clientNum, MASK_PLAYERSOLID | CONTENTS_CORPSE);
+			if (trace.entityNum < MAX_CLIENTS && trace.entityNum != ENTITYNUM_NONE) {
+				hitSomething = 1;
+				if (pm->autoAttackTimer == 0) {
+					// Start shooting `autoAttackDelay` ms after we hit something
+					pm->autoAttackTimer = pm->autoAttackDelay;
+				}
+				break;
+			}
+		}
+
+		if (pm->autoAttackTimer > 0) {
+			if (pm->autoAttackTimer == AUTOATTACK_KEEPSHOOTING || (pm->autoAttackTimer -= pml.msec) <= 0) {
+				// Shoot at least once when the timer expires. If there's still something in the
+				// crosshairs now, set timer to AUTOATTACK_KEEPSHOOTING to keep shooting until it's gone.
+				pm->cmd.buttons |= BUTTON_ATTACK;
+				pm->autoAttackTimer = hitSomething ? AUTOATTACK_KEEPSHOOTING : 0;
+			}
+		}
+	}
+
+
+	// set the firing flag for continuous beam weapons
+	if ( !(pm->ps->pm_flags & PMF_RESPAWNED) && pm->ps->pm_type != PM_INTERMISSION && pm->ps->pm_type != PM_NOCLIP
+		&& ( pm->cmd.buttons & BUTTON_ATTACK ) && pm->ps->ammo[ pm->ps->weapon ] ) {
+		pm->ps->eFlags |= EF_FIRING;
+	} else {
+		pm->ps->eFlags &= ~EF_FIRING;
+	}
+
 
 	if ( pm->cmd.upmove < 10 ) {
 		// not holding jump

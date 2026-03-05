@@ -156,6 +156,11 @@ typedef enum {
 
 #define	PMF_ALL_TIMES	(PMF_TIME_WATERJUMP|PMF_TIME_LAND|PMF_TIME_KNOCKBACK)
 
+// pmove->autoAttack*
+#define AUTOATTACK_DELAY_MS				32
+#define AUTOATTACK_CLIENT_EXTRA_DELAY	20
+#define AUTOATTACK_KEEPSHOOTING			INT_MAX // special timer value
+
 #define	MAXTOUCH	32
 typedef struct {
 	// state (in / out)
@@ -184,6 +189,23 @@ typedef struct {
 	// for fixed msec Pmove
 	int			pmove_fixed;
 	int			pmove_msec;
+
+	qboolean	autoAttack;
+	// `Pmove` will read and write this.
+	int			autoAttackTimer;
+	// For clients this should have a greater value than for the server,
+	// to reduce the amount of predicted shots
+	// that don't actually happen on the server.
+	// The difference should probably be equal to the "true" ping
+	// (i.e. rougly ping + delay between sv_fps frames).
+	//
+	// The downsides of not "shooting" client-side are that
+	// the lightning gun keeps playing the "start firing" sound
+	// and that the machinegun barrel doesn't spin.
+	// But if we predict "shooting" while not actually shooting,
+	// then it gets quite annoying -
+	// it looks like we're firing a shot every frame or so.
+	int			autoAttackDelay;
 
 	// callbacks to test the world
 	// these will be different functions during game and cgame

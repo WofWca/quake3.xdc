@@ -1,83 +1,59 @@
-<img src="https://raw.githubusercontent.com/clover-moe/flexible-hud-for-ioq3/master/misc/lilium.png" width="64">
+# Quake III Arena auto-attack mod
 
-**ZTM's Flexible HUD mod for ioquake3** is a mod for [ioquake3](https://github.com/ioquake/ioq3) with widescreen HUD and other features. See the [website](https://clover.moe/flexible-hud-for-ioq3/) for more details.
+Automatically shoot if there is a player in your crosshairs.
 
+Useful for touchscreens and maybe other non-mouse input devices.
 
-## About
+## Usage
 
-_ZTM's Flexible HUD mod for ioquake3_ was created in 2013 to fullfil one person's esoteric requests on the ioquake3 forum. It was not intended to be an on-going project and the mod title and versioning was not treated seriously.
+The installation steps for this mod are the same as for almost every other mod.
 
-In 2014, _ZTM's Flexible HUD mod for ioquake3 R2_ added support for aspect correct widescreen HUD and field of view. This was based on code that zturtleman previously developed for [Spearmint](https://github.com/clover-moe/spearmint). In 2018, _ZTM's Flexible HUD mod for ioquake3 R4_ added support for Quake 3: Team Arena; also utilizing code for Spearmint.
+1. Download the mod file (`.pk3`)
 
-_ZTM's Flexible HUD mod for ioquake3_ is based on [Lilium Arena](https://github.com/clover-moe/lilium-arena).
-_ZTM's Flexible HUD mod for ioquake3_ code commits: [compare/lilium-arena...master](https://github.com/clover-moe/flexible-hud-for-ioq3/compare/lilium-arena...master)
+2. Put the `.pk3` file alongside the `pak0.pk3` file of your game, usually  
+   `C:\Programs (x86)\ioquake3\baseq3` or  
+   `C:\Programs (x86)\Steam\steamapps\common\Quake 3 Arena\baseq3`.
+   For Team Arena the final folder is `missionpack` instead of `baseq3`.
 
+   The directory structure will look like this:
 
-## License
+   ```tree
+   Quake 3 Arena
+   ├── baseq3
+   │   ├── pak0.pk3
+   │   ├── pak1.pk3
+   │   ├── pak2.pk3
+   │   ├── pak3.pk3
+   │   ├── pak4.pk3
+   │   ├── pak5.pk3
+   │   ├── pak6.pk3
+   │   ├── pak7.pk3
+   │   ├── pak8.pk3
+   │   └── pak999-baseq3-auto-attack-mod.pk3
+   ├── missionpack
+   │   ├── pak0.pk3
+   │   └── pak999-missionpack-auto-attack-mod.pk3
+   └── quake3.exe
+   ```
 
-_ZTM's Flexible HUD mod for ioquake3_ is licensed under [the GNU GPLv2](COPYING.txt) (or at your option, any later version). The Quake 3 data files are not under a free license and must be purchased in order to play Quake 3.
+   If you don't have `missionpack`, you don't need to create it.
 
+3. Start the game.
+4. Open the console (`~` key).
+5. `\set g_autoAttack 1` to enable auto-attack on the server.
+6. `\set cg_autoAttack 1` to enable auto-attack on the client.
+7. Aim at someone.
 
-## Resources
+Both the server and the clint must set the respective variables to `1`
+in order for auto-attack to work.
 
-  * [Website](https://clover.moe/flexible-hud-for-ioq3)
-  * [Discussion / Technical support](https://clover.moe/open-source)
+## For mod developers
 
+This mod's source code is based on [ioquake3](https://github.com/ioquake/ioq3).
+If you want to integrate this mod into your mega mod,
+simply rebase the few commits on top of your mod's source code.
+It's only ~100 lines of changes:
+<https://github.com/WofWca/quake3-auto-attack-mod/compare/ioq3...master>.
 
-## Compiling
-
-_ZTM's Flexible HUD mod for ioquake3_ is compiled using GNU Make (`make`) and requires a C compiler. Most dependencies are included in the repository. Compiling for Linux requires installing SDL 2 library and headers.
-
-The engine is unmodified Lilium Arena. You could build only the mod using the following:
-
-```
-git clone https://github.com/clover-moe/flexible-hud-for-ioq3.git
-cd flexible-hud-for-ioq3
-make BUILD_SERVER=0 BUILD_CLIENT=0
-```
-
-
-## Contributing
-
-High quality code contributions are more helpful than rushed contributions.
-
-Reviewing pull requests is sometimes more work than a reviewer doing the work in the first place so pull requests may be disregarded.
-
-
-## Credits
-
-_ZTM's Flexible HUD mod for ioquake3_ is maintained by Clover.moe.
-
-### id Software
-
-  * John Carmack
-  * Robert A. Duffy
-  * Jim Dose'
-  * Jan Paul van Waveren
-
-### ioquake3 contributors
-
-  * Tim Angus
-  * James Canete
-  * Vincent Cojot
-  * Ryan C. Gordon
-  * Aaron Gyes
-  * Zack Middleton
-  * Ludwig Nussel
-  * Julian Priestley
-  * Scirocco Six
-  * Thilo Schulz
-  * Jack Slater
-  * Tony J. White
-  * ...and many, many others!
-
-### Clover.moe
-
-  * Zack Middleton (zturtleman)
-
-### Additional credits
-
-  * 4:3 FOV value to widescreen formula - LordHavoc
-  * cg_fovAspectAdjust implementation - Razor
-
-
+If you are not going to preserve git commit history,
+don't forget to appropriately credit the authors otherwise.

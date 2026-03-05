@@ -803,6 +803,11 @@ void CG_PredictPlayerState( void ) {
 			cg_pmove.cmd.serverTime = ((cg_pmove.cmd.serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
 		}
 
+		cg_pmove.autoAttack = cg_autoAttack.integer && cgs.g_autoAttack;
+		cg_pmove.autoAttackTimer = cg.autoAttackTimer;
+		cg_pmove.autoAttackDelay =
+		AUTOATTACK_DELAY_MS + cg.snap->ping + AUTOATTACK_CLIENT_EXTRA_DELAY;
+
 //unlagged - optimized prediction
 		if ( optimizePredition ) {
 			// if we need to predict this command, or we've run out of space in the saved states queue
@@ -847,6 +852,8 @@ void CG_PredictPlayerState( void ) {
 			numPredicted++; // debug code
 		}
 //unlagged - optimized prediction
+
+		cg.autoAttackTimer = cg_pmove.autoAttackTimer;
 
 		moved = qtrue;
 
