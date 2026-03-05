@@ -1268,7 +1268,64 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		if ( !(es->eFlags & EF_KAMIKAZE) ) {
 			trap_S_StartSound( NULL, es->number, CHAN_BODY, cgs.media.gibSound );
 		}
-		CG_GibPlayer( cent->lerpOrigin );
+		if (cg_oldGibs.integer) {
+			CG_GibPlayerOld( cent->lerpOrigin );
+		} else {
+			int knockbackSpeed = cgs.g_gibsNewEvGibPlayerParmProtocol == 1
+				? es->eventParm * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
+				// Just use the default knockback speed for 100 damage.
+				: 100 * 1000 / COMBAT_PLAYER_MASS;
+
+			lerpFrame_t torsoAnimation = es->number == cg.snap->ps.clientNum
+				// `cent->pe.torso` appears to be not good for self.
+				? cg.predictedPlayerEntity.pe.torso
+				: cent->pe.torso;
+			vec3_t torsoAngles;
+
+			// TODO fix: things like `origin` and `angles`
+			// are not in complete sync between clients,
+			// so this seed is not always the same for all players.
+			int randSeed = es->number;
+			randSeed = Q_rand(&randSeed) + es->clientNum;
+			randSeed = Q_rand(&randSeed) + es->eventParm;
+			randSeed = Q_rand(&randSeed) + cgs.levelStartTime;
+			// TODO fix: this varies from client to client.
+			// So for now we round it to make it in sync ~95% of the time.
+			randSeed = Q_rand(&randSeed) + cg.snap->serverTime / 2048;
+			if ( ci ) {
+				randSeed = Q_rand(&randSeed) + ci->name[0];
+			}
+
+			// Torso animation angles seem to be in better sync
+			// between the local state and how others see us,
+			// and overall are closer to other player's viewangles
+			// than `cent->lerpAngles`.
+			// `cent->lerpAngles`, seems to sometimes be pointing
+			// in a completely different direction than the player's body
+			// at the time of death.
+			// Moreover, for non-self pitch seems to be always
+			// not very far from 0.
+			// This could be related to `LookAtKiller()`.
+			// Also see `CG_PlayerAngles`.
+			torsoAngles[PITCH] = torsoAnimation.pitchAngle;
+			torsoAngles[YAW] = torsoAnimation.yawAngle;
+			torsoAngles[ROLL] = 0;
+
+			if ( es->number == cg.snap->ps.clientNum ) {
+				// Apparently at this point `es->pos.trDelta` doesn't yet have
+				// the knockback from the damage that gibbed us,
+				// so we have to differentiate between self and non-self,
+				// and use `cg.predictedPlayerState.velocity`
+				// if it's ourself.
+				CG_GibPlayer( cent->lerpOrigin, torsoAngles,
+					cg.predictedPlayerState.velocity, knockbackSpeed,
+					&torsoAnimation, randSeed );
+			} else {
+				CG_GibPlayer( cent->lerpOrigin, torsoAngles,
+					es->pos.trDelta, knockbackSpeed,
+					&torsoAnimation, randSeed );
+			}
+		}
 		break;
 
 	case EV_STOPLOOPINGSOUND:
