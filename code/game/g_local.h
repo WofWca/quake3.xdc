@@ -31,10 +31,7 @@ Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 //==================================================================
 
 // the "gameversion" client command will print this plus compile date
-//unlagged - misc
-//#define	GAMEVERSION	"baseq3"
-#define GAMEVERSION "unlagged"
-//unlagged - misc
+#define	GAMEVERSION	"baseq3"
 
 #define BODY_QUEUE_SIZE		8
 
