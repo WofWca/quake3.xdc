@@ -269,6 +269,7 @@ typedef struct {
 	int			pingsamples[NUM_PING_SAMPLES];
 	int			samplehead;
 //unlagged - true ping
+	qboolean	cg_autoAttack;
 } clientPersistant_t;
 
 //unlagged - backward reconciliation #1
@@ -336,6 +337,7 @@ struct gclient_s {
 	int			inactivityTime;		// kick players when time > this
 	qboolean	inactivityWarning;	// qtrue if the five seoond warning has been given
 	int			rewardTime;			// clear the EF_AWARD_IMPRESSIVE, etc when time > this
+	int			autoAttackTimer;	// See `cg_autoAttack`.
 
 	int			airOutTime;
 
@@ -816,6 +818,7 @@ extern	vmCvar_t	g_cubeTimeout;
 extern	vmCvar_t	g_redteam;
 extern	vmCvar_t	g_blueteam;
 extern	vmCvar_t	g_smoothClients;
+extern	vmCvar_t	g_autoAttack;
 extern	vmCvar_t	pmove_fixed;
 extern	vmCvar_t	pmove_msec;
 extern	vmCvar_t	g_rankings;
