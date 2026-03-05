@@ -101,6 +101,14 @@ vmCvar_t	cg_bobroll;
 vmCvar_t	cg_swingSpeed;
 vmCvar_t	cg_shadows;
 vmCvar_t	cg_gibs;
+vmCvar_t	cg_oldGibs;
+vmCvar_t	cg_gibsInheritPlayerVelocity;
+vmCvar_t	cg_gibsExtraRandomVelocity;
+vmCvar_t	cg_gibsRandomVelocityFromKnockback;
+vmCvar_t	cg_gibsExtraVerticalVelocity;
+vmCvar_t	cg_gibsBounceFactor;
+vmCvar_t	cg_gibsRotationFactor;
+vmCvar_t	cg_gibsBetterCameraOnGib;
 vmCvar_t	cg_drawTimer;
 vmCvar_t	cg_drawFPS;
 vmCvar_t	cg_drawSnapshot;
@@ -134,6 +142,8 @@ vmCvar_t	cg_noPlayerAnims;
 vmCvar_t	cg_showmiss;
 vmCvar_t	cg_footsteps;
 vmCvar_t	cg_addMarks;
+vmCvar_t	cg_bounceMarksMinImpactSpeed;
+vmCvar_t	cg_bounceSoundMinImpactSpeed;
 vmCvar_t	cg_brassTime;
 vmCvar_t	cg_viewsize;
 vmCvar_t	cg_drawGun;
@@ -242,7 +252,15 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_fov, "cg_fov", "90", CVAR_ARCHIVE },
 	{ &cg_viewsize, "cg_viewsize", "100", CVAR_ARCHIVE },
 	{ &cg_shadows, "cg_shadows", "1", CVAR_ARCHIVE  },
-	{ &cg_gibs, "cg_gibs", "1", CVAR_ARCHIVE  },
+	{ &cg_gibs, "cg_gibs", "1.0", CVAR_ARCHIVE  },
+	{ &cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE  },
+	{ &cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE  },
+	{ &cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "175", CVAR_ARCHIVE  },
+	{ &cg_gibsRandomVelocityFromKnockback, "cg_gibsRandomVelocityFromKnockback", "0.15", CVAR_ARCHIVE  },
+	{ &cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "150", CVAR_ARCHIVE  },
+	{ &cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE  },
+	{ &cg_gibsRotationFactor, "cg_gibsRotationFactor", "1.0", CVAR_ARCHIVE  },
+	{ &cg_gibsBetterCameraOnGib, "cg_gibsBetterCameraOnGib", "1", CVAR_USERINFO | CVAR_ARCHIVE  },
 	{ &cg_draw2D, "cg_draw2D", "1", CVAR_ARCHIVE  },
 	{ &cg_drawStatus, "cg_drawStatus", "1", CVAR_ARCHIVE  },
 	{ &cg_drawTimer, "cg_drawTimer", "0", CVAR_ARCHIVE  },
@@ -270,6 +288,9 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_brassTime, "cg_brassTime", "2500", CVAR_ARCHIVE },
 	{ &cg_simpleItems, "cg_simpleItems", "0", CVAR_ARCHIVE },
 	{ &cg_addMarks, "cg_marks", "1", CVAR_ARCHIVE },
+	// Note that ~290 corresponds to a free fall with no bounce from player height.
+	{ &cg_bounceMarksMinImpactSpeed, "cg_bounceMarksMinImpactSpeed", "350", CVAR_ARCHIVE },
+	{ &cg_bounceSoundMinImpactSpeed, "cg_bounceSoundMinImpactSpeed", "450", CVAR_ARCHIVE },
 	{ &cg_lagometer, "cg_lagometer", "1", CVAR_ARCHIVE },
 	{ &cg_railTrailTime, "cg_railTrailTime", "400", CVAR_ARCHIVE  },
 	{ &cg_gun_x, "cg_gunX", "0", CVAR_CHEAT },
@@ -2034,6 +2055,7 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	cgs.levelStartTime = atoi( s );
 
 	CG_ParseServerinfo();
+	CG_ParseSysteminfo();
 
 	// load the new map
 	CG_LoadingString( "collision map" );

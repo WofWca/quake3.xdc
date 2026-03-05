@@ -79,13 +79,6 @@ void P_DamageFeedback( gentity_t *player ) {
 
 
 	client->ps.damageCount = count;
-
-	//
-	// clear totals
-	//
-	client->damage_blood = 0;
-	client->damage_armor = 0;
-	client->damage_knockback = 0;
 }
 
 
@@ -1365,6 +1358,13 @@ void ClientEndFrame( gentity_t *ent ) {
 	// store the client's position for backward reconciliation later
 	G_StoreHistory( ent );
 //unlagged - backward reconciliation #1
+
+	//
+	// clear damage totals
+	//
+	ent->client->damage_blood = 0;
+	ent->client->damage_armor = 0;
+	ent->client->damage_knockback = 0;
 
 	// set the bit for the reachability area the client is currently in
 //	i = trap_AAS_PointReachabilityAreaIndex( ent->client->ps.origin );
