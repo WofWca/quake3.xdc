@@ -313,6 +313,8 @@ char	*modNames[] = {
 	"MOD_NAIL",
 	"MOD_CHAINGUN",
 	"MOD_PROXIMITY_MINE",
+	"MOD_KAMIKAZE",
+	"MOD_JUICED",
 #endif
 	"MOD_GRAPPLE"
 };
@@ -462,8 +464,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	// check for a player that almost brought in cubes
 	CheckAlmostScored( self, attacker );
 
-	if (self->client && self->client->hook)
+	if (self->client && self->client->hook) {
 		Weapon_HookFree(self->client->hook);
+	}
 #ifdef MISSIONPACK
 	if ((self->client->ps.eFlags & EF_TICKING) && self->activator) {
 		self->client->ps.eFlags &= ~EF_TICKING;

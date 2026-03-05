@@ -385,6 +385,7 @@ static void CG_TouchTriggerPrediction( void ) {
 	}
 }
 
+
 //unlagged - optimized prediction
 #define ABS(x) ((x) < 0 ? (-(x)) : (x))
 
@@ -898,3 +899,5 @@ void CG_PredictPlayerState( void ) {
 		}
 	}
 }
+
+

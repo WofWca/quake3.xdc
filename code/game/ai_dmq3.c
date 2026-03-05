@@ -29,10 +29,6 @@ Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * desc:		Quake3 bot AI
  *
  * $Archive: /MissionPack/code/game/ai_dmq3.c $
- * $Author: Zaphod $ 
- * $Revision: 85 $
- * $Modtime: 5/16/01 2:53p $
- * $Date: 5/16/01 2:53p $
  *
  *****************************************************************************/
 
@@ -4460,7 +4456,7 @@ void BotAIBlocked(bot_state_t *bs, bot_moveresult_t *moveresult, int activate) {
 #ifdef OBSTACLEDEBUG
 	ClientName(bs->client, netname, sizeof(netname));
 	BotAI_Print(PRT_MESSAGE, "%s: I'm blocked by model %d\n", netname, entinfo.modelindex);
-#endif OBSTACLEDEBUG
+#endif // OBSTACLEDEBUG
 	// if blocked by a bsp model and the bot wants to activate it
 	if (activate && entinfo.modelindex > 0 && entinfo.modelindex <= max_bspmodelindex) {
 		// find the bsp entity which should be activated in order to get the blocking entity out of the way
@@ -5469,4 +5465,3 @@ BotShutdownDeathmatchAI
 void BotShutdownDeathmatchAI(void) {
 	altroutegoals_setup = qfalse;
 }
-

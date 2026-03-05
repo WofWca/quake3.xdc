@@ -1313,7 +1313,7 @@ void ClientEndFrame( gentity_t *ent ) {
 
 	G_SetClientSound (ent);
 
-	// set the latest information
+	// set the latest infor
 //unlagged - smooth clients #2
 	// clients no longer do extrapolation if cg_smoothClients is 1, because
 	// skip correction is all handled server-side now

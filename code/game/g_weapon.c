@@ -703,7 +703,7 @@ void Weapon_LightningFire( gentity_t *ent ) {
 	G_DoTimeShiftFor( ent );
 //unlagged - backward reconciliation #2
 
-		trap_Trace (&tr, muzzle, NULL, NULL, end, passent, MASK_SHOT);
+		trap_Trace( &tr, muzzle, NULL, NULL, end, passent, MASK_SHOT );
 
 //unlagged - backward reconciliation #2
 	// put them back

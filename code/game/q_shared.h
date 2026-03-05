@@ -28,7 +28,8 @@ Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 // q_shared.h -- included first by ALL program modules.
 // A user mod should never modify this file
 
-#define	Q3_VERSION		"Q3 1.29h"
+#define	Q3_VERSION		"Q3 1.32b"
+// 1.32 released 7-10-2002
 
 //unlagged - lag simulation #2
 #define MAX_LATENT_CMDS 64
@@ -111,8 +112,14 @@ Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 
 #if (defined(powerc) || defined(powerpc) || defined(ppc) || defined(__ppc) || defined(__ppc__)) && !defined(C_ONLY)
 #define idppc	1
+#if defined(__VEC__)
+#define idppc_altivec 1
+#else
+#define idppc_altivec 0
+#endif
 #else
 #define idppc	0
+#define idppc_altivec 0
 #endif
 
 // for windows fastcall option
@@ -355,7 +362,7 @@ typedef int		clipHandle_t;
 #define	MAX_TOKEN_CHARS		1024	// max length of an individual token
 
 #define	MAX_INFO_STRING		1024
-#define	MAX_INFO_KEY		1024
+#define	MAX_INFO_KEY		  1024
 #define	MAX_INFO_VALUE		1024
 
 #define	BIG_INFO_STRING		8192  // used for system info key only
@@ -449,6 +456,14 @@ typedef enum {
 void *Hunk_AllocDebug( int size, ha_pref preference, char *label, char *file, int line );
 #else
 void *Hunk_Alloc( int size, ha_pref preference );
+#endif
+
+#ifdef __linux__
+// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=371
+// custom Snd_Memset implementation for glibc memset bug workaround
+void Snd_Memset (void* dest, const int val, const size_t count);
+#else
+#define Snd_Memset Com_Memset
 #endif
 
 #if !( defined __VECTORC )
@@ -624,7 +639,7 @@ void ByteToDir( int b, vec3_t dir );
 typedef struct {
 	float	v[3];
 } vec3struct_t;
-#define VectorCopy(a,b)	*(vec3struct_t *)b=*(vec3struct_t *)a;
+#define VectorCopy(a,b)	(*(vec3struct_t *)b=*(vec3struct_t *)a)
 #define ID_INLINE static
 #endif
 #endif
@@ -1092,7 +1107,7 @@ typedef enum {
 #define	MAX_GENTITIES		(1<<GENTITYNUM_BITS)
 
 // entitynums are communicated with GENTITY_BITS, so any reserved
-// values thatare going to be communcated over the net need to
+// values that are going to be communcated over the net need to
 // also be in this range
 #define	ENTITYNUM_NONE		(MAX_GENTITIES-1)
 #define	ENTITYNUM_WORLD		(MAX_GENTITIES-2)
@@ -1355,13 +1370,13 @@ typedef struct {
   float s2;
   float t2;
   qhandle_t glyph;  // handle to the shader with the glyph
-	char shaderName[32];
+  char shaderName[32];
 } glyphInfo_t;
 
 typedef struct {
   glyphInfo_t glyphs [GLYPHS_PER_FONT];
-	float glyphScale;
-	char name[MAX_QPATH];
+  float glyphScale;
+  char name[MAX_QPATH];
 } fontInfo_t;
 
 #define Square(x) ((x)*(x))
@@ -1384,6 +1399,7 @@ typedef struct qtime_s {
 
 
 // server browser sources
+// TTimo: AS_MPLAYER is no longer used
 #define AS_LOCAL			0
 #define AS_MPLAYER		1
 #define AS_GLOBAL			2
@@ -1411,9 +1427,9 @@ typedef enum _flag_status {
 
 
 
-#define	MAX_GLOBAL_SERVERS			2048
-#define	MAX_OTHER_SERVERS			128
-#define MAX_PINGREQUESTS			32
+#define	MAX_GLOBAL_SERVERS				4096
+#define	MAX_OTHER_SERVERS					128
+#define MAX_PINGREQUESTS					32
 #define MAX_SERVERSTATUSREQUESTS	16
 
 #define SAY_ALL		0

@@ -711,7 +711,6 @@ static void CG_InterpolateEntityPosition( centity_t *cent ) {
 	}
 
 	f = cg.frameInterpolation;
-	//CG_Printf("interpolation fraction: %.2f\n", cg.frameInterpolation);
 
 	// this will linearize a sine or parabolic curve, but it is important
 	// to not extrapolate player positions if more recent data is available
@@ -728,6 +727,7 @@ static void CG_InterpolateEntityPosition( centity_t *cent ) {
 	cent->lerpAngles[0] = LerpAngle( current[0], next[0], f );
 	cent->lerpAngles[1] = LerpAngle( current[1], next[1], f );
 	cent->lerpAngles[2] = LerpAngle( current[2], next[2], f );
+
 }
 
 /*
@@ -765,7 +765,7 @@ static void CG_CalcEntityLerpPositions( centity_t *cent ) {
 	// first see if we can interpolate between two snaps for
 	// linear extrapolated clients
 	if ( cent->interpolate && cent->currentState.pos.trType == TR_LINEAR_STOP &&
-			cent->currentState.number < MAX_CLIENTS) {
+											cent->currentState.number < MAX_CLIENTS) {
 		CG_InterpolateEntityPosition( cent );
 		return;
 	}
@@ -1116,3 +1116,4 @@ void CG_AddPacketEntities( void ) {
 		}
 	}
 }
+

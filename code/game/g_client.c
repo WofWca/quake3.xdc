@@ -912,6 +912,7 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	trap_SetConfigstring( CS_PLAYERS+clientNum, s );
 
+	// this is not the userinfo, more like the configstring actually
 	G_LogPrintf( "ClientUserinfoChanged: %i %s\n", clientNum, s );
 }
 
@@ -947,13 +948,19 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
 
-	// check to see if they are on the banned IP list
+ 	// IP filtering
+ 	// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=500
+ 	// recommanding PB based IP / GUID banning, the builtin system is pretty limited
+ 	// check to see if they are on the banned IP list
 	value = Info_ValueForKey (userinfo, "ip");
 	if ( G_FilterPacket( value ) ) {
-		return "Banned.";
+		return "You are banned from this server.";
 	}
 
-	if ( !( ent->r.svFlags & SVF_BOT ) ) {
+  // we don't check password for bots and local client
+  // NOTE: local client <-> "ip" "localhost"
+  //   this means this client is not running in our current process
+	if ( !( ent->r.svFlags & SVF_BOT ) && (strcmp(value, "localhost") != 0)) {
 		// check for a password
 		value = Info_ValueForKey (userinfo, "password");
 		if ( g_password.string[0] && Q_stricmp( g_password.string, "none" ) &&
