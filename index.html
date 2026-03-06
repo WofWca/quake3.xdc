@@ -537,12 +537,9 @@ let generatedArguments = `
 let botSkill = 2;
 
 if (window.matchMedia('(pointer: coarse)').matches) {
-    // `cl_autoAttack` has been reverted in our fork
-    // https://github.com/jdarpinian/ioq3/commit/713c0795c5ea9328111ec2215a077957168f7e2c,
-    // because it seems to make the engine .wasm incompatible with other mods.
-    // +set cl_autoAttack 1
     generatedArguments += `
         +set g_forcerespawn 2
+        +set cg_autoAttack 1
     `;
 } else {
     // generatedArguments += `
@@ -1226,6 +1223,10 @@ function writeCommonPersistentFiles(module, basegame) {
 toggle customVarExecInitOnce "exec init.cfg" ";"
 vstr customVarExecInitOnce
 seta customVarExecInitOnce "exec init.cfg"
+
+// https://github.com/WofWca/quake3-auto-attack-mod
+// Also see \`cg_autoAttack\`
+set g_autoAttack 1
 
 // bind "W" "vstr customVarPrintMotd; +forward;" // We bind in init.cfg
 set customVarNoop ""
