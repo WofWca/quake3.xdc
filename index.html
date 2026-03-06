@@ -839,7 +839,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 const fixDemoBotsMod = fetch(`${buildPath}/pak1-fix-demo-bots.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(b => new Uint8Array(b))
-                const ztmFlexibleHudMod = fetch(`${buildPath}/ztm-flexible-hud.pk3`)
+                const qvmsPak = fetch(`${buildPath}/pak2-qvms.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(r => new Uint8Array(r));
 
@@ -857,21 +857,15 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 // For the demo version, we have to provide QVMs,
                 // because the ones in the demo's `pak0.pk3`
                 // are not compatible with the new engine.
-                // So we choose ztm-flexible-hud for that,
-                // as in the original thelongestyard.link project.
                 if (basegame === 'baseq3') {
                     module.FS.writeFile(
                         `${qhome}/${basegame}/pak8a.pk3`,
                         await baseq3aMod
                     );
                 } else if (basegame === 'demoq3') {
-                    // TODO use a mod that includes the "Unlagged" mod.
-                    // https://www.ra.is/unlagged/
-                    // baseq3a does, but, as we said above, we can't use it
-                    // with the demo version.
                     module.FS.writeFile(
-                        `${qhome}/${basegame}/ztm-flexible-hud.pk3`,
-                        await ztmFlexibleHudMod
+                        `${qhome}/${basegame}/pak2-qvms.pk3`,
+                        await qvmsPak
                     );
                     module.FS.writeFile(
                         `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
@@ -1300,7 +1294,7 @@ set r_ignoreGLErrors 1
 set cg_deferPlayers 0 // load player models when they connect instead of substituting a random model
 
 ${
-basegame === 'baseoa-mini'
+basegame === 'baseoa-mini' || basegame === 'demoq3'
 ?
 `// "Unlagged" mod
 // https://github.com/OpenArena/gamecode/blob/d371ff1482d9c00c543b29186d26d4d875b3bb0a/code/game/g_main.c#L306-L312

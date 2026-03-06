@@ -93,18 +93,13 @@ From now on the development steps are as follows:
 
 And here is some extra stuff:
 
-1. Add "Change Map" in-game menu item for the demo version
-   1. Download the Linux build artifact from this branch
-      https://github.com/WofWca/flexible-hud-for-ioq3/tree/add-menu-item-start-new-arena-ztm-flexible-hud.
-      The branch is based on this MR:
-      https://github.com/clover-moe/mint-arena/pull/7.
+1. Add "Unlagged" mod (and more) for the demo version
+   1. Run `make release` on the `qvms-for-quake3-xdc-demo` branch of this repo.
    2. Find the `vm` directory in the build files.
    3. Make another .zip file and add the `vm` directory to it.
-   4. Replace `ztm-flexible-hud.pk3` with the new `.zip` file.
-
-   If you don't want the "Change Map" button, you can use
-   the original (non-forked) version of the mod:
-   <https://clover.moe/flexible-hud-for-ioq3>.
+   4. Replace
+      `pak2-qvms.pk3`
+      with the new `.zip` file.
 
 ### Why it's terribly made
 
