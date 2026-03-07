@@ -843,6 +843,14 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 const fixDemoBotsMod = fetch(`${buildPath}/pak1-fix-demo-bots.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(b => new Uint8Array(b))
+                /**
+                 * Without this mod the lightning gun beam
+                 * is just two white crossed stripes
+                 * which obstruct your vision.
+                 */
+                const fixDemoLightningGun = fetch(`${buildPath}/pak2-fix-demo-lightning-gun.pk3`)
+                    .then(r => r.arrayBuffer())
+                    .then(b => new Uint8Array(b))
 
                 writeCommonPersistentFiles(
                     module,
@@ -855,6 +863,10 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     module.FS.writeFile(
                         `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
                         await fixDemoBotsMod
+                    );
+                    module.FS.writeFile(
+                        `${qhome}/${basegame}/pak2-fix-demo-lightning-gun.pk3`,
+                        await fixDemoLightningGun
                     );
                 }
             }
