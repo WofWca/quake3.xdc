@@ -77,29 +77,36 @@ From now on the development steps are as follows:
    so that we can bundle a smaller version of Open Arena
    with compressed sound (instead of the uncompressed `.wav`).
 2. Upack the `.wasm32.js` and `.wasm32.wasm` files here.
-3. Download the `QVM.zip` artifact from
-   <https://github.com/WofWca/baseq3a/tree/baseq3a-free-version-and-my-stuff>.
-   This is a version of the "baseq3a" mod with assets removed
-   and with some of our patches.
-   You may also use the free version, with no extra patches:
-   <https://github.com/ec-/baseq3a/pull/59>.
-4. Extract `pak8a.pk3` from `QVM.zip` here.
-5. Download <https://github.com/WofWca/quake3-mini>,
-   rename it to `openarena-mini.pk3`.
-
-6. We also are using a file explorer ui for the Emscripten Filesystem API, so users can edit some files and mod the game.
-   1. Copy the .iife.js file from the dist folder of the [emscripten-fs-file-explorer-ui](https://www.npmjs.com/package/emscripten-fs-file-explorer-ui) npm package and use it in one of the html files following the npm package instructions.
-   2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in WebXDC context (download links are used in the file explorer to export files)
-
-And here is some extra stuff:
-
-1. Add "Unlagged" mod (and more) for the demo version
+3. Add the `.pk3` with QVM files.
    1. Run `make release` on the `qvms-for-quake3-xdc-demo` branch of this repo.
    2. Find the `vm` directory in the build files.
    3. Make another .zip file and add the `vm` directory to it.
    4. Replace
-      `pak2-qvms.pk3`
+      `pak9-qvms.pk3`
       with the new `.zip` file.
+4. Download <https://github.com/WofWca/quake3-mini>,
+   rename it to `openarena-mini.pk3`.
+
+   Bonus points: create the .zip without compression,
+   so as to make the final .xdc a little smaller.
+
+5. Remove the `vm` directory from `openarena-mini.pk3`.
+   This is not strictly required, but it reduces the size of the final `.xdc`.
+   We can do this because we already include QVMs
+   in the `.pk3` from a previous step.
+
+   Command to do both of the steps:
+
+   ```bash
+   git clone --depth=1 https://github.com/WofWca/quake3-mini
+   cd quake3-mini
+   7z u -tzip -mx=0 -mtc=off -mtm=off -mta=off -x'!vm' -- openarena-mini.pk3
+   mv openarena-mini.pk3 ../quake3.xdc/openarena-mini.pk3
+   ```
+
+6. We also are using a file explorer ui for the Emscripten Filesystem API, so users can edit some files and mod the game.
+   1. Copy the .iife.js file from the dist folder of the [emscripten-fs-file-explorer-ui](https://www.npmjs.com/package/emscripten-fs-file-explorer-ui) npm package and use it in one of the html files following the npm package instructions.
+   2. Copy the .js file from the [webxdc-download-polyfill](https://codeberg.org/DavidSM100/webxdc-download-polyfill) repo and link it to the html, this fixes download links issues in WebXDC context (download links are used in the file explorer to export files)
 
 ### Why it's terribly made
 

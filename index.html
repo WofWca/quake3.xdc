@@ -825,10 +825,17 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 console.error('Error reading q3config.cfg:', err);
             }
 
+            let qvmsPakP;
+            const getQvmsPakP = () => {
+                if (qvmsPakP == undefined) {
+                    qvmsPakP = fetch(`${buildPath}/pak9-qvms.pk3`)
+                        .then(r => r.arrayBuffer())
+                        .then(r => new Uint8Array(r));
+                }
+                return qvmsPakP;
+            }
+
             if (!filesAlreadyCreated) {
-                const baseq3aMod = fetch(`${buildPath}/pak8a.pk3`)
-                    .then(r => r.arrayBuffer())
-                    .then(r => new Uint8Array(r));
                 /**
                  * Without this mod the bots in the Quake III Arena demo version
                  * are all running with just gauntlet.
@@ -836,34 +843,15 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 const fixDemoBotsMod = fetch(`${buildPath}/pak1-fix-demo-bots.pk3`)
                     .then(r => r.arrayBuffer())
                     .then(b => new Uint8Array(b))
-                const qvmsPak = fetch(`${buildPath}/pak2-qvms.pk3`)
-                    .then(r => r.arrayBuffer())
-                    .then(r => new Uint8Array(r));
 
-                writeCommonPersistentFiles(module, basegame);
+                writeCommonPersistentFiles(
+                    module,
+                    basegame,
+                    await getQvmsPakP()
+                );
 
                 module.FS.mkdirTree(`${qhome}/${basegame}`);
-                // The Quake SDK license, which baseq3a is under,
-                // apparently does not allow to use the mod with games
-                // other than full Quake III Arena.
-                // - https://github.com/ec-/baseq3a/blob/master/QIIIA%20Game%20Source%20License.txt
-                // - https://openarena.fandom.com/wiki/Mod_compatibility
-                // > for operation only with the full version
-                // > of the software game QUAKE III ARENA
-                //
-                // For the demo version, we have to provide QVMs,
-                // because the ones in the demo's `pak0.pk3`
-                // are not compatible with the new engine.
-                if (basegame === 'baseq3') {
-                    module.FS.writeFile(
-                        `${qhome}/${basegame}/pak8a.pk3`,
-                        await baseq3aMod
-                    );
-                } else if (basegame === 'demoq3') {
-                    module.FS.writeFile(
-                        `${qhome}/${basegame}/pak2-qvms.pk3`,
-                        await qvmsPak
-                    );
+                if (basegame === 'demoq3') {
                     module.FS.writeFile(
                         `${qhome}/${basegame}/pak1-fix-demo-bots.pk3`,
                         await fixDemoBotsMod
@@ -884,7 +872,11 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     .then(r => new Uint8Array(r));
 
                 module.FS.mkdirTree(`${qhome}/${BASEGAME_BASEOA_MIN}`);
-                writeCommonPersistentFiles(module, BASEGAME_BASEOA_MIN);
+                writeCommonPersistentFiles(
+                    module,
+                    BASEGAME_BASEOA_MIN,
+                    await getQvmsPakP()
+                );
                 module.FS.writeFile(
                     `${qhome}/${BASEGAME_BASEOA_MIN}/openarena-mini.pk3`,
                     await baseoa
@@ -1195,27 +1187,28 @@ if (filesAlreadyCreated) {
 
 /**
  * @param {string} basegame
+ * @param {Uint8Array<ArrayBuffer>} qvmsPak
  */
-function writeCommonPersistentFiles(module, basegame) {
+function writeCommonPersistentFiles(module, basegame, qvmsPak) {
     module.FS.mkdirTree(`${qhome}/${basegame}`);
 
-    // TODO improvement: in the full game there are more bots
-    // to choose from.
-    // Unfortunately `addbot random` is not available
-    // in baseq3a mod.
-    // For demoq3 we use ztm-flexible-hud mod,
-    // which has support for `random` bot.
-    const bots =
-        basegame === 'demoq3'
-        ? ['random', 'random', 'random', 'random']
-        : basegame === 'baseq3'
-        ? ['sarge', 'daemia', 'visor', 'stripe']
-        : basegame === 'baseoa-mini'
-        ? ['sarge', 'sarge', 'grism', 'grism']
-        : ['sarge', 'sarge', 'sarge', 'sarge']
-    const addBots = bots.map((b, i) => {
+    // Note that for the demo version we _have to_ provide QVMs,
+    // because the ones in the demo's `pak0.pk3`
+    // are not compatible with the new engine.
+    // So it's not just a "nice to have mod".
+    //
+    // We also removed `vm` from `openarena-mini.pk3` to save space.
+    //
+    // As to the full game: this mod is not required there,
+    // but the Unlagged mod is very important when playing with high ping.
+    module.FS.writeFile(
+        `${qhome}/${basegame}/pak9-qvms.pk3`,
+        qvmsPak
+    );
+
+    const addBots = Array(4).fill(0).map((_, i) => {
         const msecDelay = 1000 + i * 2000;
-        return `addbot ${b} ${botSkill} free ${msecDelay}`
+        return `addbot random ${botSkill} free ${msecDelay}`
     }).join('; ');
 
     module.FS.writeFile(`${qhome}/${basegame}/autoexec.cfg`,
@@ -1285,7 +1278,7 @@ set r_lodCurveError 10000 // smoother curves far away (cheat protected)`
 : ''
 }
 
-set g_warmup 0 // baseq3a mod has it set to 20 by default. But we're casual here.
+set g_warmup 0 // We're casual here, no need to "prepare" to fight.
 set r_mode -2
 set com_maxfps 0
 set r_swapInverval 1
@@ -1294,16 +1287,12 @@ set r_fullscreen 0
 set r_ignoreGLErrors 1
 set cg_deferPlayers 0 // load player models when they connect instead of substituting a random model
 
-${
-basegame === 'baseoa-mini' || basegame === 'demoq3'
-?
-`// "Unlagged" mod
+// "Unlagged" mod
+// https://github.com/WofWca/quake3-unlagged-mod/blob/519aa95828f6010a9279cf36eb808c664ada3663/code/game/g_main.c#L189-L196
 // https://github.com/OpenArena/gamecode/blob/d371ff1482d9c00c543b29186d26d4d875b3bb0a/code/game/g_main.c#L306-L312
 set g_delagHitscan 1
 // set g_truePing 0
-// g_lagLightning 1`
-: ''
-}
+// g_lagLightning 1
 
 // These are present in thelongestyard.link, but the Unlagged mod creator
 // Doesn't recommend to set a higher value of \`sv_fps\`.
@@ -1381,11 +1370,9 @@ bind "F8" "vstr customVarToggleBots"
 
 bind F10 "vstr customVarToggleRecord"
 
-// https://github.com/ec-/baseq3a/pull/53
-// Only applies when pak8a.pk3 mod is present (not in the demo version).
+// https://github.com/WofWca/quake3-better-gibs-mod
 seta cg_oldGibs 0
 
-seta cg_fovAdjust 1
 // These two are from ztm-flexible-hud mod.
 seta cg_fovGunAdjust 1
 seta cg_fovAspectAdjust 1
