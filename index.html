@@ -1218,7 +1218,7 @@ function writeCommonPersistentFiles(module, basegame, qvmsPak) {
         qvmsPak
     );
 
-    const addBots = Array(4).fill(0).map((_, i) => {
+    const addBots = Array(3).fill(0).map((_, i) => {
         const msecDelay = 1000 + i * 2000;
         return `addbot random ${botSkill} free ${msecDelay}`
     }).join('; ');
