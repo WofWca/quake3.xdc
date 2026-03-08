@@ -1243,6 +1243,15 @@ set customVarPrintMotd "\
     echo tilde: toggle console; \
     set customVarPrintMotd vstr customVarNoop;"
 
+// Allow clients to download maps and mods installed on the server
+// As of writing, the downloads are crazy slow
+// (from ~2 to 50 KB / s), but it might be better than an error for some.
+// The bottleneck is not Delta Chat, but ioquake, see
+// https://github.com/ioquake/ioq3/commit/e52a492f615e1245d6d22a84d2cc100c6d2f9f88.
+set sv_allowDownload 1
+set cl_allowDownload 1
+set sv_dlRate 0
+
 set in_joystick 1
 set in_joystickUseAnalog 1
 set j_forward "0.005"
