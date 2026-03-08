@@ -918,15 +918,12 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         return;
                     }
                     resolve()
-                    // Be careful with these lines. `saveFiles()`
-                    // is also called outside of `preRun`.
-                    // Currently it's fine because we only assign to `saveFiles`
-                    // after we have done all the `writeFile()`s.
-                    localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
-                    localStorage.setItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN), 'true');
                 });
             });
-            saveFiles();
+            saveFiles().then(() => {
+                localStorage.setItem(getFilesAlreadyCreatedStorageKey(basegame), 'true');
+                localStorage.setItem(getFilesAlreadyCreatedStorageKey(BASEGAME_BASEOA_MIN), 'true');
+            });
 
             if (multiplayer) {
                 const tryNotifyChat = (message) => {
