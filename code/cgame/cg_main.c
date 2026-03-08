@@ -2,6 +2,7 @@
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
 Some portions Copyright (C) 2006 Neil Toronto.
+Some portions Copyright (C) 2025 WofWca.
 
 This file is part of Quake III Arena source code.
 
@@ -339,8 +340,8 @@ static cvarTable_t cvarTable[] = { // bk001129
 	{ &cg_debugDelag, "cg_debugDelag", "0", CVAR_USERINFO | CVAR_CHEAT },
 	{ &cg_drawBBox, "cg_drawBBox", "0", CVAR_CHEAT },
 	{ &cg_cmdTimeNudge, "cg_cmdTimeNudge", "0", CVAR_ARCHIVE | CVAR_USERINFO },
-	// this will be automagically copied from the server
-	{ &sv_fps, "sv_fps", "20", 0 },
+	// this will be copied from the server
+	// { &sv_fps, "sv_fps", "20", CVAR_SYSTEMINFO },
 	{ &cg_projectileNudge, "cg_projectileNudge", "0", CVAR_ARCHIVE },
 	{ &cg_optimizePrediction, "cg_optimizePrediction", "1", CVAR_ARCHIVE },
 	{ &cl_timeNudge, "cl_timeNudge", "0", CVAR_ARCHIVE },
@@ -1967,6 +1968,7 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	cgs.levelStartTime = atoi( s );
 
 	CG_ParseServerinfo();
+	CG_ParseSysteminfo();
 
 	// load the new map
 	CG_LoadingString( "collision map" );
