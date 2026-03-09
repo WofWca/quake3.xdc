@@ -209,12 +209,9 @@ void CG_PredictWeaponEffects( centity_t *cent ) {
 			SnapVectorTowards( tr.endpos, muzzlePoint );
 
 			// do bullet impact
-			if ( tr.entityNum < MAX_CLIENTS ) {
-				flesh = qtrue;
-				fleshEntityNum = tr.entityNum;
-			} else {
-				flesh = qfalse;
-			}
+			flesh = tr.entityNum < MAX_CLIENTS;
+			// even if not flesh, we should init the var
+			fleshEntityNum = tr.entityNum;
 
 			// do the bullet impact
 			CG_Bullet( tr.endpos, cg.predictedPlayerState.clientNum, tr.plane.normal, flesh, fleshEntityNum );
