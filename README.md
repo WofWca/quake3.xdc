@@ -3,6 +3,12 @@
 Lag compensation for Quake III Arena.
 Now, in an era of git, in an easy-to-merge form.
 
+This repository is not about the entirety of the code contained in it
+but rather just
+[the patches on top of the first commit](https://github.com/WofWca/quake3-unlagged-mod/compare/quake3-initial-gpl-release...master),
+totalling ~2238 additions and ~35 deletions
+(`git diff quake3-initial-gpl-release --stat -- code`).
+
 ## Usage
 
 This project is intended for mod developers
