@@ -1,5 +1,14 @@
 <!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
 <title>Quake III Arena Demo</title>
+<!-- Sorry, I don't know why we need `crossorigin`,
+but otherwise the files get loaded twice, according to dev tools.
+Maybe see https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload#cors-enabled_fetches -->
+<link rel="preload" as="script" crossorigin href="./webxdc.js">
+<link rel="modulepreload"       crossorigin href="./ioquake3_opengl2.wasm32.js">
+<link rel="preload" as="fetch"  crossorigin href="./ioquake3_opengl2.wasm32.wasm">
+<link rel="preload" as="script" crossorigin href="./override-webrtc.js">
+<link rel="preload" as="script" crossorigin href="./override-websocket-signaling.js">
+<link rel="modulepreload"       crossorigin href="./GamepadEmulator.js">
 <style>
 html, body { margin: 0; padding: 0; overflow: hidden; background: rgb(0, 0, 0);
     font-family: "Antonio", sans-serif;
