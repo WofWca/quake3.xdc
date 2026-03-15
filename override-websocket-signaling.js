@@ -6,7 +6,8 @@ let serverAddress = undefined;
 const whoIsTheServerRequest = new Uint8Array([42, 42, 42, 42]);
 /** @type {Promise<number>} */
 const serverAddressP = new Promise((resolve) => {
-  // If someone responds within 2 seconds, there is a server already.
+  // If someone responds within WHO_IS_THE_SERVER_TIMEOUT ms,
+  // there is a server already.
   // If not, we are the server.
   /**
    * It's OK to wait for this so long,
