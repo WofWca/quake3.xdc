@@ -10,13 +10,28 @@ const serverAddressP = new Promise((resolve) => {
   // there is a server already.
   // If not, we are the server.
   /**
-   * It's OK to wait for this so long,
-   * because the game itself takes a while to load.
    * The longer the wait the more reliable it is,
    * because P2P connection establishment (including signaling)
    * may also take a while: it's not just about the ping between peers.
+   *
+   * Note that during this period we'll just idle
+   * and the most heavy tasks will start being worked on
+   * only after this timeout (i.e. after `preRun` has finished).
+   * This is why we set it to 0.
+   * Historically we did have to wait, but then we added late server discovery
+   * (see `SERVER_ADDRESS_QUERY_KEY`), so waiting is no longer necessary.
+   *
+   * At this point we should probably refactor this.
+   *
+   * Note that not waiting at all means that we'll always start our own server
+   * before trying to connect to another one.
+   * This seems to result a bigger delay due to us being busy
+   * creating the server instead of immediately handling
+   * the "someone else is the server" message.
+   * But it's probably better than always making the first player
+   * wait extra `WHO_IS_THE_SERVER_TIMEOUT` ms.
    */
-  const WHO_IS_THE_SERVER_TIMEOUT = 3000;
+  const WHO_IS_THE_SERVER_TIMEOUT = 0;
 
   if (globalThis.webxdc) {
     /**
