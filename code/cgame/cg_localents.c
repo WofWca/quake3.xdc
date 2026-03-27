@@ -220,6 +220,7 @@ void CG_ReflectVelocity( localEntity_t *le, trace_t *trace, vec3_t velocityDiffe
 	vec3_t	velocity;
 	float	dot;
 	int		hitTime;
+	float	bounceFactor = le->bounceFactor;
 
 	// reflect the velocity on the trace plane
 	hitTime = cg.time - cg.frametime + cg.frametime * trace->fraction;
@@ -227,7 +228,12 @@ void CG_ReflectVelocity( localEntity_t *le, trace_t *trace, vec3_t velocityDiffe
 	dot = DotProduct( velocity, trace->plane.normal );
 	VectorMA( velocity, -2*dot, trace->plane.normal, le->pos.trDelta );
 
-	VectorScale( le->pos.trDelta, le->bounceFactor, le->pos.trDelta );
+	if ( le->leBounceSoundType == LEBS_BLOOD && !cg_oldGibs.value ) {
+		// Get a tighter distribution rather than uniform.
+		float r = ( random() + random() ) / 2;
+		bounceFactor *= 1 - r * cg_gibsBounceFactorRandomness.value;
+	}
+	VectorScale( le->pos.trDelta, bounceFactor, le->pos.trDelta );
 
 	if (velocityDifference) {
 		VectorSubtract( le->pos.trDelta, velocity, velocityDifference );
