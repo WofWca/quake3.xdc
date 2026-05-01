@@ -1038,6 +1038,7 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.autoAttackDelay = AUTOATTACK_DELAY_MS;
 
 	VectorCopy( client->ps.origin, client->oldOrigin );
+	VectorCopy( client->ps.velocity, client->oldVelocity );
 
 #ifdef MISSIONPACK
 		if (level.intermissionQueued != 0 && g_singlePlayer.integer) {

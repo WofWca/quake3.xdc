@@ -316,6 +316,8 @@ struct gclient_s {
 	int			latched_buttons;
 
 	vec3_t		oldOrigin;
+	// The `ps.velocity` before the latest `Pmove()`.
+	vec3_t		oldVelocity;
 
 	// sum up damage over an entire frame, so
 	// shotgun blasts give a single big kick

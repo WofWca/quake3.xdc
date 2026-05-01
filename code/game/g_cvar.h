@@ -117,6 +117,7 @@ G_CVAR( g_gibsMissileDirectionKnockbackWeight, "g_gibsMissileDirectionKnockbackW
 	"Note that this affects not just the gibs "
 	"but also the camera velocity of the gibbed player." )
 G_CVAR( g_gibsNewEvGibPlayerParmProtocol, "g_gibsNewEvGibPlayerParmProtocol", "1", CVAR_SYSTEMINFO | CVAR_ARCHIVE, NO_TRACK, NULL )
+G_CVAR( g_gibsOnCollisionInheritPlayerVelocity, "g_gibsOnCollisionInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NO_TRACK, NULL )
 
 G_CVAR( g_podiumDist, "g_podiumDist", "80", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_podiumDrop, "g_podiumDrop", "70", NO_FLAGS, NO_TRACK, NULL )

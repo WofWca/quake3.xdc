@@ -1304,6 +1304,52 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 					KnockbackToKnockbackSpeed( -excess ), dir,
 					targ->client->ps.velocity );
 			}
+			if (
+				targ->health <= GIB_HEALTH && g_blood.integer &&
+				!g_oldGibs.integer &&
+				g_gibsOnCollisionInheritPlayerVelocity.value != 0 &&
+				mod == MOD_FALLING &&
+				client
+			) {
+				// Set player velocity to what it was before they hit the ground
+				// so that the gibs inherit this velocity
+				// (see `cg_gibsInheritPlayerVelocity`).
+				// Note that this only seems to work on other players
+				// and not self (probably due to prediction).
+				//
+				// Note that there is a more accurate crash landing
+				// velocity calculation in `PM_CrashLand`,
+				// but for the purposes of throwing gibs around
+				// `oldVelocity` provides good enough accuracy.
+				VectorScale( client->oldVelocity,
+					g_gibsOnCollisionInheritPlayerVelocity.value,
+					client->ps.velocity );
+
+				// However, there is an issue. When the player
+				// is already landed,
+				// applying downwards velocity redirects that velocity
+				// parallel to the ground instead of clipping it (same as
+				// https://github.com/WofWca/quake3-better-gibs-mod/issues/3),
+				// causing the player camera fly off weirdly.
+				// This is caused by the
+				// "don't decrease velocity when going up or down a slope"
+				// part in `bg_pmove.c`.
+				//
+				// To fix that let's just lift the player off of the ground.
+				//
+				// Note that hypothetically the player camera can end up
+				// in a solid: we shouldn't be so crudely manipulating
+				// player position. However this is, again, good enough
+				// since the player is already dead
+				// and this only affects their camera position.
+				if ( client->ps.groundEntityNum != ENTITYNUM_NONE ) {
+					// There is a 0.25 margin in `PM_GroundTrace`,
+					// this value must be higher than that.
+					// But let's increase by 1 for "snapping"
+					// to save network bandwidth (see `SnapVector`).
+					client->ps.origin[2] += 1;
+				}
+			}
 
 			targ->enemy = attacker;
 			targ->die (targ, inflictor, attacker, take, mod);
