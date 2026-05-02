@@ -303,6 +303,38 @@ void	G_TouchTriggers( gentity_t *ent ) {
 	}
 }
 
+static void CheckCollisionDamage( gentity_t *ent, const vec3_t oldVelocity ) {
+	gclient_t	*client = ent->client;
+	vec3_t		velChange;
+	int			damage;
+	float		div;
+
+	if ( client->ps.pm_type != PM_DEAD ) {
+		return;
+	}
+
+	VectorSubtract( client->ps.velocity, oldVelocity, velChange );
+
+	// Impact energy is proportional to the square of the speed.
+	// Also using `VectorLengthSquared` is computationally faster.
+	div = Square( g_gibsOnCollisionMinSpeed.value );
+	if ( div == 0 ) {
+		div = 1.0f / 0x10000;
+	}
+	damage = VectorLengthSquared( velChange )
+		/ div
+		* g_gibsOnCollisionBaseDamage.value;
+
+	// If the player already has -39 health,
+	// gibbing from a 2-centimeter fall would not look good.
+	// So we gotta have a threshold.
+	if ( damage < g_gibsOnCollisionBaseDamage.integer ) {
+		return;
+	}
+
+	G_Damage (ent, NULL, NULL, NULL, NULL, damage, 0, MOD_FALLING);
+}
+
 /*
 =================
 SpectatorThink
@@ -1097,6 +1129,18 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// execute client events
 	ClientEvents( ent, oldEventSequence );
+
+	// We run this _after_ `ClientEvents()` because that's where
+	// the normal fall damage is dealt.
+	// We want that because if a player has died from a high fall
+	// then we want to immediately gib them.
+	//
+	// On the other hand maybe we should run this
+	// before `BG_PlayerStateToEntityState`, which seems like a function
+	// that should be run when "finishing things up".
+	if ( !g_oldGibs.integer && g_gibsOnCollisionBaseDamage.integer ) {
+		CheckCollisionDamage( ent, client->oldVelocity );
+	}
 
 	// link entity now, after any personal teleporters have been used
 	trap_LinkEntity (ent);

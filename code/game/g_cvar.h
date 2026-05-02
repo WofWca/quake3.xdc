@@ -117,7 +117,21 @@ G_CVAR( g_gibsMissileDirectionKnockbackWeight, "g_gibsMissileDirectionKnockbackW
 	"Note that this affects not just the gibs "
 	"but also the camera velocity of the gibbed player." )
 G_CVAR( g_gibsNewEvGibPlayerParmProtocol, "g_gibsNewEvGibPlayerParmProtocol", "1", CVAR_SYSTEMINFO | CVAR_ARCHIVE, NO_TRACK, NULL )
-G_CVAR( g_gibsOnCollisionInheritPlayerVelocity, "g_gibsOnCollisionInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NO_TRACK, NULL )
+G_CVAR( g_gibsOnCollisionMinSpeed, "g_gibsOnCollisionMinSpeed", "1000", CVAR_ARCHIVE, NO_TRACK,
+	"If a player's speed abruptly changes by this much or more, "
+	"as a result of collision with something (e.g. floor, wall), "
+	"deal `g_gibsOnCollisionBaseDamage` or more damage to them "
+	"(damage increases with the square of the speed)" )
+G_CVAR( g_gibsOnCollisionBaseDamage, "g_gibsOnCollisionBaseDamage", "150", CVAR_ARCHIVE, NO_TRACK,
+	"See `g_gibsOnCollisionMinSpeed`. "
+	"Higher damage normally results in gibs getting spread more broadly." )
+G_CVAR( g_gibsOnCollisionInheritPlayerVelocity, "g_gibsOnCollisionInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NO_TRACK,
+	"Scale the speed of gibs "
+	"when gibbing as a result of `g_gibsOnCollision*`.\n"
+	"When set to 0, the gibs will have the velocity that the player has "
+	"immediately *after* the collision (i.e. basically 0), "
+	"and not *before* the collision. "
+	"Also see `cg_gibsInheritPlayerVelocity`." )
 
 G_CVAR( g_podiumDist, "g_podiumDist", "80", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_podiumDrop, "g_podiumDrop", "70", NO_FLAGS, NO_TRACK, NULL )
