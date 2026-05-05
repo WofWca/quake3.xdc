@@ -125,6 +125,10 @@ G_CVAR( g_gibsOnCollisionMinSpeed, "g_gibsOnCollisionMinSpeed", "1000", CVAR_ARC
 G_CVAR( g_gibsOnCollisionBaseDamage, "g_gibsOnCollisionBaseDamage", "150", CVAR_ARCHIVE, NO_TRACK,
 	"See `g_gibsOnCollisionMinSpeed`. "
 	"Higher damage normally results in gibs getting spread more broadly." )
+G_CVAR( g_gibsOnCollisionAffectLivePlayers, "g_gibsOnCollisionAffectLivePlayers", "0.0", NO_FLAGS, TRACK,
+	"This one affects gameplay significantly, and is basically just for fun.\n"
+	"Try setting this to 1 and jumping off the railgun platform "
+	"to the lowest level on q3dm19." )
 G_CVAR( g_gibsOnCollisionInheritPlayerVelocity, "g_gibsOnCollisionInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NO_TRACK,
 	"Scale the speed of gibs "
 	"when gibbing as a result of `g_gibsOnCollision*`.\n"

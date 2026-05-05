@@ -308,8 +308,12 @@ static void CheckCollisionDamage( gentity_t *ent, const vec3_t oldVelocity ) {
 	vec3_t		velChange;
 	int			damage;
 	float		div;
+	float		baseDamage = g_gibsOnCollisionBaseDamage.value *
+		(client->ps.pm_type == PM_DEAD
+			? 1
+			: g_gibsOnCollisionAffectLivePlayers.value);
 
-	if ( client->ps.pm_type != PM_DEAD ) {
+	if ( baseDamage == 0 ) {
 		return;
 	}
 
@@ -323,12 +327,12 @@ static void CheckCollisionDamage( gentity_t *ent, const vec3_t oldVelocity ) {
 	}
 	damage = VectorLengthSquared( velChange )
 		/ div
-		* g_gibsOnCollisionBaseDamage.value;
+		* baseDamage;
 
 	// If the player already has -39 health,
 	// gibbing from a 2-centimeter fall would not look good.
 	// So we gotta have a threshold.
-	if ( damage < g_gibsOnCollisionBaseDamage.integer ) {
+	if ( damage < baseDamage ) {
 		return;
 	}
 
