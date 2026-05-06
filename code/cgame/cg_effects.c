@@ -708,6 +708,28 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 
 	VectorScale( playerVelocity, cg_gibsInheritPlayerVelocity.value, playerVelocityScaled );
 
+	if ( cg_debugGibs.integer & 0x01 ) {
+		CG_Printf( "gib:" );
+		CG_Printf( " "S_COLOR_YELLOW"%i"S_COLOR_WHITE" pieces",
+			numGibs );
+		CG_Printf( ", speeds: player: "S_COLOR_YELLOW"%.1f",
+			VectorLength( playerVelocityScaled ) );
+		CG_Printf( " (vertical "S_COLOR_YELLOW"%.1f"S_COLOR_WHITE")",
+			playerVelocityScaled[2] );
+		CG_Printf( ", random: "S_COLOR_YELLOW"%.1f",
+			baseRandomVelocity );
+		CG_Printf( "\n" );
+	}
+	if ( cg_debugGibs.integer & 0x02 ) {
+		CG_Printf( "     body pitch "S_COLOR_YELLOW"%.1f",
+			AngleNormalize180( bodyAngles[PITCH] ) );
+		CG_Printf( " yaw "S_COLOR_YELLOW"%.1f",
+			AngleNormalize360( bodyAngles[YAW] ) );
+		CG_Printf( ", knockback speed "S_COLOR_YELLOW"%i", knockbackSpeed );
+		CG_Printf( ", random seed "S_COLOR_YELLOW"%i", seed );
+		CG_Printf( "\n" );
+	}
+
 	do {
 		// Note that one gib will get launched even if `numGibs == 0`.
 		// This is in line with the original behavior of `CG_GibPlayer`.

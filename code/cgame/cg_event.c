@@ -1326,6 +1326,17 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 			torsoAngles[YAW] = torsoAnimation.yawAngle;
 			torsoAngles[ROLL] = 0;
 
+			if ( cg_debugGibs.integer & 0x04 ) {
+				CG_Printf("EV_GIB_PLAYER:");
+				CG_Printf(" time "S_COLOR_GREEN"%i.%03is",
+					cg.time / 1000, cg.time % 1000 );
+				CG_Printf(", targ "S_COLOR_GREEN"%i",
+					es->number );
+				CG_Printf(", usePredictedPs %s%i\n",
+					usePredictedPs ? S_COLOR_GREEN : S_COLOR_CYAN,
+					usePredictedPs );
+			}
+
 			CG_GibPlayer( cent->lerpOrigin, torsoAngles, *vel, knockbackSpeed,
 				&torsoAnimation, randSeed );
 		}

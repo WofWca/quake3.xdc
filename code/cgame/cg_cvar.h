@@ -137,6 +137,9 @@ CG_CVAR( cg_animSpeed, "cg_animspeed", "1", CVAR_CHEAT, NULL )
 CG_CVAR( cg_debugAnim, "cg_debuganim", "0", CVAR_CHEAT, NULL )
 CG_CVAR( cg_debugPosition, "cg_debugposition", "0", CVAR_CHEAT, NULL )
 CG_CVAR( cg_debugEvents, "cg_debugevents", "0", CVAR_CHEAT, NULL )
+CG_CVAR( cg_debugGibs, "cg_debugGibs", "0", CVAR_CHEAT,
+	"Flag-like variable: set to 1 for basic debug logging, "
+	"set to 1023 (or -1) for mega debugging" )
 CG_CVAR( cg_errorDecay, "cg_errordecay", "100", 0, NULL )
 CG_CVAR( cg_nopredict, "cg_nopredict", "0", 0, NULL )
 CG_CVAR( cg_noPlayerAnims, "cg_noplayeranims", "0", CVAR_CHEAT, NULL )
