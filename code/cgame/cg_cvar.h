@@ -52,6 +52,18 @@ CG_CVAR( cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE,
 	"When set to 1, takes priority "
 	"over (almost) all the other `cg_gibs*` vars." )
 CG_CVAR( cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_gibsPiecesFromKnockback, "cg_gibsPiecesFromKnockback", "1.1", CVAR_ARCHIVE,
+	"For every 100 of knockback speed above 500 (100 damage), "
+	"add this many pieces of gibs, times the value of `cg_gibs`.\n"
+	"This makes for more pieces when someone gets gibbed by Quad.\n"
+	"\n"
+	"With higher damage gibs fly further apart, so one starts to see gibs "
+	"as individual pieces instead of a \"cloud\", which IMO is not good. "
+	"Increasing the amount of gibs with damage fixes this. "
+	"And overall it makes it more rewarding to deal more damage.\n"
+	"Q: \"What sense does it make to have more gibs? "
+	"Did the player got bigger from taking more damage??\":\n"
+	"A: No, they simlpy got split into more pieces." )
 CG_CVAR( cg_gibsRandomVelocityFromKnockback, "cg_gibsRandomVelocityFromKnockback", "0.4", CVAR_ARCHIVE,
 	"Scale how much random velocity (spread) the gibs gain "
 	"from damage (knockback)." )
