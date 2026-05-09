@@ -679,7 +679,9 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	int seed = randSeed;
 
 	vec3_t playerVelocityScaled;
-	float jump = cg_gibsExtraVerticalVelocity.value;
+	float jump =
+		cg_gibsExtraVerticalVelocity.value +
+		cg_gibsVerticalVelocityFromKnockback.value * knockbackSpeed;
 	int numGibs = cg_gibs.value * DEFAULT_NUM_GIBS;
 	qboolean skullLaunched = qfalse; // launch only one skull.
 
