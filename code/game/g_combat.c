@@ -279,22 +279,30 @@ void GibEntity( gentity_t *self, int killer, const int damageBloodFallback ) {
 	// we're simply providing the client with the knockback info,
 	// and whether to use that into is up to `cg_oldGibs`.
 	if ( g_gibsNewEvGibPlayerParmProtocol.integer == 1 ) {
-		int knockback;
+		int knockback = damageBloodFallback;
 		float knockbackSpeed;
 
-		// We prefer actual damage over `client->damage_knockback`
-		// because `damage_knockback` is sometimes undesirably 0. Namely:
-		// - when the target is a dead body, with `FL_NO_KNOCKBACK`.
-		// - when the knockback `dir` is not provided to `G_Damage`,
-		//   such as with crushers.
-		//
-		// Most of the time (but not always e.g. with lava)
-		// "no knockback" means "the player should not be moved
-		// in any particular direction",
-		// and not that "their gibs should stay put".
-		knockback = self->client
-			? self->client->damage_blood + self->client->damage_armor
-			: damageBloodFallback;
+		if ( self->client ) {
+			// We prefer actual damage over `client->damage_knockback`
+			// because `damage_knockback` is sometimes undesirably 0. Namely:
+			// - when the target is a dead body, with `FL_NO_KNOCKBACK`.
+			// - when the knockback `dir` is not provided to `G_Damage`,
+			//   such as with crushers.
+			//
+			// Most of the time (but not always e.g. with lava)
+			// "no knockback" means "the player should not be moved
+			// in any particular direction",
+			// and not that "their gibs should stay put".
+			const int frameDamage =
+				self->client->damage_blood + self->client->damage_armor;
+			// In case when `level.intermissionQueued` we don't use
+			// `damage_blood` and `damage_armor` because they would not be set.
+			// See `level.intermissionQueued` and `targ->die == body_die` check
+			// in `G_Damage`.
+			if ( !level.intermissionQueued || frameDamage != 0 ) {
+				knockback = frameDamage;
+			}
+		}
 		if ( knockback > MAX_KNOCKBACK ) {
 			knockback = MAX_KNOCKBACK;
 		}
