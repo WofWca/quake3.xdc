@@ -153,12 +153,37 @@ void CG_BloodTrail( localEntity_t *le ) {
 CG_FragmentBounceMark
 ================
 */
-void CG_FragmentBounceMark( localEntity_t *le, trace_t *trace ) {
+void CG_FragmentBounceMark( const localEntity_t *le, const trace_t *trace,
+	const vec3_t impactVelocityDiff ) {
 	int			radius;
 
 	if ( le->leMarkType == LEMT_BLOOD ) {
+		float radiusFactor = VectorLengthSquared( impactVelocityDiff )
+			/ Square( 800 );
+		if ( radiusFactor > 1 ) {
+			radiusFactor = 1;
+		}
+		// Smaller pieces make smaller marks.
+		if ( le->refEntity.hModel == cgs.media.gibIntestine ) {
+			radiusFactor *= 0.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibSkull ) {
+			radiusFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibFist ) {
+			radiusFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibAbdomen ) {
+			radiusFactor *= 1.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibChest ) {
+			radiusFactor *= 1.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibLeg ) {
+			radiusFactor *= 1.25;
+		}
 
-		radius = 16 + (rand()&31);
+		if ( cg_oldGibs.integer ) {
+			radius = 16 + (rand()&31);
+		} else {
+			radius = 16 + (radiusFactor + 0.25*crandom()) * 24;
+		}
+
 		CG_ImpactMark( cgs.media.bloodMarkShader, trace->endpos, trace->plane.normal, random()*360,
 			1,1,1,1, qtrue, radius, qfalse );
 	} else if ( le->leMarkType == LEMT_BURN ) {
@@ -345,7 +370,7 @@ void CG_AddFragment( localEntity_t *le ) {
 
 	if ( VectorLengthSquared( impactVelocityDiff ) >= Square( cg_bounceMarksMinImpactSpeed.value ) ) {
 		// leave a mark
-		CG_FragmentBounceMark( le, &trace );
+		CG_FragmentBounceMark( le, &trace, impactVelocityDiff );
 	}
 
 	if ( VectorLengthSquared( impactVelocityDiff ) >= Square( cg_bounceSoundMinImpactSpeed.value ) ) {
