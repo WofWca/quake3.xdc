@@ -280,6 +280,58 @@ void CG_ReflectVelocity( localEntity_t *le, trace_t *trace, vec3_t velocityDiffe
 	}
 }
 
+#define DEFAULT_GIB_SIZE 2
+static void GetFragmentMinsMaxs( const localEntity_t *le, vec3_t mins, vec3_t maxs ) {
+	VectorCopy( vec3_origin, mins );
+	VectorCopy( vec3_origin, maxs );
+
+	if ( le->leMarkType == LEMT_BLOOD ) {
+		float	sizeFactor = 1;
+		float	sizeFactor2;
+
+		if ( cg_oldGibs.integer ) {
+			return;
+		}
+
+		// Some gibs are visually not cubic, e.g. arms,
+		// but we can't be using a non-cubic physics box
+		// because the model is rotating inside of it (see `LEF_TUMBLE`).
+		VectorSet(mins, -DEFAULT_GIB_SIZE, -DEFAULT_GIB_SIZE, -DEFAULT_GIB_SIZE);
+		VectorSet(maxs, DEFAULT_GIB_SIZE, DEFAULT_GIB_SIZE, DEFAULT_GIB_SIZE);
+
+		// If you're gonna change these, make sure that gibs
+		// don't get stuck in the floor or walls when spawned.
+		if ( le->refEntity.hModel == cgs.media.gibIntestine ) {
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibSkull ) {
+			sizeFactor *= 2;
+		} else if ( le->refEntity.hModel == cgs.media.gibBrain ) {
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibFist ) {
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibForearm ) {
+			// Otherwise forearm kinda ends up standing upright sometimes.
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibAbdomen ) {
+			sizeFactor *= 1.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibChest ) {
+			sizeFactor *= 1.75;
+		} else if ( le->refEntity.hModel == cgs.media.gibLeg ) {
+			sizeFactor *= 1.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibFoot ) {
+			// This one is overly small, but otherwise
+			// it visibly gets stuck in the ground all the time
+			// when fragging with railgun or shotgun.
+			// due to `cg_gibsBetterCameraOnGib` causing the player box
+			// to get interpolated into the ground.
+			sizeFactor *= 0.25;
+		}
+
+		VectorScale( mins, sizeFactor, mins );
+		VectorScale( maxs, sizeFactor, maxs );
+	}
+}
+
 /*
 ================
 CG_AddFragment
@@ -288,6 +340,11 @@ CG_AddFragment
 void CG_AddFragment( localEntity_t *le ) {
 	vec3_t	newOrigin, impactVelocityDiff;
 	trace_t	trace;
+	vec3_t	mins;
+	vec3_t	maxs;
+
+	VectorCopy( vec3_origin, mins );
+	VectorCopy( vec3_origin, maxs );
 
 	if ( le->pos.trType == TR_STATIONARY ) {
 		// sink into the ground if near the removal time
@@ -315,8 +372,9 @@ void CG_AddFragment( localEntity_t *le ) {
 	// calculate new position
 	BG_EvaluateTrajectory( &le->pos, cg.time, newOrigin );
 
+	GetFragmentMinsMaxs( le, mins, maxs );
 	// trace a line from previous position to new position
-	CG_Trace( &trace, le->refEntity.origin, NULL, NULL, newOrigin, -1, CONTENTS_SOLID );
+	CG_Trace( &trace, le->refEntity.origin, mins, maxs, newOrigin, -1, CONTENTS_SOLID );
 	if ( trace.fraction == 1.0 ) {
 		// still in free fall
 		VectorCopy( newOrigin, le->refEntity.origin );

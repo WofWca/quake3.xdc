@@ -826,6 +826,13 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( origin, MINS_Z + 0.05 * playerHeight, up, origin );
 		VectorMA( origin, -0.5 * playerRadius, right, origin );
 		VectorMA( origin, -0.5 * playerRadius, forward, origin );
+		// This piece is offset relatively far back,
+		// and without this it might get stuck in the ground
+		// depending on `bodyAngles[PITCH]`,
+		// so let's ensure that it's high enough.
+		if ( origin[2] < playerOrigin[2] + MINS_Z + 2 ) {
+			origin[2] = playerOrigin[2] + MINS_Z + 2;
+		}
 		VectorClear( velocity );
 		velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
 		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
@@ -946,6 +953,10 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( origin, MINS_Z + 0.25 * playerHeight, up, origin );
 		VectorMA( origin, -0.5 * playerRadius, right, origin );
 		VectorMA( origin, -0.5 * playerRadius, forward, origin );
+		// See another similar check above.
+		if ( origin[2] < playerOrigin[2] + MINS_Z + 3 ) {
+			origin[2] = playerOrigin[2] + MINS_Z + 3;
+		}
 		VectorClear( velocity );
 		VectorMA( velocity, -(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
