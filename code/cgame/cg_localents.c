@@ -122,12 +122,40 @@ void CG_BloodTrail( localEntity_t *le ) {
 	int		t;
 	int		t2;
 	int		step;
+	int		tBase;
+	int		tOffset;
 	vec3_t	newOrigin;
 	localEntity_t	*blood;
+	// Changes only when the gib collides with something.
+	int seed = le->startTime
+		+ le->pos.trTime
+		+ le->pos.trBase[0] * 0x100
+		+ le->pos.trBase[1] * 0x100
+		+ le->pos.trBase[2] * 0x100
+		// We could also use these, but we have enough randomness already.
+		// + le->pos.trDelta[0] * 0x100
+		// + le->pos.trDelta[1] * 0x100
+		// + le->pos.trDelta[2] * 0x100
+		;
 
-	step = 150;
-	t = step * ( (cg.time - cg.frametime + step ) / step );
-	t2 = step * ( cg.time / step );
+	// Delay each puff for a bit, so that the initial trails
+	// are spread over a bigger volume, which looks more natural.
+	// At 1000 speed this is 63 units, i.e. a little more than player height
+	// (MAXS_Z - MINS_Z).
+	// Additionally this offsets all future puffs, so that they don't spawn
+	// at the same time for all gibs.
+	tOffset = 63 & Q_rand(&seed);
+
+	tBase = le->startTime + tOffset;
+	if ( cg.time < tBase ) {
+		return;
+	}
+
+	// Also a bit of randomness for the step looks more natural,
+	// doesn't give an impression that gib pieces are somehow "synced".
+	step = 134 + (31 & Q_rand(&seed));
+	t = tBase + step * ( ( cg.time - cg.frametime - tBase + step ) / step );
+	t2 = tBase + step * ( ( cg.time - tBase ) / step );
 
 	for ( ; t <= t2; t += step ) {
 		BG_EvaluateTrajectory( &le->pos, t, newOrigin );
