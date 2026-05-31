@@ -316,6 +316,25 @@ void CG_AddFragment( localEntity_t *le ) {
 	// reflect the velocity on the trace plane
 	CG_ReflectVelocity( le, &trace, impactVelocityDiff );
 
+	// Reduce (dampen) tumbling speed.
+	if ( le->leFlags & LEF_TUMBLE ) {
+		// Having angular velocity damping synchronized with
+		// linear velocity damping makes sure that they both decay
+		// at the same rate.
+		// Though having angular velocity damping a little smaller
+		// makes the fragment (gibs at least) look a little better
+		// when it stops, (as long as its angular velocity is not too big
+		// compared to its linear velocity).
+		float damping = (1 - le->bounceFactor) * 0.5;
+
+		// Make sure to set the current as the base before we update the delta,
+		// otherwise angles will suddenly jump on the next frame.
+		BG_EvaluateTrajectory( &le->angles, cg.time, le->angles.trBase );
+		le->angles.trTime = cg.time;
+
+		VectorScale( le->angles.trDelta, 1 - damping, le->angles.trDelta );
+	}
+
 	if ( VectorLengthSquared( impactVelocityDiff ) >= Square( cg_bounceMarksMinImpactSpeed.value ) ) {
 		// leave a mark
 		CG_FragmentBounceMark( le, &trace );
