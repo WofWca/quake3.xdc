@@ -243,11 +243,70 @@ static float KnockbackToKnockbackSpeed( int knockback ) {
 
 /*
 ==================
+GetGibEntityEventParm
+==================
+*/
+static int GetGibEntityEventParm( gentity_t *self, const int killer,
+	const int damageBloodFallback ) {
+	int knockback = damageBloodFallback;
+	float knockbackSpeed;
+	int knockbackByte;
+	// In vanilla Quake the meaning of the `EV_GIB_PLAYER` eventParm
+	// is `killer`.
+	// But it is unused client-side, so it's safe for us to change its meaning
+	// (i.e. to change the network protocol).
+	// However, some mods might in fact rely on it,
+	// so let's have a CVAR to keep the old behavior.
+	//
+	// Note that we're not checking `g_oldGibs`, because in itself
+	// this does not affect behavior:
+	// we're simply providing the client with the knockback info,
+	// and whether to use that into is up to `cg_oldGibs`.
+
+	if ( g_gibsNewEvGibPlayerParmProtocol.integer != 1 ) {
+		return killer;
+	}
+
+	if ( self->client ) {
+		// We prefer actual damage over `client->damage_knockback`
+		// because `damage_knockback` is sometimes undesirably 0. Namely:
+		// - when the target is a dead body, with `FL_NO_KNOCKBACK`.
+		// - when the knockback `dir` is not provided to `G_Damage`,
+		//   such as with crushers.
+		//
+		// Most of the time (but not always e.g. with lava)
+		// "no knockback" means "the player should not be moved
+		// in any particular direction",
+		// and not that "their gibs should stay put".
+		const int frameDamage =
+			self->client->damage_blood + self->client->damage_armor;
+		// In case when `level.intermissionQueued` we don't use
+		// `damage_blood` and `damage_armor` because they would not be set.
+		// See `level.intermissionQueued` and `targ->die == body_die` check
+		// in `G_Damage`.
+		if ( !level.intermissionQueued || frameDamage != 0 ) {
+			knockback = frameDamage;
+		}
+	}
+	if ( knockback > MAX_KNOCKBACK ) {
+		knockback = MAX_KNOCKBACK;
+	}
+
+	knockbackSpeed = KnockbackToKnockbackSpeed( knockback );
+
+	// Fit it into one byte.
+	knockbackByte = knockbackSpeed / COMBAT_EV_GIB_PLAYER_ARG_DIVISOR;
+	if (knockbackByte > 255) {
+		knockbackByte = 255;
+	}
+	return knockbackByte;
+}
+/*
+==================
 GibEntity
 ==================
 */
 void GibEntity( gentity_t *self, int killer, const int damageBloodFallback ) {
-	int eventParm = killer;
 	gentity_t *ent;
 	int i;
 
@@ -267,57 +326,8 @@ void GibEntity( gentity_t *self, int killer, const int damageBloodFallback ) {
 		}
 	}
 
-	// In vanilla Quake the meaning of the `EV_GIB_PLAYER` eventParm
-	// is `killer`.
-	// But it is unused client-side, so it's safe for us to change its meaning
-	// (i.e. to change the network protocol).
-	// However, some mods might in fact rely on it,
-	// so let's have a CVAR to keep the old behavior.
-	//
-	// Note that we're not checking `g_oldGibs`, because in itself
-	// this does not affect behavior:
-	// we're simply providing the client with the knockback info,
-	// and whether to use that into is up to `cg_oldGibs`.
-	if ( g_gibsNewEvGibPlayerParmProtocol.integer == 1 ) {
-		int knockback = damageBloodFallback;
-		float knockbackSpeed;
-
-		if ( self->client ) {
-			// We prefer actual damage over `client->damage_knockback`
-			// because `damage_knockback` is sometimes undesirably 0. Namely:
-			// - when the target is a dead body, with `FL_NO_KNOCKBACK`.
-			// - when the knockback `dir` is not provided to `G_Damage`,
-			//   such as with crushers.
-			//
-			// Most of the time (but not always e.g. with lava)
-			// "no knockback" means "the player should not be moved
-			// in any particular direction",
-			// and not that "their gibs should stay put".
-			const int frameDamage =
-				self->client->damage_blood + self->client->damage_armor;
-			// In case when `level.intermissionQueued` we don't use
-			// `damage_blood` and `damage_armor` because they would not be set.
-			// See `level.intermissionQueued` and `targ->die == body_die` check
-			// in `G_Damage`.
-			if ( !level.intermissionQueued || frameDamage != 0 ) {
-				knockback = frameDamage;
-			}
-		}
-		if ( knockback > MAX_KNOCKBACK ) {
-			knockback = MAX_KNOCKBACK;
-		}
-
-		knockbackSpeed = KnockbackToKnockbackSpeed( knockback );
-
-		// Fit it into one byte.
-		eventParm = knockbackSpeed / COMBAT_EV_GIB_PLAYER_ARG_DIVISOR;
-		if (eventParm > 255) {
-			eventParm = 255;
-		}
-	} else {
-		eventParm = killer;
-	}
-	G_AddEvent( self, EV_GIB_PLAYER, eventParm );
+	G_AddEvent( self, EV_GIB_PLAYER,
+		GetGibEntityEventParm(self, killer, damageBloodFallback) );
 
 	self->takedamage = qfalse;
 	self->s.eType = ET_INVISIBLE;
