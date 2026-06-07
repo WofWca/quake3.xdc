@@ -430,12 +430,7 @@ static void GetFragmentMinsMaxs( const localEntity_t *le, vec3_t mins, vec3_t ma
 		} else if ( le->refEntity.hModel == cgs.media.gibLeg ) {
 			sizeFactor *= 1.25;
 		} else if ( le->refEntity.hModel == cgs.media.gibFoot ) {
-			// This one is overly small, but otherwise
-			// it visibly gets stuck in the ground all the time
-			// when fragging with railgun or shotgun.
-			// due to `cg_gibsBetterCameraOnGib` causing the player box
-			// to get interpolated into the ground.
-			sizeFactor *= 0.25;
+			sizeFactor *= 0.5;
 		}
 
 		VectorScale( mins, sizeFactor, mins );

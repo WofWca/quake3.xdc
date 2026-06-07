@@ -1043,7 +1043,7 @@ typedef struct {
 
 	// parsed from systeminfo
 	qboolean		g_autoAttack;
-	int				g_gibsNewEvGibPlayerParmProtocol;
+	int				g_gibsNewEvGibPlayerProtocol;
 
 	int				voteTime;
 	int				voteYes;

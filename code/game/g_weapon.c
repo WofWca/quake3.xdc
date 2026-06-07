@@ -426,6 +426,8 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 	// assert( ShouldPostponeDeathOrGib( MOD_SHOTGUN ) );
 	ent2 = &g_entities[0];
 	for (i = 0; i < level.num_entities; i++, ent2++) {
+		int killer = ent->s.number;
+
 		if ( !ent2->inuse ) {
 			continue;
 		}
@@ -436,16 +438,46 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 		}
 
 		if ( ent2->gibScheduled ) {
-			// Note that this is technically differerent from vanilla,
-			// because vanilla passes `0` as `eventParm if we are gibbing
-			// a body from body queue.
-			int killer = ent->s.number;
 			// Just fall back to "half of all the pellets hit".
 			int damageFallback = DEFAULT_SHOTGUN_DAMAGE * s_quadFactor
 				* DEFAULT_SHOTGUN_DAMAGE / 2;
+			// Note that this is technically differerent from vanilla,
+			// because vanilla passes `0` as `eventParm if we are gibbing
+			// a body from body queue.
 			GibEntity( ent2, killer, damageFallback );
 		}
+		// `else if` because if the player gets gibbed
+		// then we must not play the normal death sound,
+		// and setting the animation is also not needed.
+		// This is also in line with how it works in `player_die`.
+		else if ( ent2->setDeathAnimScheduled ) {
+			// Copy-pasted from `player_die`.
+
+			const int i = ent2->setDeathAnimScheduled - 1;
+			int anim;
+
+			switch ( i ) {
+			case 0:
+				anim = BOTH_DEATH1;
+				break;
+			case 1:
+				anim = BOTH_DEATH2;
+				break;
+			case 2:
+			default:
+				anim = BOTH_DEATH3;
+				break;
+			}
+
+			ent2->client->ps.legsAnim =
+				( ( ent2->client->ps.legsAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
+			ent2->client->ps.torsoAnim =
+				( ( ent2->client->ps.torsoAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
+
+			G_AddEvent( ent2, EV_DEATH1 + i, killer );
+		}
 		ent2->gibScheduled = qfalse;
+		ent2->setDeathAnimScheduled = 0;
 	}
 }
 

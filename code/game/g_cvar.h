@@ -116,7 +116,26 @@ G_CVAR( g_gibsMissileDirectionKnockbackWeight, "g_gibsMissileDirectionKnockbackW
 	"\n"
 	"Note that this affects not just the gibs "
 	"but also the camera velocity of the gibbed player." )
-G_CVAR( g_gibsNewEvGibPlayerParmProtocol, "g_gibsNewEvGibPlayerParmProtocol", "1", CVAR_SYSTEMINFO | CVAR_ARCHIVE, NO_TRACK, NULL )
+// We could have simply made this a binary value to tell clients
+// that the server is running Better Gibs mod. But let's make it flag-like,
+// for forwards compatibility.
+G_CVAR( g_gibsNewEvGibPlayerProtocol, "g_gibsNewEvGibPlayerProtocol", "14", CVAR_SYSTEMINFO, NO_TRACK,
+	"Bitmask, describing which gibs \"features\" are supported by the server.\n"
+	"This is not really intended to be changed by users "
+	"to a value different from the default or 0, "
+	"unless they're having mod compatibility issues "
+	"and really know what they're doing.\n"
+	"\n"
+	"  - 0b0001: whether `es->eventParm` is knockback speed divided by 8, "
+	"otherwise it's the `killer` entity num. "
+	"Deprecated. Kept for compatibility with servers "
+	"running an older version of Better Gibs mod.\n"
+	"  - 0b0010: whether `es->generic1` is knockback speed divided by 8.\n"
+	"  - 0b0100: whether `es->otherEntityNum` is the number of the entity "
+	"that got gibbed by this event. Implies that gib events are communicated "
+	"via `G_TempEntity` and not the target's `event` and `eventParm`.\n"
+	"  - 0b1000: whether `es->pos.trDelta` is the velocity of the target "
+	"when it got gibbed." )
 G_CVAR( g_gibsOnCollisionMinSpeed, "g_gibsOnCollisionMinSpeed", "1000", CVAR_ARCHIVE, NO_TRACK,
 	"If a player's speed abruptly changes by this much or more, "
 	"as a result of collision with something (e.g. floor, wall), "

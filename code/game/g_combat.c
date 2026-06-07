@@ -243,29 +243,57 @@ static float KnockbackToKnockbackSpeed( int knockback ) {
 
 /*
 ==================
-GetGibEntityEventParm
+SpawnGibEventTempEntity
+
+Compared to `G_AddEvent()`, which can basically only carry one byte
+of extra parameters (`eventParm`), this allows us to provide clients
+with more info about the gib event.
 ==================
 */
-static int GetGibEntityEventParm( gentity_t *self, const int killer,
+static void SpawnGibEventTempEntity( gentity_t *self, const int killer,
 	const int damageBloodFallback ) {
 	int knockback = damageBloodFallback;
 	float knockbackSpeed;
-	int knockbackByte;
-	// In vanilla Quake the meaning of the `EV_GIB_PLAYER` eventParm
-	// is `killer`.
-	// But it is unused client-side, so it's safe for us to change its meaning
-	// (i.e. to change the network protocol).
-	// However, some mods might in fact rely on it,
-	// so let's have a CVAR to keep the old behavior.
-	//
-	// Note that we're not checking `g_oldGibs`, because in itself
-	// this does not affect behavior:
-	// we're simply providing the client with the knockback info,
-	// and whether to use that into is up to `cg_oldGibs`.
+	gentity_t* tent = G_TempEntity(
+		self->client
+			? self->client->ps.origin
+			: self->s.pos.trBase,
+		EV_GIB_PLAYER
+	);
 
-	if ( g_gibsNewEvGibPlayerParmProtocol.integer != 1 ) {
-		return killer;
-	}
+	// Match the player box. This affects PVS checks,
+	// i.e. if the box is not potentially visible
+	// then the event won't be sent to clients.
+	trap_UnlinkEntity(tent);
+	VectorCopy( self->r.mins, tent->r.mins );
+	VectorCopy( self->r.maxs, tent->r.maxs );
+	trap_LinkEntity(tent);
+	// For non-zero bounding boxes `trap_LinkEntity` sets `s.solid`,
+	// which is unused by clients but costs bandwidth. Reset back to 0.
+	self->s.solid = 0;
+
+	// For super-duper compatibility with possible mods
+	// we could have also utilized `BG_PlayerStateToEntityState`
+	// (and copying the whole `self->s` to the temp entity),
+	// but let's not do that, to save badnwidth.
+	// Most of the fields are anyways irrelevant when the entity is gibbed.
+
+	// Same as in vanilla. Vanilla clients don't read `eventParm`,
+	// but software like WolfcamQL does, so let's specify it.
+	tent->s.eventParm = killer;
+
+	// On the client side this will set `es.number` to the number
+	// of the target entity. We do this for better compatibility.
+	// Maybe we shouldn't be doing such low-level stuff, but should be fine.
+	// Yes, technically this is not a _player_ event,
+	// because the target can also be a corpse.
+	tent->s.eFlags |= EF_PLAYER_EVENT;
+	tent->s.otherEntityNum = self->s.number;
+
+	// Our mod doesn't use this as of now, but, again, other mods might,
+	// e.g. to get the model of the gibbed player or corpse,
+	// so let's specify it.
+	tent->s.clientNum = self->s.clientNum;
 
 	if ( self->client ) {
 		// We prefer actual damage over `client->damage_knockback`
@@ -291,15 +319,33 @@ static int GetGibEntityEventParm( gentity_t *self, const int killer,
 	if ( knockback > MAX_KNOCKBACK ) {
 		knockback = MAX_KNOCKBACK;
 	}
-
 	knockbackSpeed = KnockbackToKnockbackSpeed( knockback );
 
-	// Fit it into one byte.
-	knockbackByte = knockbackSpeed / COMBAT_EV_GIB_PLAYER_ARG_DIVISOR;
-	if (knockbackByte > 255) {
-		knockbackByte = 255;
+	if ( g_gibsNewEvGibPlayerProtocol.integer & 0x2 ) {
+		// Fit it into one byte.
+		tent->s.generic1 = knockbackSpeed / COMBAT_EV_GIB_PLAYER_ARG_DIVISOR;
+		if (tent->s.generic1 > 255) {
+			tent->s.generic1 = 255;
+		}
 	}
-	return knockbackByte;
+
+	if ( g_gibsNewEvGibPlayerProtocol.integer & 0x08 ) {
+		const vec3_t *vel = self->client
+				? (const vec3_t*)&self->client->ps.velocity
+				: (const vec3_t*)&self->s.pos.trDelta;
+		// Despite the fact that clients can obtain the velocity
+		// from the player entity, we should still set it, for compatibility
+		// (as opposed to trying to save network bandwidth):
+		// some mods (like the old versions of Better Gibs mod)
+		// or software like WolfcamQL might expect it to be set on the entity.
+		VectorCopy( *vel, tent->s.pos.trDelta );
+		trap_SnapVector( tent->s.pos.trDelta );
+
+		// `TR_INTERPOLATE` is what player entities have,
+		// but here it's not actually different from `TR_STATIONARY`
+		// because we are never going to change `s.pos.trOrigin`.
+		tent->s.pos.trType = TR_STATIONARY;
+	}
 }
 /*
 ==================
@@ -326,8 +372,22 @@ void GibEntity( gentity_t *self, int killer, const int damageBloodFallback ) {
 		}
 	}
 
-	G_AddEvent( self, EV_GIB_PLAYER,
-		GetGibEntityEventParm(self, killer, damageBloodFallback) );
+	// We're not checking for `g_oldGibs` because `g_gibsNewEvGibPlayerProtocol`
+	// is `CVAR_SYSTEMINFO`, i.e. we send its value to clients.
+	// If we tell them that we use the new protocol,
+	// then we must use the new protocol,
+	// regardless of the value of `g_oldGibs`.
+	if ( g_gibsNewEvGibPlayerProtocol.integer == 0 ) {
+		G_AddEvent( self, EV_GIB_PLAYER, killer );
+	} else {
+		// TODO fix: there is a small problem with using a temp entity:
+		// when a client gets gibbed, the gib event will be delayed for them
+		// for one snapshot (50ms by default).
+		// This has to do with the fact that regular events fire for self
+		// as soon as they appear in `cg.snap`,
+		// but player events only wait for `cg.nextSnap` (no interpolation).
+		SpawnGibEventTempEntity( self, killer, damageBloodFallback );
+	}
 
 	self->takedamage = qfalse;
 	self->s.eType = ET_INVISIBLE;
@@ -747,12 +807,16 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			self->health = GIB_HEALTH+1;
 		}
 
-		self->client->ps.legsAnim = 
-			( ( self->client->ps.legsAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
-		self->client->ps.torsoAnim = 
-			( ( self->client->ps.torsoAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
+		if ( ShouldPostponeDeathOrGib( meansOfDeath ) ) {
+			self->setDeathAnimScheduled = 1 + anim;
+		} else {
+			self->client->ps.legsAnim = 
+				( ( self->client->ps.legsAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
+			self->client->ps.torsoAnim = 
+				( ( self->client->ps.torsoAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
 
-		G_AddEvent( self, EV_DEATH1 + i, killer );
+			G_AddEvent( self, EV_DEATH1 + i, killer );
+		}
 
 		// the body can still be gibbed
 		self->die = body_die;
@@ -1324,8 +1388,6 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				// Set player velocity to what it was before they hit the ground
 				// so that the gibs inherit this velocity
 				// (see `cg_gibsInheritPlayerVelocity`).
-				// Note that this only seems to work on other players
-				// and not self (probably due to prediction).
 				//
 				// Note that there is a more accurate crash landing
 				// velocity calculation in `PM_CrashLand`,

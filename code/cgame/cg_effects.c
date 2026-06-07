@@ -1041,30 +1041,54 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 }
 void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 					const clientInfo_t *ci ) {
-	int knockbackSpeed = cgs.g_gibsNewEvGibPlayerParmProtocol == 1
+	// With the new proto, `cent` is the temp event entity.
+	// We need to get the actual player or corpse.
+	const int targNum = cgs.g_gibsNewEvGibPlayerProtocol & 0x04
+		? es->otherEntityNum
+		: es->number;
+	const centity_t *targCent = targNum == cg.snap->ps.clientNum
+		? &cg.predictedPlayerEntity
+		: &cg_entities[ targNum ];
+	const entityState_t *targEs = &targCent->currentState;
+	const qboolean targEsValid = targCent->currentValid ||
+		targCent == &cg.predictedPlayerEntity;
+	const int killer = es->eventParm;
+
+	int knockbackSpeed = cgs.g_gibsNewEvGibPlayerProtocol & 0x02
+		? es->generic1 * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
+		// Also check the old Better Gibs mod protocol.
+		// This is to support servers and replays with the old version
+		// of the Better Gibs mod.
+		// Not super necessary but why not.
+		: cgs.g_gibsNewEvGibPlayerProtocol & 0x01
 		? es->eventParm * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
 		// Just use the default knockback speed for 100 damage.
 		: 100 * 1000 / COMBAT_PLAYER_MASS;
 
-	// Apparently at this point `es->pos.trDelta` doesn't yet have
+	// Apparently at this point `targEs->pos.trDelta` doesn't yet have
 	// the knockback from the damage that gibbed us,
 	// so we have to differentiate between self and non-self
 	// during regular (non-demo non-spectator) gameplay.
 	const qboolean usePredictedPs =
-		es->number == cg.snap->ps.clientNum &&
+		targNum == cg.snap->ps.clientNum &&
 		!cg.demoPlayback &&
 		!(cg.snap->ps.pm_flags & PMF_FOLLOW);
-	const vec3_t *vel = usePredictedPs
-		? (const vec3_t*)&cg.predictedPlayerState.velocity
-		: &es->pos.trDelta;
+	// The new protocol has `trDelta` set to the player velocity
+	// at the time of gib.
+	// This is different from the velocity of the player or corpse (`targCent`),
+	// which might have changed (due to `Pmove()` or `BG_EvaluateTrajectory()`)
+	// between the gib event and the time when the snapshot was sent.
+	// This is especially important if the knockback moved the player
+	// against an obstacle such as a wall or the floor, clipping their velocity.
+	// See https://github.com/WofWca/quake3-better-gibs-mod/issues/3.
+	const vec3_t *vel =
+		!( cgs.g_gibsNewEvGibPlayerProtocol & 0x08 ) && usePredictedPs
+			? (const vec3_t*)&cg.predictedPlayerState.velocity
+			: &es->pos.trDelta;
 
-	lerpFrame_t torsoAnimation = es->number == cg.snap->ps.clientNum
-		// `cent->pe.torso` appears to be not good for self,
-		// unlike `cg.predictedPlayerEntity`,
-		// even during `demoPlayback` and `PMF_FOLLOW`,
-		// so we're not using `usePredictedPs` here.
-		? cg.predictedPlayerEntity.pe.torso
-		: cent->pe.torso;
+	// TODO: need to check `targEsValid`?
+	// Probably not a big deal though.
+	lerpFrame_t torsoAnimation = targCent->pe.torso;
 	vec3_t torsoAngles;
 
 	// TODO fix: things like `origin` and `angles`
@@ -1097,11 +1121,37 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 	torsoAngles[ROLL] = 0;
 
 	if ( cg_debugGibs.integer & 0x04 ) {
+		vec3_t diff;
+		float l;
+
 		CG_Printf("EV_GIB_PLAYER:");
 		CG_Printf(" time "S_COLOR_GREEN"%i.%03is",
 			cg.time / 1000, cg.time % 1000 );
-		CG_Printf(", targ "S_COLOR_GREEN"%i",
-			es->number );
+		// If the server sets `EF_PLAYER_EVENT`, this is never `true`.
+		if ( targNum != es->number ) {
+			CG_Printf(", ent "S_COLOR_GREEN"%i",
+				es->number );
+		}
+		CG_Printf(", targ %s%i",
+			targEsValid ? S_COLOR_GREEN : S_COLOR_RED,
+			targNum );
+
+		// Yellow means a big difference, but usually it means
+		// that it's an innacuracy that we fixed by using the new protocol,
+		// where the position and velocity are fixed at what they were
+		// the moment the player got gibbed on the server,
+		// i.e. they are not interpolated.
+		VectorSubtract( targEs->pos.trBase, es->pos.trBase, diff );
+		l = VectorLength( diff );
+		CG_Printf(", pos diff %s%.1f",
+			l > 750 ? S_COLOR_RED : l > 100 ? S_COLOR_YELLOW : S_COLOR_GREEN,
+			VectorLength( diff ) );
+		VectorSubtract( targEs->pos.trDelta, *vel, diff );
+		l = VectorLength( diff );
+		CG_Printf(", vel diff %s%.1f",
+			l > 1500 ? S_COLOR_RED : l > 100 ? S_COLOR_YELLOW : S_COLOR_GREEN,
+			VectorLength( diff ) );
+
 		CG_Printf(", usePredictedPs %s%i\n",
 			usePredictedPs ? S_COLOR_GREEN : S_COLOR_CYAN,
 			usePredictedPs );

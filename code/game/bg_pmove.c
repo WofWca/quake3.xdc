@@ -1294,11 +1294,6 @@ static void PM_CheckDuck (void)
 			// and lifting it off the ground,
 			// as if the player became just their head.
 			//
-			// This also fixes the issue with gibs
-			// flying parallel to the ground even when knockback direction
-			// is towards the ground:
-			// https://github.com/WofWca/quake3-better-gibs-mod/issues/3.
-			//
 			// Note that we don't need to change `groundEntityNum` and stuff,
 			// because there is `PM_GroundTraceMissed()`
 			// right after `PM_CheckDuck()`.

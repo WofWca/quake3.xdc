@@ -145,6 +145,12 @@ struct gentity_s {
 	int			health;
 
 	qboolean	takedamage;
+	// Whether to change `legsAnim` and `torsoAnim`,
+	// and fire a `EV_DEATH*` event
+	// after applying all the pellets of a shotgun shot.
+	// 0 means "nothing is scheduled",
+	// otherwise this represents (animation index + 1).
+	int			setDeathAnimScheduled;
 	// Whether to `GibEntity` after applying all the pellets of a shotgun shot.
 	qboolean	gibScheduled;
 
