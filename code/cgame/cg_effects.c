@@ -1097,10 +1097,23 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 	int randSeed = es->number;
 	randSeed = Q_rand(&randSeed) + es->clientNum;
 	randSeed = Q_rand(&randSeed) + es->eventParm;
+	randSeed = Q_rand(&randSeed) + es->generic1;
 	randSeed = Q_rand(&randSeed) + cgs.levelStartTime;
-	// TODO fix: this varies from client to client.
-	// So for now we round it to make it in sync ~95% of the time.
-	randSeed = Q_rand(&randSeed) + cg.snap->serverTime / 2048;
+	if ( cgs.g_gibsNewEvGibPlayerProtocol & 0x08 ) {
+		// With the new protocol the origin and velocity never change
+		// for the temp entity.
+		randSeed = Q_rand(&randSeed) + es->pos.trBase[0];
+		randSeed = Q_rand(&randSeed) + es->pos.trBase[1];
+		randSeed = Q_rand(&randSeed) + es->pos.trBase[2];
+		randSeed = Q_rand(&randSeed) + es->pos.trDelta[0];
+		randSeed = Q_rand(&randSeed) + es->pos.trDelta[1];
+		randSeed = Q_rand(&randSeed) + es->pos.trDelta[2];
+	} else {
+		// This varies from client to client, depending on the `snaps` CVAR
+		// and packet loss.
+		// So we round it to make it in sync ~95% of the time.
+		randSeed = Q_rand(&randSeed) + cg.snap->serverTime / 2048;
+	}
 	if ( ci ) {
 		randSeed = Q_rand(&randSeed) + ci->name[0];
 	}
