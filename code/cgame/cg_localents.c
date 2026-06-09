@@ -138,6 +138,13 @@ void CG_BloodTrail( localEntity_t *le ) {
 		// + le->pos.trDelta[2] * 0x100
 		;
 
+	// Comparing to 1 and not 0 because step randomness can result
+	// in step being 0.
+	// But anyways, anything below ~20 is not a sane value.
+	if ( cg_gibsBloodTrailPeriod.integer <= 1 ) {
+		return;
+	}
+
 	// Delay each puff for a bit, so that the initial trails
 	// are spread over a bigger volume, which looks more natural.
 	// At 1000 speed this is 63 units, i.e. a little more than player height
@@ -153,7 +160,7 @@ void CG_BloodTrail( localEntity_t *le ) {
 
 	// Also a bit of randomness for the step looks more natural,
 	// doesn't give an impression that gib pieces are somehow "synced".
-	step = 134 + (31 & Q_rand(&seed));
+	step = cg_gibsBloodTrailPeriod.integer * (1 + 0.125*Q_crandom(&seed));
 	t = tBase + step * ( ( cg.time - cg.frametime - tBase + step ) / step );
 	t2 = tBase + step * ( ( cg.time - tBase ) / step );
 

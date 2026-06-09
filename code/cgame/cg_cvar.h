@@ -84,6 +84,9 @@ CG_CVAR( cg_gibsBounceFactorRandomness, "cg_gibsBounceFactorRandomness", "0.5", 
 	"This makes gibs look less uniform, and spread a little more." )
 CG_CVAR( cg_gibsRotationFactor, "cg_gibsRotationFactor", "1.0", CVAR_ARCHIVE,
 	"Scale how fast gib pieces will rotate, depending on damage (knockback)." )
+// Not archived because experimental
+CG_CVAR( cg_gibsBloodTrailPeriod, "cg_gibsBloodTrailPeriod", "150", 0,
+	"How often in milliseconds gibs leave blood \"clouds\"" )
 CG_CVAR( cg_gibsBetterCameraOnGib, "cg_gibsBetterCameraOnGib", "1", CVAR_USERINFO | CVAR_ARCHIVE,
 	"When you get gibbed, makes your camera get knocked farther away "
 	"thanks to it being smaller than your player's bounding box, "
