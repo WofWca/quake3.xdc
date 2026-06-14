@@ -77,6 +77,21 @@ CG_CVAR( cg_gibsExtraRandomVelocity, "cg_gibsExtraRandomVelocity", "100", CVAR_A
 CG_CVAR( cg_gibsExtraVerticalVelocity, "cg_gibsExtraVerticalVelocity", "50", CVAR_ARCHIVE,
 	"Like `cg_gibsVerticalVelocityFromKnockback`, "
 	"but adds a *fixed* amount of vertical speed to each piece" )
+CG_CVAR( cg_gibsOriginalOrigin, "cg_gibsOriginalOrigin", "0.0", 0,
+	"Whether to use the exact position where the player got gibbed "
+	"as the initial gibs position, instead of the position "
+	"of the gibbed player on the screen, i.e. the position of the player "
+	"on the next server frame (lerpOrigin).\n"
+	"\n"
+	"Can be a fractional value between 0 and 1, "
+	"but you probably want either 0 or 1.\n"
+	"To get vanilla behavior, set to 0.\n"
+	"\n"
+	"Has no effect on vanilla servers (`g_gibsNewEvGibPlayerProtocol 0`).\n"
+	"\n"
+	"Using the original position might make it seem\n"
+	"like the player \"telepoted\" one snapshot back (50ms at `snaps 20`)\n"
+	"if they're already moving at high speed." )
 CG_CVAR( cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE,
 	"Fraction of speed that gibs preserve when bouncing off a surface" )
 CG_CVAR( cg_gibsBounceFactorRandomness, "cg_gibsBounceFactorRandomness", "0.5", CVAR_ARCHIVE,

@@ -1054,6 +1054,8 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		targCent == &cg.predictedPlayerEntity;
 	const int killer = es->eventParm;
 
+	vec3_t origin;
+
 	int knockbackSpeed = cgs.g_gibsNewEvGibPlayerProtocol & 0x02
 		? es->generic1 * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
 		// Also check the old Better Gibs mod protocol.
@@ -1118,6 +1120,28 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		randSeed = Q_rand(&randSeed) + ci->name[0];
 	}
 
+	// With the new protocol `cent->lerpOrigin` is always equal
+	// to `cent->pos.trBase`, which is the exact place where the player was
+	// when they got gibbed, same as with velocity.
+	// The difference is visible with
+	// `set sv_fps 10; set snaps 10; set cl_timeNudge 30; set g_knockback 3000;`
+	// and a quad shotgun.
+	if ( !targEsValid ) {
+		// Could happen if the gib event is in the PVS (potentially visible set)
+		// but the player is not.
+		// Just fall back to using the position of the gib event,
+		// as if `cg_gibsOriginalOrigin.value == 1.0f`.
+		VectorCopy( cent->lerpOrigin, origin );
+	} else {
+		// `targEs->pos` is better than `targCent->lerpOrigin`
+		// because `targCent->lerpOrigin` seems to be of the old frame,
+		// i.e. this code runs before `CG_CalcEntityLerpPositions()`,
+		// so `targCent->lerpOrigin` could also be invalid (zero vector).
+		// Especially noticeable when telefragging an enemy far away.
+		VectorLerp( targEs->pos.trBase, cg_gibsOriginalOrigin.value,
+			cent->lerpOrigin, origin );
+	}
+
 	// Torso animation angles seem to be in better sync
 	// between the local state and how others see us,
 	// and overall are closer to other player's viewangles
@@ -1154,11 +1178,13 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		// where the position and velocity are fixed at what they were
 		// the moment the player got gibbed on the server,
 		// i.e. they are not interpolated.
-		VectorSubtract( targEs->pos.trBase, es->pos.trBase, diff );
-		l = VectorLength( diff );
-		CG_Printf(", pos diff %s%.1f",
-			l > 750 ? S_COLOR_RED : l > 100 ? S_COLOR_YELLOW : S_COLOR_GREEN,
-			VectorLength( diff ) );
+		if ( cg_gibsOriginalOrigin.value != 0 ) {
+			VectorSubtract( targEs->pos.trBase, origin, diff );
+			l = VectorLength( diff );
+			CG_Printf(", pos diff %s%.1f",
+				l > 750 ? S_COLOR_RED : l > 100 ? S_COLOR_YELLOW : S_COLOR_GREEN,
+				VectorLength( diff ) );
+		}
 		VectorSubtract( targEs->pos.trDelta, *vel, diff );
 		l = VectorLength( diff );
 		CG_Printf(", vel diff %s%.1f",
@@ -1170,7 +1196,7 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 			usePredictedPs );
 	}
 
-	CG_GibPlayer( cent->lerpOrigin, torsoAngles, *vel, knockbackSpeed,
+	CG_GibPlayer( origin, torsoAngles, *vel, knockbackSpeed,
 		&torsoAnimation, randSeed );
 }
 
