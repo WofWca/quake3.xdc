@@ -51,7 +51,21 @@ CG_CVAR( cg_oldGibs, "cg_oldGibs", "0", CVAR_ARCHIVE,
 	"Vanilla gibs, from 1999. "
 	"When set to 1, takes priority "
 	"over (almost) all the other `cg_gibs*` vars." )
-CG_CVAR( cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_gibsInheritPlayerVelocity, "cg_gibsInheritPlayerVelocity", "1.0", CVAR_ARCHIVE,
+	"If the player is moving fast, their gibs will also move fast. "
+	"And the player will move fast when they receive damage (knockback). "
+	"The most important var of the Better Gibs mod.\n"
+	"\n"
+	"It's possible to set a value other than 1 or 0, "
+	"but if you simply want the gibs to have more speed, "
+	"you're probably after `cg_gibsKnockback` or other `cg_gibs` vars." )
+CG_CVAR( cg_gibsKnockback, "cg_gibsKnockback", "1.0", 0,
+	"Scale the knockback when gibbing a player, "
+	"as if they received more (or less) damage.\n"
+	"On vanilla servers this only has effect on random and vertical velocity "
+	"but not on directional velocity.\n"
+	"Remember that this also affects own gibs, so having a value too high "
+	"will make gibs fly faster than the camera." )
 CG_CVAR( cg_gibsPiecesFromKnockback, "cg_gibsPiecesFromKnockback", "1.1", CVAR_ARCHIVE,
 	"For every 100 of knockback speed above 500 (100 damage), "
 	"add this many pieces of gibs, times the value of `cg_gibs`.\n"

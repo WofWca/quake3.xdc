@@ -939,7 +939,7 @@ void CG_AddInvulnerabilityJuiced( localEntity_t *le ) {
 			randSeed = Q_rand(&randSeed) + cgs.levelStartTime;
 
 			CG_GibPlayer( le->refEntity.origin, angles, le->pos.trDelta,
-				knockbackSpeed, NULL, randSeed );
+				NULL, knockbackSpeed, NULL, randSeed );
 		}
 	}
 	else {

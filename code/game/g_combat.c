@@ -346,6 +346,22 @@ static void SpawnGibEventTempEntity( gentity_t *self, const int killer,
 		// because we are never going to change `s.pos.trOrigin`.
 		tent->s.pos.trType = TR_STATIONARY;
 	}
+
+	if ( g_gibsNewEvGibPlayerProtocol.integer & 0x10 ) {
+		// 0 means "no direction".
+		// We use 0 instead of something like 255 in order to save bandwidth:
+		// 0 value will not result in delta.
+		int dirByte = 0;
+		// TODO feat: we can also set this for dead bodies, from `G_Damage` arg.
+		if ( self->client && !self->client->damage_fromWorld &&
+			self->client->damage_knockback > 0 )
+		{
+			// `DirToByte` never returns values bigger than NUMVERTEXNORMALS-1,
+			// so it's OK to `+1`.
+			dirByte = 1 + DirToByte( self->client->damage_from );
+		}
+		tent->s.legsAnim = dirByte;
+	}
 }
 /*
 ==================

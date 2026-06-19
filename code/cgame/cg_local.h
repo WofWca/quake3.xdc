@@ -1381,7 +1381,8 @@ void CG_LightningBoltBeam( vec3_t start, vec3_t end );
 void CG_ScorePlum( int client, vec3_t org, int score );
 
 void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
-				const vec3_t playerVelocityOriginal, const int knockbackSpeed,
+				const vec3_t playerVelocityOriginal,
+				const vec3_t knockbackDir, const int knockbackSpeedOriginal,
 				const lerpFrame_t *bodyAnimation, const int randSeed );
 // Same as `CG_GibPlayer`, but takes different params.
 void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,

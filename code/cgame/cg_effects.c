@@ -663,7 +663,8 @@ in demo playback, so that players see the same gibs
 #define	GIB_VELOCITY		250
 #define	GIB_JUMP			250
 void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
-					const vec3_t playerVelocityOriginal, const int knockbackSpeed,
+					const vec3_t playerVelocityOriginal,
+					const vec3_t knockbackDir, const int knockbackSpeedOriginal,
 					const lerpFrame_t *bodyAnimation, const int randSeed ) {
 	int i;
 	vec3_t	baseOrigin, origin, velocity;
@@ -678,6 +679,7 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	// to account for crounching.
 	float playerHeight = 32 - MINS_Z;
 	float playerRadius = PLAYER_WIDTH;
+	const int knockbackSpeed = cg_gibsKnockback.value * knockbackSpeedOriginal;
 	float baseRandomVelocity =
 		cg_gibsExtraRandomVelocity.value +
 		cg_gibsRandomVelocityFromKnockback.value * knockbackSpeed;
@@ -713,13 +715,33 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	}
 	AngleVectors( bodyAngles, forward, right, up );
 
-	VectorScale( playerVelocityOriginal, cg_gibsInheritPlayerVelocity.value, playerVelocity );
+	VectorCopy( playerVelocityOriginal, playerVelocity );
+
+	if ( knockbackDir ) {
+		// Scale the knockback.
+		//
+		// This also handles `knockbackDir` being a zero-vector.
+		VectorMA( playerVelocity,
+			knockbackSpeed -
+				// `playerVelocity` already includes original knockback,
+				// so don't add it again.
+				knockbackSpeedOriginal,
+			knockbackDir,
+			playerVelocity );
+	}
+
+	VectorScale( playerVelocity, cg_gibsInheritPlayerVelocity.value, playerVelocity );
 
 	if ( cg_debugGibs.integer & 0x01 ) {
 		CG_Printf( "gib:" );
 		CG_Printf( " "S_COLOR_YELLOW"%i"S_COLOR_WHITE" pieces",
 			numGibs );
-		CG_Printf( ", speeds: player: "S_COLOR_YELLOW"%.1f",
+		CG_Printf( ", speeds: " );
+		if ( !VectorCompare( playerVelocity, playerVelocityOriginal ) ) {
+			CG_Printf( "orig: "S_COLOR_YELLOW"%.1f, ",
+				VectorLength( playerVelocityOriginal ) );
+		}
+		CG_Printf( "result ps: "S_COLOR_YELLOW"%.1f",
 			VectorLength( playerVelocity ) );
 		CG_Printf( " (vertical "S_COLOR_YELLOW"%.1f"S_COLOR_WHITE")",
 			playerVelocity[2] );
@@ -1066,6 +1088,7 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		? es->eventParm * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
 		// Just use the default knockback speed for 100 damage.
 		: 100 * 1000 / COMBAT_PLAYER_MASS;
+	vec3_t knockbackDir;
 
 	// Apparently at this point `targEs->pos.trDelta` doesn't yet have
 	// the knockback from the damage that gibbed us,
@@ -1142,6 +1165,12 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 			cent->lerpOrigin, origin );
 	}
 
+	if ( ( cgs.g_gibsNewEvGibPlayerProtocol & 0x10 ) && es->legsAnim != 0 ) {
+		ByteToDir( es->legsAnim - 1, knockbackDir );
+	} else {
+		VectorClear( knockbackDir );
+	}
+
 	// Torso animation angles seem to be in better sync
 	// between the local state and how others see us,
 	// and overall are closer to other player's viewangles
@@ -1196,7 +1225,7 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 			usePredictedPs );
 	}
 
-	CG_GibPlayer( origin, torsoAngles, *vel, knockbackSpeed,
+	CG_GibPlayer( origin, torsoAngles, *vel, knockbackDir, knockbackSpeed,
 		&torsoAnimation, randSeed );
 }
 
