@@ -679,7 +679,9 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	// to account for crounching.
 	float playerHeight = 32 - MINS_Z;
 	float playerRadius = PLAYER_WIDTH;
-	const int knockbackSpeed = cg_gibsKnockback.value * knockbackSpeedOriginal;
+	const int knockbackSpeed =
+		cg_gibsExtraKnockback.integer +
+		cg_gibsKnockback.value * knockbackSpeedOriginal;
 	float baseRandomVelocity =
 		cg_gibsExtraRandomVelocity.value +
 		cg_gibsRandomVelocityFromKnockback.value * knockbackSpeed;

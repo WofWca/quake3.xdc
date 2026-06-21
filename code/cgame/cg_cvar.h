@@ -66,6 +66,13 @@ CG_CVAR( cg_gibsKnockback, "cg_gibsKnockback", "1.0", 0,
 	"but not on directional velocity.\n"
 	"Remember that this also affects own gibs, so having a value too high "
 	"will make gibs fly faster than the camera." )
+CG_CVAR( cg_gibsExtraKnockback, "cg_gibsExtraKnockback", "0", 0,
+	"Like `cg_gibsKnockback`, but adds a *fixed* amount of knockback. "
+	"100 of knockback corresponds to 20 of damage.\n"
+	"This basically sets a \"baseline\" amount of knockback, "
+	"making all shots feel powerful, "
+	"while not scaling the already high speed the gibs would gain "
+	"from Quad shots." )
 CG_CVAR( cg_gibsPiecesFromKnockback, "cg_gibsPiecesFromKnockback", "1.1", CVAR_ARCHIVE,
 	"For every 100 of knockback speed above 500 (100 damage), "
 	"add this many pieces of gibs, times the value of `cg_gibs`.\n"
