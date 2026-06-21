@@ -682,12 +682,16 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	const int knockbackSpeed =
 		cg_gibsExtraKnockback.integer +
 		cg_gibsKnockback.value * knockbackSpeedOriginal;
+	float stoppingSpeed;
 	float baseRandomVelocity =
 		cg_gibsExtraRandomVelocity.value +
 		cg_gibsRandomVelocityFromKnockback.value * knockbackSpeed;
 	int seed = randSeed;
 
 	vec3_t playerVelocity;
+	// Note that this is not too accurate: we derive it based on knockback,
+	// so expect an error of up to ~100.
+	vec3_t pVelBeforeKnockback;
 	float jump =
 		cg_gibsExtraVerticalVelocity.value +
 		cg_gibsVerticalVelocityFromKnockback.value * knockbackSpeed;
@@ -717,6 +721,12 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	}
 	AngleVectors( bodyAngles, forward, right, up );
 
+	if ( knockbackDir ) {
+		VectorMA( playerVelocityOriginal, -knockbackSpeedOriginal, knockbackDir,
+			pVelBeforeKnockback );
+	} else {
+		VectorCopy( playerVelocityOriginal, pVelBeforeKnockback );
+	}
 	VectorCopy( playerVelocityOriginal, playerVelocity );
 
 	if ( knockbackDir ) {
@@ -730,6 +740,27 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 				knockbackSpeedOriginal,
 			knockbackDir,
 			playerVelocity );
+	}
+
+	stoppingSpeed = -cg_gibsPlayerSpeedFromKnockback.value * knockbackSpeed;
+	if ( knockbackDir && !VectorCompare( knockbackDir, vec3_origin )
+		&& stoppingSpeed )
+	{
+		float speedBeforeKb = VectorLength( pVelBeforeKnockback );
+		float stoppingPower =
+			stoppingSpeed >= speedBeforeKb || speedBeforeKb == 0
+				? 1
+				: stoppingSpeed / speedBeforeKb;
+
+		if ( stoppingPower > -cg_gibsPlayerSpeedFromKnockbackMaxFraction.value ) {
+			stoppingPower = -cg_gibsPlayerSpeedFromKnockbackMaxFraction.value;
+		}
+
+		VectorMA( playerVelocity, -stoppingPower, pVelBeforeKnockback,
+			playerVelocity );
+		stoppingSpeed = speedBeforeKb * stoppingPower;
+	} else {
+		stoppingSpeed = 0;
 	}
 
 	VectorScale( playerVelocity, cg_gibsInheritPlayerVelocity.value, playerVelocity );
@@ -757,6 +788,11 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		CG_Printf( " yaw "S_COLOR_YELLOW"%.1f",
 			AngleNormalize360( bodyAngles[YAW] ) );
 		CG_Printf( ", knockback speed "S_COLOR_YELLOW"%i", knockbackSpeed );
+		CG_Printf( ", before kb: "S_COLOR_YELLOW"%.1f",
+			VectorLength( pVelBeforeKnockback ) );
+		if ( stoppingSpeed != 0 ) {
+			CG_Printf( ", stopping: "S_COLOR_YELLOW"%.1f", stoppingSpeed );
+		}
 		CG_Printf( ", random seed "S_COLOR_YELLOW"%i", seed );
 		CG_Printf( "\n" );
 	}
