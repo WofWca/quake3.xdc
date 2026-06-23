@@ -133,10 +133,31 @@ CG_CVAR( cg_gibsOriginalOrigin, "cg_gibsOriginalOrigin", "0.0", 0,
 	"To get vanilla behavior, set to 0.\n"
 	"\n"
 	"Has no effect on vanilla servers (`g_gibsNewEvGibPlayerProtocol 0`).\n"
+	"Basically has no effect when `cg_gibsNoLerpDelay 1`.\n"
 	"\n"
 	"Using the original position might make it seem\n"
 	"like the player \"telepoted\" one snapshot back (50ms at `snaps 20`)\n"
 	"if they're already moving at high speed." )
+CG_CVAR( cg_gibsNoLerpDelay, "cg_gibsNoLerpDelay", "0", 0,
+	"Don't wait for next snapshot to arrive (normally 50ms) "
+	"before gibbing players.\n"
+	"Otherwise after taking a shot the player's body will stay intact "
+	"for the said 50ms, then get gibbed.\n"
+	"Consequently, this affects the position from which the gibs are launched, "
+	"due to the gibbed player (or, rather, their camera) "
+	"moving during those 50ms. See `cg_gibsOriginalOrigin`.\n"
+	"\n"
+	"Note that when looking at another player (or missile) gibbing someone "
+	"it will look like the player gets gibbed "
+	"50ms before the actual shot is fired.\n"
+	"That is, the gib event will happen "
+	"ahead of the displayed state of the game.\n"
+	"\n"
+	"Set this to 3 (2nd bit) to also do this on vanilla servers.\n"
+	"Set this to 5 (3rd bit) to keep the body visible "
+	"until the next snapshot. That is, both the body and the gibs "
+	"will be visible together for ~50ms.\n"
+	"To get vanilla behavior, set to 0." )
 CG_CVAR( cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE,
 	"Fraction of speed that gibs preserve when bouncing off a surface" )
 CG_CVAR( cg_gibsBounceFactorRandomness, "cg_gibsBounceFactorRandomness", "0.5", CVAR_ARCHIVE,
