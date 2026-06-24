@@ -85,6 +85,11 @@ CG_CVAR( cg_gibsPiecesFromKnockback, "cg_gibsPiecesFromKnockback", "1.1", CVAR_A
 	"Q: \"What sense does it make to have more gibs? "
 	"Did the player got bigger from taking more damage??\":\n"
 	"A: No, they simlpy got split into more pieces." )
+CG_CVAR( cg_gibsLinearVelocityFromKnockback, "cg_gibsLinearVelocityFromKnockback", "1.0", 0,
+	"Scale how fast the gibs move away from damage (knockback).\n"
+	"This sounds similar to `cg_gibsInheritPlayerVelocity`, "
+	"but this var doesn't scale the velocity that the player already had "
+	"when they received the damage." )
 CG_CVAR( cg_gibsRandomVelocityFromKnockback, "cg_gibsRandomVelocityFromKnockback", "0.4", CVAR_ARCHIVE,
 	"Scale how much random velocity (spread) the gibs gain "
 	"from damage (knockback)." )

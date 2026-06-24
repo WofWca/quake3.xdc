@@ -724,7 +724,7 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		//
 		// This also handles `knockbackDir` being a zero-vector.
 		VectorMA( playerVelocity,
-			knockbackSpeed -
+			cg_gibsLinearVelocityFromKnockback.value * knockbackSpeed -
 				// `playerVelocity` already includes original knockback,
 				// so don't add it again.
 				knockbackSpeedOriginal,
