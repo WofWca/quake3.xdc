@@ -927,6 +927,13 @@ static void PM_CrashLand( void ) {
 	float		t;
 	float		a, b, c, den;
 
+	if ( pm->ps->pm_type == PM_DEAD &&
+		pm->ps->stats[STAT_HEALTH] <= GIB_HEALTH )
+	{
+		// gibbed: don't make a sound, and no need to change animations
+		return;
+	}
+
 	// decide which landing animation to use
 	if ( pm->ps->pm_flags & PMF_BACKWARDS_JUMP ) {
 		PM_ForceLegsAnim( LEGS_LANDB );
