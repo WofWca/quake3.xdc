@@ -87,6 +87,17 @@ CG_CVAR( cg_gibsRotationFactor, "cg_gibsRotationFactor", "1.0", CVAR_ARCHIVE,
 // Not archived because experimental
 CG_CVAR( cg_gibsBloodTrailPeriod, "cg_gibsBloodTrailPeriod", "150", 0,
 	"How often in milliseconds gibs leave blood \"clouds\"" )
+CG_CVAR( cg_gibsFireTrailPeriod, "cg_gibsFireTrailPeriod", "30", 0,
+	"How often in milliseconds gibs leave fire \"clouds\".\n"
+	"Remember to set `cg_gibsFireTrailMinKnockback` >= 0 for this to work" )
+CG_CVAR( cg_gibsFireTrailDuration, "cg_gibsFireTrailDuration", "1024", 0,
+	"How long in milliseconds gibs leave fire trails for.\n"
+	"Remember to set `cg_gibsFireTrailMinKnockback` >= 0 for this to work" )
+CG_CVAR( cg_gibsFireTrailMinKnockback, "cg_gibsFireTrailMinKnockback", "-1", 0,
+	"How much knockback the player must receive "
+	"for their gibs to leave fire trails.\n"
+	"100 damage is 500 knockback.\n"
+	"`-1` to disable." )
 CG_CVAR( cg_gibsBetterCameraOnGib, "cg_gibsBetterCameraOnGib", "1", CVAR_USERINFO | CVAR_ARCHIVE,
 	"When you get gibbed, makes your camera get knocked farther away "
 	"thanks to it being smaller than your player's bounding box, "

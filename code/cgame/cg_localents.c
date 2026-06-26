@@ -181,6 +181,82 @@ void CG_BloodTrail( localEntity_t *le ) {
 		blood->pos.trDelta[2] = 40;
 	}
 }
+void CG_FireTrail( localEntity_t *le ) {
+	// Mostly copy-pasted from `CG_BloodTrail`
+
+	int		t;
+	int		t2;
+	int		step;
+	int		tBase;
+	int		tOffset;
+	vec3_t	newOrigin;
+	// Changes only when the gib collides with something.
+	int seed = le->startTime
+		+ le->pos.trTime
+		+ le->pos.trBase[0] * 0x100
+		+ le->pos.trBase[1] * 0x100
+		+ le->pos.trBase[2] * 0x100
+		// We could also use these, but we have enough randomness already.
+		// + le->pos.trDelta[0] * 0x100
+		// + le->pos.trDelta[1] * 0x100
+		// + le->pos.trDelta[2] * 0x100
+		;
+
+	if ( cg_gibsFireTrailPeriod.integer <= 0 ) {
+		return;
+	}
+
+	tOffset = 15 & Q_rand(&seed);
+
+	tBase = le->startTime + tOffset;
+	if ( cg.time < tBase ) {
+		return;
+	}
+
+	step = cg_gibsFireTrailPeriod.integer * (1 + 0.5*random());
+	t = tBase + step * ( ( cg.time - cg.frametime - tBase + step ) / step );
+	t2 = tBase + step * ( ( cg.time - tBase ) / step );
+
+	for ( ; t <= t2; t += step ) {
+		vec3_t vel;
+		const int decayStartTime =
+			le->startTime + cg_gibsFireTrailDuration.value / 8;
+		float sizeScale = 1;
+
+		if (t < decayStartTime) {
+			sizeScale = 1;
+		} else {
+			sizeScale = 1 - (t - decayStartTime) /
+				cg_gibsFireTrailDuration.value *
+				( 1 + 0.5*Q_crandom(&seed) );
+			if (sizeScale < 0.4) {
+				sizeScale = 0;
+				// Stop calling `CG_FireTrail()`, just for performance.
+				if ( le->light == LIGHT_GIB_FIRE_TRAIL) {
+					le->light = 0;
+				}
+				break;
+			}
+		}
+		sizeScale *= 1.5;
+		sizeScale *= 1 + 0.25*Q_crandom(&seed);
+
+		BG_EvaluateTrajectory( &le->pos, t, newOrigin );
+		newOrigin[0] += rand() & 15 - 8;
+		newOrigin[1] += rand() & 15 - 8;
+		newOrigin[2] += rand() & 15 - 8;
+
+		BG_EvaluateTrajectoryDelta( &le->pos, t, vel);
+		// Make the fire "trail behind".
+		VectorScale(vel, 0.5, vel);
+		vel[0] += rand() & 63 - 32;
+		vel[1] += rand() & 63 - 32;
+		vel[2] += rand() & 63 - 32;
+
+		CG_ParticleExplosion( "explode1", newOrigin, vel, 300,
+			sizeScale*10, sizeScale*3 );
+	}
+}
 
 
 /*
@@ -426,6 +502,10 @@ void CG_AddFragment( localEntity_t *le ) {
 		// add a blood trail
 		if ( le->leBounceSoundType == LEBS_BLOOD ) {
 			CG_BloodTrail( le );
+
+			if ( le->light == LIGHT_GIB_FIRE_TRAIL && !cg_oldGibs.integer ) {
+				CG_FireTrail( le );
+			}
 		}
 
 		return;
