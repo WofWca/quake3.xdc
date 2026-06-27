@@ -1112,7 +1112,17 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 	const entityState_t *targEs = &targCent->currentState;
 	const qboolean targEsValid = targCent->currentValid ||
 		targCent == &cg.predictedPlayerEntity;
-	const int killer = es->eventParm;
+
+	const int killerNum = es->eventParm;
+	const centity_t *killerCent = killerNum == cg.snap->ps.clientNum
+		? &cg.predictedPlayerEntity
+		: &cg_entities[ killerNum ];
+	const entityState_t *killerEs = &killerCent->currentState;
+	const qboolean killerEsValid = ( killerCent->currentValid ||
+		killerCent == &cg.predictedPlayerEntity ) &&
+		// With vanilla servers `killer` is always 0
+		// when gibbing a dead body from the body queue.
+		!( targNum >= MAX_CLIENTS && killerNum == 0 );
 
 	vec3_t origin;
 
@@ -1124,6 +1134,11 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		// Not super necessary but why not.
 		: cgs.g_gibsNewEvGibPlayerProtocol & 0x01
 		? es->eventParm * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
+		: killerEsValid && killerEs->powerups & ( 1 << PW_QUAD )
+		// Killer has quad: use `MAX_KNOCKBACK`.
+		// TODO fix: also check weapon,
+		// although this will not be always accurate, due to missiles.
+		? 200 * 1000 / COMBAT_PLAYER_MASS
 		// Just use the default knockback speed for 100 damage.
 		: 100 * 1000 / COMBAT_PLAYER_MASS;
 	vec3_t knockbackDir;
@@ -1239,6 +1254,9 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		CG_Printf(", targ %s%i",
 			targEsValid ? S_COLOR_GREEN : S_COLOR_RED,
 			targNum );
+		CG_Printf(", killer %s%i",
+			killerEsValid ? S_COLOR_GREEN : S_COLOR_RED,
+			killerNum );
 
 		// Yellow means a big difference, but usually it means
 		// that it's an innacuracy that we fixed by using the new protocol,
