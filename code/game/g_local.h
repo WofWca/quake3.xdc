@@ -136,7 +136,7 @@ struct gentity_s {
 	void		(*touch)(gentity_t *self, gentity_t *other, trace_t *trace);
 	void		(*use)(gentity_t *self, gentity_t *other, gentity_t *activator);
 	void		(*pain)(gentity_t *self, gentity_t *attacker, int damage);
-	void		(*die)(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod);
+	void		(*die)(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int mod);
 
 	int			pain_debounce_time;
 	int			fly_sound_debounce_time;	// wind tunnel
@@ -587,7 +587,7 @@ void GibEntity( gentity_t *self, int killer, const int damageBloodFallback );
 #define SetFlNoKnockback( ent ) {ent->flags |= FL_NO_KNOCKBACK;}
 qboolean G_RadiusDamage (vec3_t origin, gentity_t *attacker, float damage, float radius, gentity_t *ignore, int mod);
 int G_InvulnerabilityEffect( gentity_t *targ, vec3_t dir, vec3_t point, vec3_t impactpoint, vec3_t bouncedir );
-void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath );
+void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int meansOfDeath );
 void TossClientItems( gentity_t *self );
 #ifdef MISSIONPACK
 void TossClientPersistantPowerups( gentity_t *self );
@@ -678,7 +678,7 @@ void ClientRespawn(gentity_t *ent);
 void BeginIntermission (void);
 void InitBodyQue (void);
 void ClientSpawn( gentity_t *ent );
-void player_die (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod);
+void player_die (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int mod);
 void AddScore( gentity_t *ent, vec3_t origin, int score );
 void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
