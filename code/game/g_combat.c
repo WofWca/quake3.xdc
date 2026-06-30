@@ -251,7 +251,7 @@ with more info about the gib event.
 ==================
 */
 static void SpawnGibEventTempEntity( gentity_t *self, const int killer,
-	const int damageBloodFallback ) {
+	const vec3_t dir, const int damageBloodFallback ) {
 	int knockback = damageBloodFallback;
 	float knockbackSpeed;
 	gentity_t* tent = G_TempEntity(
@@ -339,6 +339,23 @@ static void SpawnGibEventTempEntity( gentity_t *self, const int killer,
 		// some mods (like the old versions of Better Gibs mod)
 		// or software like WolfcamQL might expect it to be set on the entity.
 		VectorCopy( *vel, tent->s.pos.trDelta );
+
+		// Dead bodies don't receive knockback, so apply it here manully.
+		if ( ( self->flags & FL_NO_KNOCKBACK || !self->client ) &&
+			dir && !VectorCompare( dir, vec3_origin ) )
+		{
+			VectorMA( tent->s.pos.trDelta,
+				// Note that clients assume that the factor is always 1,
+				// i.e. subtracting `dir` scaled by `knockbackSpeed`
+				// will get you `pVelBeforeKnockback`.
+				// This will not crahs the game or anything,
+				// but the calculations will be slightly off.
+				knockbackSpeed *
+					g_gibsDeadBodyLinearVelocityFromKnockback.value,
+				dir,
+				tent->s.pos.trDelta );
+		}
+
 		trap_SnapVector( tent->s.pos.trDelta );
 
 		// `TR_INTERPOLATE` is what player entities have,
@@ -352,13 +369,10 @@ static void SpawnGibEventTempEntity( gentity_t *self, const int killer,
 		// We use 0 instead of something like 255 in order to save bandwidth:
 		// 0 value will not result in delta.
 		int dirByte = 0;
-		// TODO feat: we can also set this for dead bodies, from `G_Damage` arg.
-		if ( self->client && !self->client->damage_fromWorld &&
-			self->client->damage_knockback > 0 )
-		{
+		if ( dir && !VectorCompare( dir, vec3_origin ) ) {
 			// `DirToByte` never returns values bigger than NUMVERTEXNORMALS-1,
 			// so it's OK to `+1`.
-			dirByte = 1 + DirToByte( self->client->damage_from );
+			dirByte = 1 + DirToByte( dir );
 		}
 		tent->s.legsAnim = dirByte;
 	}
@@ -368,7 +382,8 @@ static void SpawnGibEventTempEntity( gentity_t *self, const int killer,
 GibEntity
 ==================
 */
-void GibEntity( gentity_t *self, int killer, const int damageBloodFallback ) {
+void GibEntity( gentity_t *self, int killer,
+	const vec3_t dir, const int damageBloodFallback ) {
 	gentity_t *ent;
 	int i;
 
@@ -402,7 +417,7 @@ void GibEntity( gentity_t *self, int killer, const int damageBloodFallback ) {
 		// This has to do with the fact that regular events fire for self
 		// as soon as they appear in `cg.snap`,
 		// but player events only wait for `cg.nextSnap` (no interpolation).
-		SpawnGibEventTempEntity( self, killer, damageBloodFallback );
+		SpawnGibEventTempEntity( self, killer, dir, damageBloodFallback );
 	}
 
 	self->takedamage = qfalse;
@@ -439,7 +454,7 @@ void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const
 	if ( ShouldPostponeDeathOrGib( meansOfDeath ) ) {
 		self->gibScheduled = qtrue;
 	} else {
-		GibEntity( self, 0, damage );
+		GibEntity( self, 0, dir, damage );
 	}
 }
 
@@ -798,7 +813,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, con
 		if ( ShouldPostponeDeathOrGib( meansOfDeath ) ) {
 			self->gibScheduled = qtrue;
 		} else {
-			GibEntity( self, killer, damage );
+			GibEntity( self, killer, dir, damage );
 		}
 	} else {
 		// normal death
@@ -1114,7 +1129,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				if ( dir ) {
 					VectorNormalize(dir);
 				}
-				// `body_die` doesn't use any of its arguments (except `targ`),
+				// `body_die` doesn't use most of its arguments,
 				// so it's fine if they're `NULL`.
 				targ->die (targ, inflictor, attacker, dir, damage, mod);
 			}
@@ -1328,26 +1343,6 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 			
 		if ( targ->health <= 0 ) {
-			// Not checking `ShouldPostponeDeathOrGib` would cause a bug:
-			// when fragging with the shotgun,
-			// the dead body would not gain momentum (knockback)
-			// from the pellets that come after the pellet
-			// that made the health go below 0.
-			// This would result in the dead body not getting pushed
-			// as far as it should have been, and, most importantly,
-			// the gibs not getting enough momentum. See
-			// https://github.com/ec-/baseq3a/pull/53.
-			//
-			// Note that if the body gets gibbed,
-			// then it will still stop absorbing pellets,
-			// i.e. this fix only adds at most `GIB_HEALTH` worth of knockback.
-			//
-			// This issiue is similar to
-			// https://github.com/ioquake/ioq3/issues/794.
-			if ( client && !ShouldPostponeDeathOrGib( mod ) ) {
-				SetFlNoKnockback( targ );
-			}
-
 			if (targ->health < -999)
 				targ->health = -999;
 
@@ -1444,6 +1439,30 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 
 			targ->enemy = attacker;
 			targ->die (targ, inflictor, attacker, dir, take, mod);
+
+			// Not checking `ShouldPostponeDeathOrGib` would cause a bug:
+			// when fragging with the shotgun,
+			// the dead body would not gain momentum (knockback)
+			// from the pellets that come after the pellet
+			// that made the health go below 0.
+			// This would result in the dead body not getting pushed
+			// as far as it should have been, and, most importantly,
+			// the gibs not getting enough momentum. See
+			// https://github.com/ec-/baseq3a/pull/53.
+			//
+			// Note that if the body gets gibbed,
+			// then it will still stop absorbing pellets,
+			// i.e. this fix only adds at most `GIB_HEALTH` worth of knockback.
+			//
+			// This issiue is similar to
+			// https://github.com/ioquake/ioq3/issues/794.
+			//
+			// We also moved this to after `die()` because `GibEntity`
+			// checks for `FL_NO_KNOCKBACK`.
+			if ( client && !ShouldPostponeDeathOrGib( mod ) ) {
+				SetFlNoKnockback( targ );
+			}
+
 			return;
 		} else if ( targ->pain ) {
 			targ->pain (targ, attacker, take);

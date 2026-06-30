@@ -432,11 +432,6 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 			continue;
 		}
 
-		if ( ent2->client && ent2->client->ps.pm_type == PM_DEAD ) {
-			SetDeadHeight( ent2 );
-			SetFlNoKnockback( ent2 );
-		}
-
 		if ( ent2->gibScheduled ) {
 			// Just fall back to "half of all the pellets hit".
 			int damageFallback = DEFAULT_SHOTGUN_DAMAGE * s_quadFactor
@@ -444,7 +439,7 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 			// Note that this is technically differerent from vanilla,
 			// because vanilla passes `0` as `eventParm if we are gibbing
 			// a body from body queue.
-			GibEntity( ent2, killer, damageFallback );
+			GibEntity( ent2, killer, forward, damageFallback );
 		}
 		// `else if` because if the player gets gibbed
 		// then we must not play the normal death sound,
@@ -476,6 +471,14 @@ void ShotgunPattern( vec3_t origin, vec3_t origin2, int seed, gentity_t *ent ) {
 
 			G_AddEvent( ent2, EV_DEATH1 + i, killer );
 		}
+
+		// Do this after `GibEntity()` because
+		// `GibEntity` checks for `FL_NO_KNOCKBACK`.
+		if ( ent2->client && ent2->client->ps.pm_type == PM_DEAD ) {
+			SetDeadHeight( ent2 );
+			SetFlNoKnockback( ent2 );
+		}
+
 		ent2->gibScheduled = qfalse;
 		ent2->setDeathAnimScheduled = 0;
 	}

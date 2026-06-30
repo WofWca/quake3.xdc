@@ -137,6 +137,10 @@ G_CVAR( g_gibsNewEvGibPlayerProtocol, "g_gibsNewEvGibPlayerProtocol", "30", CVAR
 	"  - 0b01000: whether `es->pos.trDelta` is the velocity of the target "
 	"when it got gibbed.\n"
 	"  - 0b10000: whether `es->legsAnim` is the knockback direction." )
+G_CVAR( g_gibsDeadBodyLinearVelocityFromKnockback, "g_gibsDeadBodyLinearVelocityFromKnockback", "1.0", NO_FLAGS, NO_TRACK,
+	"Scale how much the knockback affects dead bodies.\n"
+	"This does not actually affect gameplay, despite being a server-side var. "
+	"Has no effect when `g_gibsNewEvGibPlayerProtocol 0`." )
 G_CVAR( g_gibsOnCollisionMinSpeed, "g_gibsOnCollisionMinSpeed", "1000", CVAR_ARCHIVE, NO_TRACK,
 	"If a player's speed abruptly changes by this much or more, "
 	"as a result of collision with something (e.g. floor, wall), "
