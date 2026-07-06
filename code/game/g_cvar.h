@@ -161,6 +161,13 @@ G_CVAR( g_gibsOnCollisionInheritPlayerVelocity, "g_gibsOnCollisionInheritPlayerV
 	"and not *before* the collision. "
 	"Also see `cg_gibsInheritPlayerVelocity`." )
 
+G_CVAR( g_intermissionDelay, "g_intermissionDelay", "1000", NO_FLAGS, TRACK,
+	"How long to wait after the final score before going to the scoreboard "
+	"or the podium, in milliseconds." )
+#ifdef MISSIONPACK
+G_CVAR( g_intermissionDelaySinglePlayer, "g_intermissionDelaySinglePlayer", "5000", NO_FLAGS, TRACK, NULL )
+#endif
+
 G_CVAR( g_podiumDist, "g_podiumDist", "80", NO_FLAGS, NO_TRACK, NULL )
 G_CVAR( g_podiumDrop, "g_podiumDrop", "70", NO_FLAGS, NO_TRACK, NULL )
 
