@@ -161,9 +161,11 @@ G_CVAR( g_gibsOnCollisionInheritPlayerVelocity, "g_gibsOnCollisionInheritPlayerV
 	"and not *before* the collision. "
 	"Also see `cg_gibsInheritPlayerVelocity`." )
 
-G_CVAR( g_intermissionDelay, "g_intermissionDelay", "1000", NO_FLAGS, TRACK,
+G_CVAR( g_intermissionDelay, "g_intermissionDelay", "1100", NO_FLAGS, TRACK,
 	"How long to wait after the final score before going to the scoreboard "
-	"or the podium, in milliseconds." )
+	"or the podium, in milliseconds.\n"
+	"In vanilla this is 1000, but we increase it by 100 (two server frames)\n"
+	"so that the winner can shoot a second shotgun shot, to gib the dead body." )
 #ifdef MISSIONPACK
 G_CVAR( g_intermissionDelaySinglePlayer, "g_intermissionDelaySinglePlayer", "5000", NO_FLAGS, TRACK, NULL )
 #endif
