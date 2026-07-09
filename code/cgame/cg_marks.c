@@ -227,14 +227,19 @@ void CG_ImpactMark( qhandle_t markShader, const vec3_t origin, const vec3_t dir,
 CG_AddMarks
 ===============
 */
-#define	MARK_TOTAL_TIME		10000
-#define	MARK_FADE_TIME		1000
-
 void CG_AddMarks( void ) {
 	int			j;
 	markPoly_t	*mp, *next;
 	int			t;
 	int			fade;
+	// In vanilla `cg_marks` is a binary value, so if it's the legacy 1,
+	// then use the vanilla value of 10000ms.
+	const int totalTime = cg_addMarks.value == 1.0f
+		? 10000
+		: cg_addMarks.integer;
+	const int fadeTime = cg_addMarks.value == 1.0f
+		? 1000
+		: totalTime / 8;
 
 	if ( !cg_addMarks.integer ) {
 		return;
@@ -247,7 +252,7 @@ void CG_AddMarks( void ) {
 		next = mp->nextMark;
 
 		// see if it is time to completely remove it
-		if ( cg.time > mp->time + MARK_TOTAL_TIME ) {
+		if ( cg.time > mp->time + totalTime ) {
 			CG_FreeMarkPoly( mp );
 			continue;
 		}
@@ -271,9 +276,9 @@ void CG_AddMarks( void ) {
 		}
 
 		// fade all marks out with time
-		t = mp->time + MARK_TOTAL_TIME - cg.time;
-		if ( t < MARK_FADE_TIME ) {
-			fade = 255 * t / MARK_FADE_TIME;
+		t = mp->time + totalTime - cg.time;
+		if ( t < fadeTime ) {
+			fade = 255 * t / fadeTime;
 			if ( mp->alphaFade ) {
 				for ( j = 0 ; j < mp->poly.numVerts ; j++ ) {
 					mp->verts[j].modulate[3] = fade;
