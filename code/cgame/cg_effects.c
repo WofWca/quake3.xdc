@@ -541,7 +541,9 @@ void CG_LaunchGib( const vec3_t origin, const vec3_t angles,
 
 	le->leType = LE_FRAGMENT;
 	le->startTime = cg.time;
-	le->endTime = le->startTime + 5000 + random() * 3000;
+	// Up to 60% extra, which is the vanilla 3000ms for the default 5000.
+	le->endTime = le->startTime +
+		(int)( cg_gibsDuration.integer * ( 1 + random() * 0.6f ) );
 
 	VectorCopy( origin, re->origin );
 	AnglesToAxis( angles, re->axis );

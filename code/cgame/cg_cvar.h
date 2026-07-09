@@ -122,6 +122,9 @@ CG_CVAR( cg_gibsPlayerSpeedFromKnockbackMaxFraction, "cg_gibsPlayerSpeedFromKnoc
 	"of player speed. "
 	"For example, if this is -0.75, we'll always keep at least 25% "
 	"of original player velocity." )
+CG_CVAR( cg_gibsDuration, "cg_gibsDuration", "5000", 0,
+	"How long (in milliseconds) gibs stay around "
+	"before sinking into the ground." )
 CG_CVAR( cg_gibsOriginalOrigin, "cg_gibsOriginalOrigin", "0.0", 0,
 	"Whether to use the exact position where the player got gibbed "
 	"as the initial gibs position, instead of the position "

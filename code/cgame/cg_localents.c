@@ -456,16 +456,20 @@ void CG_AddFragment( localEntity_t *le ) {
 		// sink into the ground if near the removal time
 		int		t;
 		float	oldZ;
+		const int sinkTime = le->leMarkType == LEMT_BLOOD
+			// in vanilla the duraition is 5000ms and sink time is 1000ms.
+			? cg_gibsDuration.integer / 5
+			: SINK_TIME;
 		
 		t = le->endTime - cg.time;
-		if ( t < SINK_TIME ) {
+		if ( t < sinkTime ) {
 			// we must use an explicit lighting origin, otherwise the
 			// lighting would be lost as soon as the origin went
 			// into the ground
 			VectorCopy( le->refEntity.origin, le->refEntity.lightingOrigin );
 			le->refEntity.renderfx |= RF_LIGHTING_ORIGIN;
 			oldZ = le->refEntity.origin[2];
-			le->refEntity.origin[2] -= 16 * ( 1.0 - (float)t / SINK_TIME );
+			le->refEntity.origin[2] -= 16 * ( 1.0 - (float)t / sinkTime );
 			trap_R_AddRefEntityToScene( &le->refEntity );
 			le->refEntity.origin[2] = oldZ;
 		} else {
