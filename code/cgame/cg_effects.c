@@ -667,7 +667,8 @@ in demo playback, so that players see the same gibs
 void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 					const vec3_t playerVelocityOriginal,
 					const vec3_t knockbackDir, const int knockbackSpeedOriginal,
-					const lerpFrame_t *bodyAnimation, const int randSeed ) {
+					const lerpFrame_t *bodyAnimation, const clientInfo_t *ci,
+					const int randSeed ) {
 	int i;
 	vec3_t	baseOrigin, origin, velocity;
 	// Generally only the head should have pitch,
@@ -828,6 +829,23 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		}
 		if (--numGibs <= 0) {
 			return;
+		}
+
+		if ( ci && ci->infoValid && !Q_stricmp( ci->modelName, "klesk" ) ) {
+			// IDK exactly how many brains it has, but let's launch two
+			// (assuming that we're gonna run the loop just once).
+			if ( cg_debugGibs.integer & 0x10 ) {
+				CG_Printf("Launching extra brain gib because we're gibbing Klesk\n");
+			}
+			VectorCopy( baseOrigin, origin );
+			VectorMA( origin, MINS_Z + 0.75 * playerHeight, up, origin );
+			VectorClear( velocity );
+			velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+			velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+			velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+			VectorAdd( velocity, playerVelocity, velocity );
+			CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibBrain, fireTrail, Q_rand(&seed) );
+			// Don't decrement `numGibs`. This is extra.
 		}
 
 		VectorCopy( baseOrigin, origin );
@@ -1284,7 +1302,7 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 	}
 
 	CG_GibPlayer( origin, torsoAngles, *vel, knockbackDir, knockbackSpeed,
-		&torsoAnimation, randSeed );
+		&torsoAnimation, ci, randSeed );
 }
 
 void CG_GibPlayerOld( vec3_t playerOrigin ) {
