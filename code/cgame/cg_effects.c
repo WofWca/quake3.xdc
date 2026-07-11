@@ -1193,28 +1193,42 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 	// are not in complete sync between clients,
 	// so this seed is not always the same for all players.
 	int randSeed = es->number;
-	randSeed = Q_rand(&randSeed) + es->clientNum;
-	randSeed = Q_rand(&randSeed) + es->eventParm;
-	randSeed = Q_rand(&randSeed) + es->generic1;
-	randSeed = Q_rand(&randSeed) + cgs.levelStartTime;
+	// Doing something like
+	// `randSeed = Q_rand(&randSeed) + newVal` for each value would be simpler,
+	// but `Q_rand` is not a good RNG, at least for the low bits,
+	// so doing `Q_rand() & 1` yields basically consistent results,
+	// in our case it was that for the same player
+	// the skull would either always spawn or never spawn.
+	randSeed = randSeed << 4;
+	randSeed ^= es->clientNum;
+	randSeed = randSeed << 5;
+	randSeed ^= es->eventParm;
+	randSeed = randSeed << 5;
+	randSeed ^= es->generic1;
+	randSeed = randSeed << 4;
+	randSeed ^= cgs.levelStartTime;
 	if ( cgs.g_gibsNewEvGibPlayerProtocol & 0x08 ) {
 		// With the new protocol the origin and velocity never change
 		// for the temp entity.
-		randSeed = Q_rand(&randSeed) + es->pos.trBase[0];
-		randSeed = Q_rand(&randSeed) + es->pos.trBase[1];
-		randSeed = Q_rand(&randSeed) + es->pos.trBase[2];
-		randSeed = Q_rand(&randSeed) + es->pos.trDelta[0];
-		randSeed = Q_rand(&randSeed) + es->pos.trDelta[1];
-		randSeed = Q_rand(&randSeed) + es->pos.trDelta[2];
+		randSeed ^= (unsigned int)es->pos.trBase[0];
+		randSeed ^= (unsigned int)es->pos.trBase[1] << 10;
+		randSeed ^= (unsigned int)es->pos.trBase[2] << 20;
+		randSeed ^= (unsigned int)es->pos.trDelta[0];
+		randSeed ^= (unsigned int)es->pos.trDelta[1] << 10;
+		randSeed ^= (unsigned int)es->pos.trDelta[2] << 20;
 	} else {
 		// This varies from client to client, depending on the `snaps` CVAR
 		// and packet loss.
 		// So we round it to make it in sync ~95% of the time.
-		randSeed = Q_rand(&randSeed) + cg.snap->serverTime / 2048;
+		randSeed = randSeed << 6;
+		randSeed ^= cg.snap->serverTime / 2048;
 	}
 	if ( ci ) {
-		randSeed = Q_rand(&randSeed) + ci->name[0];
+		randSeed ^= ci->name[0];
 	}
+	// Apparently `Q_random` is only made supposed to work
+	// with positive numbers (see e.g. that `srand` takes `unsigned`).
+	randSeed = abs( randSeed );
 
 	// With the new protocol `cent->lerpOrigin` is always equal
 	// to `cent->pos.trBase`, which is the exact place where the player was
