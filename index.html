@@ -1245,7 +1245,7 @@ set customVarPrintMotd "\
     echo F4: main menu; \
     echo F6: mainer menu: switch game, edit config files, install mods, etc; \
     echo F8: add / kick bots; \
-    echo F10: record demo (go to Mainer Menu -> File Explorer to download it); \
+    echo F10: toggle recording (go to Mainer Menu -> File Explorer to download it); \
     echo tilde: toggle console; \
     set customVarPrintMotd vstr customVarNoop;"
 
@@ -1280,11 +1280,6 @@ set customVarKickBots "kickbots; kick allbots; set customVarToggleBots vstr cust
 set customVarAddBots "${addBots};              set customVarToggleBots vstr customVarKickBots; seta customVarKickOrAddBots vstr customVarAddBots; echo Added bots"
 set customVarToggleBots "vstr customVarAddBots"
 // bot_minplayers 4
-
-// We bind in init.cfg
-set customVarToggleRecord "vstr customVarToggleRecord_1"
-set customVarToggleRecord_1 "record;     set customVarToggleRecord vstr customVarToggleRecord_2"
-set customVarToggleRecord_2 "stoprecord; set customVarToggleRecord vstr customVarToggleRecord_1"
 
 set r_mode -2 // make game use desktop resolution
 
@@ -1404,7 +1399,14 @@ unbind F11
 
 bind "F8" "vstr customVarToggleBots"
 
-bind F10 "vstr customVarToggleRecord"
+// With demos the concern is using too much disk space.
+// But it's probably OK to record demos by default:
+// One game is ~1 MB. By the time someone has played ~20 games
+// they'll probably be interested enough in the game
+// to wonder "what's this RECORDING text at the top?"
+// If not then the demos will not take up more than 20 MB.
+seta cl_autoRecordDemo 1
+bind F10 "stoprecord; toggle cl_autoRecordDemo"
 
 // https://github.com/WofWca/quake3-better-gibs-mod
 seta cg_oldGibs 0
