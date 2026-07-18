@@ -1241,12 +1241,23 @@ set g_autoAttack 1
 
 // bind "W" "vstr customVarPrintMotd; +forward;" // We bind in init.cfg
 set customVarNoop ""
+// \`con_notifytime\` to keep the message on the screen.
 set customVarPrintMotd "\
+    set con_notifytime 9999999; \
     echo F4: main menu; \
     echo F6: mainer menu: switch game, edit config files, install mods, etc; \
     echo F8: add / kick bots; \
     echo F10: toggle recording (go to Mainer Menu -> File Explorer to download it); \
     echo tilde: toggle console; \
+    set customVarPrintMotd vstr customVarPrintMotd_2;"
+// Wait a few more button presses before hiding the MOTD.
+set customVarPrintMotd_2 "set customVarPrintMotd vstr customVarPrintMotd_3;"
+set customVarPrintMotd_3 "set customVarPrintMotd vstr customVarPrintMotd_4;"
+set customVarPrintMotd_4 "set customVarPrintMotd vstr customVarPrintMotd_5;"
+set customVarPrintMotd_5 "set customVarPrintMotd vstr customVarPrintMotd_6;"
+set customVarPrintMotd_6 "set customVarPrintMotd vstr customVarPrintMotd_last;"
+set customVarPrintMotd_last "\
+    reset con_notifytime; \
     set customVarPrintMotd vstr customVarNoop;"
 
 // Allow clients to download maps and mods installed on the server
