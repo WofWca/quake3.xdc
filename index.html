@@ -1244,11 +1244,11 @@ set customVarNoop ""
 // \`con_notifytime\` to keep the message on the screen.
 set customVarPrintMotd "\
     set con_notifytime 9999999; \
-    echo F4: main menu; \
-    echo F6: mainer menu: switch game, edit config files, install mods, etc; \
-    echo F8: add / kick bots; \
-    echo F10: toggle recording (go to Mainer Menu -> File Explorer to download it); \
-    echo tilde: toggle console; \
+    echo ^2F4^7: main menu; \
+    echo ^2F6^7: mainer menu: switch game, edit config files, install mods, etc; \
+    echo ^2F8^7: add / kick bots; \
+    echo ^2F10^7: toggle recording (go to Mainer Menu -> File Explorer to download it); \
+    echo ^2tilde^7: toggle console; \
     set customVarPrintMotd vstr customVarPrintMotd_2;"
 // Wait a few more button presses before hiding the MOTD.
 set customVarPrintMotd_2 "set customVarPrintMotd vstr customVarPrintMotd_3;"
