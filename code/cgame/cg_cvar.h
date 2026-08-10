@@ -161,6 +161,11 @@ CG_CVAR( cg_gibsNoLerpDelay, "cg_gibsNoLerpDelay", "0", 0,
 	"until the next snapshot. That is, both the body and the gibs "
 	"will be visible together for ~50ms.\n"
 	"To get vanilla behavior, set to 0." )
+CG_CVAR( cg_gibsStopPlayerSounds, "cg_gibsStopPlayerSounds", "3", 0,
+	"Stop player's sounds (pain, taunts) when they get gibbed.\n"
+	"Doesn't work for self as of writing. "
+	"Set 1st bit to apply this to other players. "
+	"Set 2nd bit to still try to apply this to self." )
 CG_CVAR( cg_gibsBounceFactor, "cg_gibsBounceFactor", "0.4", CVAR_ARCHIVE,
 	"Fraction of speed that gibs preserve when bouncing off a surface" )
 CG_CVAR( cg_gibsBounceFactorRandomness, "cg_gibsBounceFactorRandomness", "0.5", CVAR_ARCHIVE,

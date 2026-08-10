@@ -1266,7 +1266,21 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		// with the kamikaze sound, downside is that the gib sound will also
 		// not be played when someone is gibbed while just carrying the kamikaze
 		if ( !(es->eFlags & EF_KAMIKAZE) ) {
-			trap_S_StartSound( NULL, es->number, CHAN_BODY, cgs.media.gibSound );
+			if ( !cg_oldGibs.integer
+				&& cg_gibsStopPlayerSounds.integer & 0x1
+				&& es->number != cg.snap->ps.clientNum )
+			{
+				// If we were to attach the sound to the entity,
+				// then this sound would also get muted.
+				trap_S_StartSound( position, ENTITYNUM_WORLD, CHAN_BODY, cgs.media.gibSound );
+
+				cent->soundsMuted = qtrue;
+				// Ensure `soundsMuted` takes effect immediately
+				// and not on next snap or something.
+				CG_SetEntitySoundPosition( cent );
+			} else {
+				trap_S_StartSound( NULL, es->number, CHAN_BODY, cgs.media.gibSound );
+			}
 		}
 		if (cg_oldGibs.integer) {
 			CG_GibPlayerOld( cent->lerpOrigin );

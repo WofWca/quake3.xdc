@@ -86,6 +86,31 @@ void CG_PositionRotatedEntityOnTag( refEntity_t *entity, const refEntity_t *pare
 }
 
 
+/*
+===================
+CG_MuteSoundsIfGibbed
+
+See `cg_gibsStopPlayerSounds`
+===================
+*/
+void CG_CheckMuteSoundsIfGibbed( centity_t *cent ) {
+	entityState_t *es = &cent->currentState;
+
+	if ( cg_oldGibs.integer || !cg_gibsStopPlayerSounds.integer ) {
+		return;
+	}
+
+	cent->soundsMuted = es->eFlags & EF_DEAD
+		&& es->eType == ET_INVISIBLE
+		// Normally only real players get gibbed,
+		// so let's not mess with sounds if we're unsure.
+		&& es->number < MAX_CLIENTS;
+	// Ensure `soundsMuted` takes effect immediately
+	// and not on next snap or something.
+	CG_SetEntitySoundPosition( cent );
+}
+
+
 
 /*
 ==========================================================================
@@ -103,6 +128,23 @@ Also called by event processing code
 ======================
 */
 void CG_SetEntitySoundPosition( centity_t *cent ) {
+	if ( cent->soundsMuted ) {
+		vec3_t farAway;
+
+		// Move the entity's sound origin far away from the listener
+		// to stop its souds.
+		//
+		// Unfortunately this doesn't work for self on most engines,
+		// because for the self-entity the sounds always play at full volume
+		// (see `S_Base_Respatialize`).
+		VectorCopy( cg.refdef.vieworg, farAway );
+		farAway[2] += 1024 * 1024;
+
+		trap_S_UpdateEntityPosition( cent->currentState.number, farAway );
+
+		return;
+	}
+
 	if ( cent->currentState.solid == SOLID_BMODEL ) {
 		vec3_t	origin;
 		float	*v;
@@ -1143,6 +1185,9 @@ void CG_AddPacketEntities( void ) {
 	// generate and add the entity from the playerstate
 	ps = &cg.predictedPlayerState;
 	BG_PlayerStateToEntityState( ps, &cg.predictedPlayerEntity.currentState, qfalse );
+	if ( !cg_oldGibs.integer && cg_gibsStopPlayerSounds.integer & 0x2 ) {
+		CG_CheckMuteSoundsIfGibbed( &cg.predictedPlayerEntity );
+	}
 	CG_AddCEntity( &cg.predictedPlayerEntity );
 
 	// lerp the non-predicted value for lightning gun origins

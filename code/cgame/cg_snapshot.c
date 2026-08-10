@@ -72,6 +72,10 @@ void CG_TransitionEntity( centity_t *cent ) {
 
 	// check for events
 	CG_CheckEvents( cent );
+
+	if ( !cg_oldGibs.integer && cg_gibsStopPlayerSounds.integer & 0x1 ) {
+		CG_CheckMuteSoundsIfGibbed( cent );
+	}
 }
 
 
@@ -156,6 +160,9 @@ static void CG_TransitionSnapshot( void ) {
 
 	BG_PlayerStateToEntityState( &cg.snap->ps, &cg_entities[ cg.snap->ps.clientNum ].currentState, qfalse );
 	cg_entities[ cg.snap->ps.clientNum ].interpolate = qfalse;
+	if ( !cg_oldGibs.integer && cg_gibsStopPlayerSounds.integer & 0x2 ) {
+		CG_CheckMuteSoundsIfGibbed( &cg_entities[ cg.snap->ps.clientNum ] );
+	}
 
 	for ( i = 0 ; i < cg.snap->numEntities ; i++ ) {
 		cent = &cg_entities[ cg.snap->entities[ i ].number ];
