@@ -66,7 +66,7 @@ CG_CVAR( cg_gibsKnockback, "cg_gibsKnockback", "1.0", 0,
 	"but not on directional velocity.\n"
 	"Remember that this also affects own gibs, so having a value too high "
 	"will make gibs fly faster than the camera." )
-CG_CVAR( cg_gibsExtraKnockback, "cg_gibsExtraKnockback", "0", 0,
+CG_CVAR( cg_gibsExtraKnockback, "cg_gibsExtraKnockback", "100", 0,
 	"Like `cg_gibsKnockback`, but adds a *fixed* amount of knockback. "
 	"100 of knockback corresponds to 20 of damage.\n"
 	"This basically sets a \"baseline\" amount of knockback, "
@@ -85,7 +85,7 @@ CG_CVAR( cg_gibsPiecesFromKnockback, "cg_gibsPiecesFromKnockback", "1.1", CVAR_A
 	"Q: \"What sense does it make to have more gibs? "
 	"Did the player got bigger from taking more damage??\":\n"
 	"A: No, they simlpy got split into more pieces." )
-CG_CVAR( cg_gibsLinearVelocityFromKnockback, "cg_gibsLinearVelocityFromKnockback", "1.0", 0,
+CG_CVAR( cg_gibsLinearVelocityFromKnockback, "cg_gibsLinearVelocityFromKnockback", "0.75", 0,
 	"Scale how fast the gibs move away from damage (knockback).\n"
 	"This sounds similar to `cg_gibsInheritPlayerVelocity`, "
 	"but this var doesn't scale the velocity that the player already had "
@@ -141,7 +141,7 @@ CG_CVAR( cg_gibsOriginalOrigin, "cg_gibsOriginalOrigin", "0.0", 0,
 	"Using the original position might make it seem\n"
 	"like the player \"telepoted\" one snapshot back (50ms at `snaps 20`)\n"
 	"if they're already moving at high speed." )
-CG_CVAR( cg_gibsNoLerpDelay, "cg_gibsNoLerpDelay", "0", 0,
+CG_CVAR( cg_gibsNoLerpDelay, "cg_gibsNoLerpDelay", "1", 0,
 	"Don't wait for next snapshot to arrive (normally 50ms) "
 	"before gibbing players.\n"
 	"Otherwise after taking a shot the player's body will stay intact "
