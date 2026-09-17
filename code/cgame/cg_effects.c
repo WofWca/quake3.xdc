@@ -533,6 +533,7 @@ void CG_LaunchGib( const vec3_t origin, const vec3_t angles,
 					const int randSeed ) {
 	localEntity_t	*le;
 	refEntity_t		*re;
+	int seed = randSeed;
 
 	le = CG_AllocLocalEntity();
 	re = &le->refEntity;
@@ -550,14 +551,19 @@ void CG_LaunchGib( const vec3_t origin, const vec3_t angles,
 	VectorCopy( velocity, le->pos.trDelta );
 	le->pos.trTime = cg.time;
 
-	le->bounceFactor = cg_oldGibs.integer ? 0.6f : cg_gibsBounceFactor.value;
+	le->bounceFactor = 0.6f;
+	if ( !cg_oldGibs.integer ) {
+		// Same calculation as in `CG_ReflectVelocity`.
+		float r = ( Q_random(&seed) + Q_random(&seed) ) / 2;
+		le->bounceFactor = cg_gibsBounceFactor.value;
+		le->bounceFactor *= 1 - r * cg_gibsBounceFactorRandomness.value;
+	}
 
 	if (!cg_oldGibs.integer) {
 		// `VectorLength` would be more precise, but this is faster
 		// and good enough for randomness.
 		float speedIsh = fabs(velocity[0]) + fabs(velocity[1]) + fabs(velocity[2]);
 		int i;
-		int seed = randSeed;
 		int mainRotationAxis = Q_rand(&seed) % 3;
 
 		le->leFlags = LEF_TUMBLE;
