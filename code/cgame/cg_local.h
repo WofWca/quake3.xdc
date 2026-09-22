@@ -478,6 +478,8 @@ typedef struct {
 	snapshot_t	*snap;				// cg.snap->serverTime <= cg.time
 	snapshot_t	*nextSnap;			// cg.nextSnap->serverTime > cg.time, or NULL
 	snapshot_t	activeSnapshots[2];
+	// `qtrue` when we're currently inside of `CG_TransitionNoLerpEntities`.
+	qboolean	transitioningNoLerpEvents;
 
 	float		frameInterpolation;	// (float)( cg.time - cg.frame->serverTime ) / (cg.nextFrame->serverTime - cg.frame->serverTime)
 

@@ -335,7 +335,9 @@ static void CG_SetNextSnap( snapshot_t *snap ) {
 	// sort out solid entities
 	CG_BuildSolidList();
 
+	cg.transitioningNoLerpEvents = qtrue;
 	CG_TransitionNoLerpEntities( snap );
+	cg.transitioningNoLerpEvents = qfalse;
 }
 
 
