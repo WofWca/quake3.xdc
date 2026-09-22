@@ -530,3 +530,21 @@ void CG_ProcessSnapshots( void ) {
 
 }
 
+
+/*
+==================
+CG_SnapEntity
+
+The entity with the given number in a snapshot, or NULL
+==================
+*/
+const entityState_t *CG_SnapEntity( const snapshot_t *snap, int number ) {
+	int		i;
+
+	for ( i = 0 ; i < snap->numEntities ; i++ ) {
+		if ( snap->entities[i].number == number ) {
+			return &snap->entities[i];
+		}
+	}
+	return NULL;
+}

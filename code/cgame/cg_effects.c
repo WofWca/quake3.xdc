@@ -650,6 +650,34 @@ void AdjustPositionIfDeathAnimation( const lerpFrame_t *anim, vec3_t origin,
 		lookDirAngles[PITCH] += 360;
 	}
 }
+static void AddKnockbackVelocity( const vec3_t gibOrigin,
+	const vec3_t explosionPoint, const vec3_t knockbackDir,
+	const float speed, vec3_t resVelocity )
+{
+	// May be a zero-vector, and actually not normalized
+	// (shorter than 1).
+	vec3_t dir;
+
+	if ( !speed ) {
+		return;
+	}
+
+	if ( explosionPoint ) {
+		VectorSubtract( gibOrigin, explosionPoint, dir );
+		VectorNormalize( dir );
+
+		VectorLerp( knockbackDir, cg_gibsVelocityFromExplosionFraction.value,
+			dir, dir );
+		// Note that we don't normalize the lerp result:
+		// with the two directions pointing away from each other
+		// the piece ends up slower,
+		// which is what "half of each" should feel like.
+	} else {
+		VectorCopy( knockbackDir, dir );
+	}
+
+	VectorMA( resVelocity, speed, dir, resVelocity );
+}
 /*
 ===================
 CG_GibPlayer
@@ -667,6 +695,7 @@ in demo playback, so that players see the same gibs
 void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 					const vec3_t playerVelocityOriginal,
 					const vec3_t knockbackDir, const int knockbackSpeedOriginal,
+					const vec3_t explosionPointOriginal,
 					const lerpFrame_t *bodyAnimation, const clientInfo_t *ci,
 					const int randSeed ) {
 	int i;
@@ -686,6 +715,9 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		cg_gibsExtraKnockback.integer +
 		cg_gibsKnockback.value * knockbackSpeedOriginal;
 	float stoppingSpeed;
+	vec3_t		_explosionPoint;
+	vec_t		*explosionPoint = NULL;
+	float perPieceKnockback;
 	float baseRandomVelocity =
 		cg_gibsExtraRandomVelocity.value +
 		cg_gibsRandomVelocityFromKnockback.value * knockbackSpeed;
@@ -732,16 +764,39 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 	}
 	VectorCopy( playerVelocityOriginal, playerVelocity );
 
+	if ( explosionPointOriginal ) {
+		explosionPoint = _explosionPoint;
+		VectorCopy( explosionPointOriginal, explosionPoint );
+		// TODO we also may derive a more accurate `knockbackDir`
+		// based on the `explosionPoint`.
+		// But only as long as we know how the server makes the knockback.
+		// So maybe we can have a "tolerance" check,
+		// and keep using `knockbackDir` if the difference is too big.
+
+		{
+			// TODO maybe use actual center of the body
+			// (see `baseOrigin`, `up`, etc) instead of just `playerOrigin`.
+			vec3_t	toExplosion;
+			float	len;
+
+			VectorSubtract( explosionPointOriginal, playerOrigin, toExplosion );
+			len = VectorNormalize( toExplosion );
+			if ( len + cg_gibsExplosionDistanceOffset.value <= 0 ) {
+				VectorCopy( playerOrigin, explosionPoint );
+			} else {
+				VectorMA( explosionPoint, cg_gibsExplosionDistanceOffset.value,
+					toExplosion, explosionPoint );
+			}
+		}
+	}
+
 	if ( knockbackDir ) {
-		// Scale the knockback.
+		// `playerVelocity` already includes original knockback.
+		// Remove it: we add our own, scaled, per piece
+		// (see `AddKnockbackVelocity`).
 		//
 		// This also handles `knockbackDir` being a zero-vector.
-		VectorMA( playerVelocity,
-			cg_gibsLinearVelocityFromKnockback.value * knockbackSpeed -
-				// `playerVelocity` already includes original knockback,
-				// so don't add it again.
-				knockbackSpeedOriginal,
-			knockbackDir,
+		VectorMA( playerVelocity, -knockbackSpeedOriginal, knockbackDir,
 			playerVelocity );
 	}
 
@@ -768,6 +823,17 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 
 	VectorScale( playerVelocity, cg_gibsInheritPlayerVelocity.value, playerVelocity );
 
+	perPieceKnockback =
+		knockbackDir && !VectorCompare( knockbackDir, vec3_origin )
+			? cg_gibsLinearVelocityFromKnockback.value * knockbackSpeed
+				// `cg_gibsInheritPlayerVelocity` also scaled the knockback
+				// back when it was a part of `playerVelocity`,
+				// so keep doing that here.
+				* cg_gibsInheritPlayerVelocity.value
+			// We don't know where the damage came from
+			// (vanilla server, a crusher, lava, etc.).
+			: 0;
+
 	if ( cg_debugGibs.integer & 0x01 ) {
 		CG_Printf( "gib:" );
 		CG_Printf( " "S_COLOR_YELLOW"%i"S_COLOR_WHITE" pieces",
@@ -786,6 +852,19 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		CG_Printf( "\n" );
 	}
 	if ( cg_debugGibs.integer & 0x02 ) {
+		if ( explosionPoint ) {
+			vec3_t	toExplosion;
+			VectorSubtract( explosionPoint, playerOrigin, toExplosion );
+			CG_Printf( "     explosion dist: " );
+			CG_Printf( S_COLOR_GREEN"%.1f", VectorLength( toExplosion ) );
+			if ( Distance( explosionPoint, explosionPointOriginal ) > 0.01 ) {
+				VectorSubtract( explosionPointOriginal, playerOrigin, toExplosion );
+				CG_Printf( " (original: "S_COLOR_GREEN"%.1f", VectorLength( toExplosion ) );
+				CG_Printf(")");
+			}
+			CG_Printf( "\n" );
+		}
+
 		CG_Printf( "     body pitch "S_COLOR_YELLOW"%.1f",
 			AngleNormalize180( bodyAngles[PITCH] ) );
 		CG_Printf( " yaw "S_COLOR_YELLOW"%.1f",
@@ -821,6 +900,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 			up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		if ( !skullLaunched && (Q_rand(&seed) & 1) ) {
 			CG_LaunchGib( origin, lookDirAngles, velocity, cgs.media.gibSkull, fireTrail, Q_rand(&seed) );
 			skullLaunched = qtrue;
@@ -844,6 +925,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 			velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 			velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 			VectorAdd( velocity, playerVelocity, velocity );
+			AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+				perPieceKnockback, velocity );
 			CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibBrain, fireTrail, Q_rand(&seed) );
 			// Don't decrement `numGibs`. This is extra.
 		}
@@ -855,6 +938,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibAbdomen, fireTrail, Q_rand(&seed) );
 		if (--numGibs <= 0) {
 			return;
@@ -870,6 +955,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[ROLL] += 70;
 		angles[PITCH] += 45;
@@ -887,6 +974,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		velocity[1] = 0.5*Q_crandom(&seed)*baseRandomVelocity;
 		velocity[2] = jump + 0.5*Q_crandom(&seed)*baseRandomVelocity;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibChest, fireTrail, Q_rand(&seed) );
 		if (--numGibs <= 0) {
 			return;
@@ -901,6 +990,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[PITCH] -= 80;
 		angles[YAW] += 50;
@@ -925,6 +1016,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibFoot, fireTrail, Q_rand(&seed) );
 		if (--numGibs <= 0) {
 			return;
@@ -940,6 +1033,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[ROLL] -= 90;
 		angles[PITCH] -= 75;
@@ -955,6 +1050,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibIntestine, fireTrail, Q_rand(&seed) );
 		if (--numGibs <= 0) {
 			return;
@@ -970,6 +1067,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[ROLL] -= 30;
 		angles[PITCH] -= 15;
@@ -988,6 +1087,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[PITCH] += 15;
 		CG_LaunchGib( origin, angles, velocity, cgs.media.gibLeg, fireTrail, Q_rand(&seed) );
@@ -1008,6 +1109,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[ROLL] += 90;
 		angles[YAW] += 180;
@@ -1028,6 +1131,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[ROLL] += 90;
 		angles[PITCH] += 10;
@@ -1050,6 +1155,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		// TODO seems not to be rotated well when bodyAngles is not upright
 		// (i.e. gib a dead player). Same for some other gibs.
@@ -1070,6 +1177,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[PITCH] -= 45;
 		CG_LaunchGib( origin, angles, velocity, cgs.media.gibFoot, fireTrail, Q_rand(&seed) );
@@ -1089,6 +1198,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
 		velocity[2] += jump;
 		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
 		VectorCopy( bodyAngles, angles );
 		angles[ROLL] += 85;
 		angles[PITCH] += 90;
@@ -1108,6 +1219,8 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 			velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
 			velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
 			VectorAdd( velocity, playerVelocity, velocity );
+			AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+				perPieceKnockback, velocity );
 			VectorCopy( bodyAngles, angles );
 			angles[0] += Q_random(&seed) * 360;
 			angles[1] += Q_random(&seed) * 360;
@@ -1119,6 +1232,260 @@ void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
 		}
 	} while (numGibs > 0);
 }
+
+static int CG_MissileWeaponForMod( int mod ) {
+	switch ( mod ) {
+	case MOD_GRENADE:
+	case MOD_GRENADE_SPLASH:
+		return WP_GRENADE_LAUNCHER;
+	case MOD_ROCKET:
+	case MOD_ROCKET_SPLASH:
+		return WP_ROCKET_LAUNCHER;
+	case MOD_PLASMA:
+	case MOD_PLASMA_SPLASH:
+		return WP_PLASMAGUN;
+	case MOD_BFG:
+	case MOD_BFG_SPLASH:
+		return WP_BFG;
+	default:
+		// return WP_NONE;
+		return -1;
+	}
+}
+
+// Returns the obituary if it happened in `snap`
+// (and was missing in `prevSnap`).
+static const entityState_t *CG_FindObituaryForSnap(
+	const snapshot_t *snap, const snapshot_t *prevSnap, int victimNum )
+{
+	int	i;
+	for ( i = 0 ; i < snap->numEntities ; i++ ) {
+		const entityState_t	*es = &snap->entities[ i ];
+		const entityState_t	*prevEs;
+
+		if ( es->eType - ET_EVENTS != EV_OBITUARY ) {
+			continue;
+		}
+		if ( es->otherEntityNum != victimNum ) {
+			continue;
+		}
+		prevEs = CG_SnapEntity( prevSnap, es->number );
+		if ( prevEs != NULL
+			// Generally the `NULL` check should be enough
+			// as the server should avoid reusing temp entity numbers
+			// until the entity has been removed for long enough.
+			// But let's check for good measure.
+			&& prevEs->eType == es->eType
+			&& prevEs->otherEntityNum == es->otherEntityNum
+			&& prevEs->eventParm == es->eventParm )
+		{
+			// This is an old obituary still lingering around.
+			continue;
+		}
+
+		// Hypothetically there might be multuple obituaries per snap,
+		// but then things are going very bad anyway.
+		return es;
+	}
+
+	return NULL;
+}
+
+#define PLAYER_HEIGHT ( MAXS_Z - MINS_Z )
+static qboolean CG_GibsFindExplosion( int victimNum, const vec3_t victimOrigin,
+	vec3_t outExplosionPoint )
+{
+	int				i;
+	float			bestDamage = -1;
+	qboolean		found = qfalse;
+	const qboolean	debugLog = cg_debugGibs.integer & 0x20;
+	// `meansOfDeath` from `EV_OBITUARY`.
+	// If `-1` then it's probably a dead body getting gibbed.
+	int				obituaryMod = -1;
+
+	const snapshot_t	*snap = cg.transitioningNoLerpEvents
+		? cg.nextSnap
+		: cg.snap;
+	const snapshot_t	*prevSnap = snap == &cg.activeSnapshots[0]
+		? &cg.activeSnapshots[1]
+		: &cg.activeSnapshots[0];
+#ifdef BETTER_GIBS_SNAP_FROM_ENGINE_FALLBACK
+	snapshot_t	prevSnapFromEngine;
+#endif
+
+	// This should not happen. At least it doesn't happen as of writing.
+	// The other snap in `cg.activeSnapshots` seems to be always the prev snap.
+	if ( prevSnap->serverTime >= snap->serverTime ) {
+		if ( cg_debugGibs.integer ) {
+			CG_Printf(S_COLOR_YELLOW"gibs: find explosion: prev snap is not available\n");
+		}
+
+		// To be defensive, we could add code to get the prev snap
+		// from the engine, but this results in a compile error `Locals > 32k`:
+		// https://github.com/ioquake/ioq3/blob/f976711fb45bd15475ebcd02f57a4ce5819806b5/code/tools/asm/q3asm.c#L937
+#ifdef BETTER_GIBS_SNAP_FROM_ENGINE_FALLBACK
+		for ( i = 0; prevSnap->serverTime >= snap->serverTime; i++ ) {
+			qboolean r;
+
+			if ( i >= 4 ) {
+				if ( cg_debugGibs.integer ) {
+					CG_Printf(S_COLOR_YELLOW"could not get previous snapshot from engine: all snapshots are newer\n");
+				}
+
+				found = qfalse;
+				return found;
+			}
+
+			r = trap_GetSnapshot( cgs.processedSnapshotNum - i, &prevSnapFromEngine );
+			if ( !r ) {
+				if ( cg_debugGibs.integer ) {
+					CG_Printf(S_COLOR_YELLOW"could not get previous snapshot from engine: engine has no prev snapshot\n");
+				}
+
+				found = qfalse;
+				return found;
+			}
+
+			prevSnap = &prevSnapFromEngine;
+		}
+#else
+		found = qfalse;
+		return found;
+#endif
+	}
+
+	{
+		const entityState_t	*obituary =
+			CG_FindObituaryForSnap( snap, prevSnap, victimNum );
+		// Note that it's possible that we got killed by one thing
+		// but then got gibbed by another thing within the same snap,
+		// in which case we actually should not set `obituaryMod`,
+		// but it's good enough.
+		obituaryMod = obituary ? obituary->eventParm : -1;
+	}
+	if ( obituaryMod != -1 && CG_MissileWeaponForMod( obituaryMod ) == -1 ) {
+		if ( debugLog ) {
+			CG_Printf( "got gib-killed this snap, but not by a missile; obituaryMod: "S_COLOR_YELLOW"%i\n",
+				obituaryMod );
+		}
+
+		found = qfalse;
+		return found;
+	}
+
+	if ( debugLog ) {
+		CG_Printf( "obituaryMod: " );
+		if ( obituaryMod == -1 ) {
+			CG_Printf( S_COLOR_YELLOW"no relevant obituary" );
+		} else {
+			CG_Printf( S_COLOR_YELLOW"%i (weapon: %i)",
+				obituaryMod, CG_MissileWeaponForMod( obituaryMod ) );
+		}
+
+		CG_Printf( ", missiles:" );
+	}
+
+	for ( i = 0 ; i < snap->numEntities ; i++ ) {
+		const entityState_t	*es = &snap->entities[ i ];
+		const entityState_t	*prevEs;
+		const int			event = es->event & ~EV_EVENT_BITS;
+		float				distSquared;
+		int					damage;
+		vec3_t				explosionPoint;
+
+		// Missiles turn into `ET_GENERAL` when they explode.
+		if ( es->eType != ET_GENERAL ) {
+			continue;
+		}
+		if ( event != EV_MISSILE_HIT
+			&& event != EV_MISSILE_MISS
+			&& event != EV_MISSILE_MISS_METAL )
+		{
+			continue;
+		}
+
+		if ( obituaryMod != -1
+			&& CG_MissileWeaponForMod( obituaryMod ) != es->weapon )
+		{
+			if ( debugLog ) {
+				CG_Printf( S_COLOR_YELLOW" mod:%i", es->weapon );
+			}
+			continue;
+		}
+
+		prevEs = CG_SnapEntity( prevSnap, es->number );
+		// If the missile is found in the previous snap,
+		// it must be a missile that hasn't exploded yet.
+		// It could also be missing if it was fired and exploded in one snap.
+		if ( prevEs != NULL
+			&& (
+				prevEs->eType != ET_MISSILE
+				|| prevEs->event == es->event
+			) )
+		{
+			if ( debugLog ) {
+				CG_Printf( S_COLOR_YELLOW" old:%i", es->number );
+			}
+			continue;
+		}
+
+		// TODO maybe also require the direction
+		// to match the direction from the gib event?
+		// But it's a bit annoying with all the server-side
+		// direction adjustment logic.
+
+		BG_EvaluateTrajectory( &es->pos, snap->serverTime, explosionPoint );
+		distSquared = DistanceSquared( explosionPoint, victimOrigin );
+		if ( distSquared >= Square( PLAYER_HEIGHT * 5 ) ) {
+			// Even if it was actually a missile that gibbed us,
+			// if it's that far away then the radial velocity
+			// is anyway almost the same as the linear velocity.
+			if ( debugLog ) {
+				CG_Printf( S_COLOR_YELLOW" far:%.1f", sqrt( distSquared ) );
+			}
+			continue;
+		}
+
+		// Rough estimate, not the precise damage. See `G_RadiusDamage`.
+		// Also Quad is not taken into account.
+		damage = es->weapon == WP_PLASMAGUN ? 20 : 100;
+		if ( event == EV_MISSILE_HIT && es->otherEntityNum == victimNum ) {
+			// Direct hit.
+			// Note that in vanilla this never happens,
+			// because `EV_MISSILE_HIT` only happens
+			// if the target didn't get gibbed by impact.
+			damage = damage;
+		} else {
+			// We use a bigger radius than it is in reality
+			// (at most 150, for grenade launcher),
+			// for a bigger error margin.
+			// Also add player height for more margin,
+			// because the real damage calculation is based on
+			// bounding box edge, not just the origin.
+			const float weaponRadius = PLAYER_HEIGHT
+				+ ( es->weapon == WP_PLASMAGUN ? 20 : 150 ) * 1.25;
+			damage = damage * ( 1.0 - sqrt( distSquared ) / weaponRadius );
+		}
+		if ( debugLog ) {
+			CG_Printf( S_COLOR_GREEN" dmg:%i,dist:%.1f,weap:%i,event:%i",
+				damage, sqrt( distSquared ), es->weapon, event );
+		}
+
+		if ( damage <= bestDamage ) {
+			continue;
+		}
+
+		bestDamage = damage;
+		VectorCopy( explosionPoint, outExplosionPoint );
+		found = qtrue;
+	}
+
+	if ( debugLog ) {
+		CG_Printf( "\n" );
+	}
+	return found;
+}
+
 void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 					const clientInfo_t *ci ) {
 	// With the new proto, `cent` is the temp event entity.
@@ -1162,6 +1529,8 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		// Just use the default knockback speed for 100 damage.
 		: 100 * 1000 / COMBAT_PLAYER_MASS;
 	vec3_t knockbackDir;
+	vec3_t explosionPoint;
+	qboolean explosionFound;
 
 	// Apparently at this point `targEs->pos.trDelta` doesn't yet have
 	// the knockback from the damage that gibbed us,
@@ -1258,6 +1627,8 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 		VectorClear( knockbackDir );
 	}
 
+	explosionFound = CG_GibsFindExplosion( targNum, origin, explosionPoint );
+
 	// Torso animation angles seem to be in better sync
 	// between the local state and how others see us,
 	// and overall are closer to other player's viewangles
@@ -1316,6 +1687,7 @@ void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
 	}
 
 	CG_GibPlayer( origin, torsoAngles, *vel, knockbackDir, knockbackSpeed,
+		explosionFound ? explosionPoint : NULL,
 		&torsoAnimation, ci, randSeed );
 }
 

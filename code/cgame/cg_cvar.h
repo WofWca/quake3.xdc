@@ -90,6 +90,21 @@ CG_CVAR( cg_gibsLinearVelocityFromKnockback, "cg_gibsLinearVelocityFromKnockback
 	"This sounds similar to `cg_gibsInheritPlayerVelocity`, "
 	"but this var doesn't scale the velocity that the player already had "
 	"when they received the damage." )
+CG_CVAR( cg_gibsVelocityFromExplosionFraction, "cg_gibsVelocityFromExplosionFraction", "0.5", 0,
+	"When getting gibbed as a result of an explosion, "
+	"calculate knockback velocity for each gib piece separately, "
+	"pointing away from the explosion, "
+	"as opposed to the knockback direction being the same for all gibs, "
+	"like with non-explosion weapons. "
+	"As a result, the closer the explosion the bigger the spread." )
+CG_CVAR( cg_gibsExplosionDistanceOffset, "cg_gibsExplosionDistanceOffset", "-3.0", 0,
+	"When getting gibbed as a result of an explosion, "
+	"pretend that the explosion happened this many units farther "
+	"(when positive, or closer, when negative) from the center of the body.\n"
+	"Has no effect when `cg_gibsVelocityFromExplosionFraction 0`.\n"
+	"For comparison, player height and width are 56 and 30 units.\n"
+	"This lets you increase the spread. "
+	"This doesn't affect the damage and knockback.\n" )
 CG_CVAR( cg_gibsRandomVelocityFromKnockback, "cg_gibsRandomVelocityFromKnockback", "0.3", CVAR_ARCHIVE,
 	"Scale how much random velocity (spread) the gibs gain "
 	"from damage (knockback)." )
