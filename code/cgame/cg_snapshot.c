@@ -196,6 +196,23 @@ static void CG_TransitionSnapshot( void ) {
 }
 
 
+static qboolean CG_ShouldTransitionNoLerp( const entityState_t *es ) {
+	if ( !cg_gibsNoLerpDelay.integer ) {
+		return qfalse;
+	}
+
+	if ( es->eType == ET_EVENTS + EV_GIB_PLAYER ) {
+		return qtrue;
+	}
+	// For vanilla servers.
+	if ( ( es->event & ~EV_EVENT_BITS ) == EV_GIB_PLAYER &&
+		cg_gibsNoLerpDelay.integer & 0x02 )
+	{
+		return qtrue;
+	}
+
+	return qfalse;
+}
 /*
 ===================
 CG_TransitionNoLerpEntities
@@ -225,13 +242,7 @@ static void CG_TransitionNoLerpEntities( const snapshot_t *snap ) {
 			const int 		originalPreviousEvent = cent->previousEvent;
 			const qboolean	originalCurrentValid = cent->currentValid;
 
-			if ( es->eType != ET_EVENTS + EV_GIB_PLAYER &&
-				// For vanilla servers.
-				!(
-					( es->event & ~EV_EVENT_BITS ) == EV_GIB_PLAYER &&
-					cg_gibsNoLerpDelay.integer & 0x02
-				) )
-			{
+			if ( !CG_ShouldTransitionNoLerp( es ) ) {
 				continue;
 			}
 
