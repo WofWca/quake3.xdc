@@ -210,6 +210,60 @@ static qboolean CG_ShouldTransitionNoLerp( const entityState_t *es ) {
 	{
 		return qtrue;
 	}
+	// Also it's cool to run it for events other than gib.
+	if ( cg_gibsNoLerpDelay.integer & 0x08 &&
+		// These are known to be OK to run ahead of time,
+		// "white-list" basically.
+		// And they also usually happen in the same frame as gib events,
+		// so it makes sense to play them at the same time.
+		(
+			es->eType == ET_EVENTS + EV_MISSILE_HIT ||
+				( es->event & ~EV_EVENT_BITS ) == EV_MISSILE_HIT ||
+			es->eType == ET_EVENTS + EV_MISSILE_MISS ||
+				( es->event & ~EV_EVENT_BITS ) == EV_MISSILE_MISS ||
+			es->eType == ET_EVENTS + EV_MISSILE_MISS_METAL ||
+				( es->event & ~EV_EVENT_BITS ) == EV_MISSILE_MISS_METAL ||
+			es->eType == ET_EVENTS + EV_BULLET_HIT_FLESH ||
+			es->eType == ET_EVENTS + EV_BULLET_HIT_WALL ||
+			es->eType == ET_EVENTS + EV_RAILTRAIL ||
+			es->eType == ET_EVENTS + EV_SCOREPLUM
+		) )
+	{
+		return qtrue;
+	}
+	if ( cg_gibsNoLerpDelay.integer & 0x10 &&
+		(
+			( es->event & ~EV_EVENT_BITS ) == EV_ITEM_RESPAWN ||
+			( es->event & ~EV_EVENT_BITS ) == EV_ITEM_POP
+		) )
+	{
+		return qtrue;
+	}
+	if ( cg_gibsNoLerpDelay.integer & 0x10 &&
+		es->eType >= ET_EVENTS &&
+		!(
+			!( cg_gibsNoLerpDelay.integer & 0x20 ) && (
+				// Don't run for obituaries by default,
+				// because that causes wrong count in the
+				// "Fragged ... with n frags" text.
+				es->eType == ET_EVENTS + EV_OBITUARY
+			)
+		) )
+	{
+		return qtrue;
+	}
+	// Guess we can also go for these?
+	if ( cg_gibsNoLerpDelay.integer & 0x40 &&
+		es->eType < ET_EVENTS &&
+		es->eType != ET_PLAYER &&
+		es->pos.trType == TR_STATIONARY &&
+		( es->event & ~EV_EVENT_BITS ) != 0 )
+	{
+		return qtrue;
+	}
+	// We could also try to run player events ahead of time,
+	// such as `EV_FIRE_WEAPON`, that would cause animations
+	// to become jerky if we were to just `CG_TransitionEntity()`.
 
 	return qfalse;
 }
@@ -262,6 +316,16 @@ static void CG_TransitionNoLerpEntities( const snapshot_t *snap ) {
 			// Copied from the other occurrence of `CG_TransitionEntity`.
 			// Otherwise it seems that `CG_GibPlayer()` runs twice.
 			cent->snapShotTime = cg.snap->serverTime;
+			// This is needed so that the next time `CG_TransitionEntity()`
+			// is called for this entity, we don't `CG_ResetEntity`,
+			// resulting in its position getting reset to (0,0,0).
+			// This matters e.g. for `EV_PLAYER_TELEPORT_IN`
+			// which makes a sound.
+			//
+			// It's fine to unconditionally set it here.
+			// It will still get reset in the other `CG_TransitionEntity()`
+			// call site in `CG_TransitionSnapshot()`.
+			cent->interpolate = qtrue;
 
 			if ( cg_debugGibs.integer & 0x08 &&
 				// Don't log the same event multiple times
@@ -284,6 +348,8 @@ static void CG_TransitionNoLerpEntities( const snapshot_t *snap ) {
 			// with `cg.renderingThirdPerson`,
 			// where the player state is interpolated,
 			// see `CG_InterpolatePlayerState`.
+			//
+			// This should also be fine for temp entities other than gib.
 			if ( !( cg_gibsNoLerpDelay.integer & 0x4 ) ) {
 				targCent->currentState.eType = targCent->nextState.eType;
 			}

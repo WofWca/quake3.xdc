@@ -175,6 +175,9 @@ CG_CVAR( cg_gibsNoLerpDelay, "cg_gibsNoLerpDelay", "1", 0,
 	"Set this to 5 (3rd bit) to keep the body visible "
 	"until the next snapshot. That is, both the body and the gibs "
 	"will be visible together for ~50ms.\n"
+	"Set this to 9 (4th bit) to play some other events, "
+	"such as explosions, railgun trails, bullet hits, ahead of time.\n"
+	"Set bits 5 and up to play even more events ahead of time.\n"
 	"To get vanilla behavior, set to 0." )
 CG_CVAR( cg_gibsStopPlayerSounds, "cg_gibsStopPlayerSounds", "3", 0,
 	"Stop player's sounds (pain, taunts) when they get gibbed.\n"
