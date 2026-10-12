@@ -176,7 +176,10 @@
             container.style.flex = "1";
             container.id = "fileExplorerDiv";
             const ioquake3 = await import("/ioquake3_opengl2.wasm32.js");
-            const module = await ioquake3.default();
+            const module = await ioquake3.default({
+                // Otherwise `main` will exit and FS will not work.
+                noInitialRun: true,
+            });
             module.FS.mkdirTree("/home/web_user/.q3a");
             module.FS.mount(module.FS.filesystems.IDBFS, {}, "/home/web_user/.q3a");
             module.FS.syncfs(true, (err) => {
