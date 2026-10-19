@@ -105,7 +105,7 @@ void CG_PredictWeaponEffects( centity_t *cent ) {
 						centity_t *c = &cg_entities[trace.entityNum];
 						vec3_t origin1, origin2;
 
-						c->currentState.pos.trTime = TR_LINEAR_STOP;
+						c->currentState.pos.trType = TR_LINEAR_STOP;
 						c->currentState.pos.trTime = cg.snap->serverTime;
 						c->currentState.pos.trDuration = 1000 / sv_fps.integer;
 
