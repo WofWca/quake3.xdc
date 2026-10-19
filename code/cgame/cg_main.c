@@ -209,7 +209,6 @@ vmCvar_t	cg_cmdTimeNudge;
 vmCvar_t	sv_fps;
 vmCvar_t	cg_projectileNudge;
 vmCvar_t	cg_optimizePrediction;
-vmCvar_t	cl_timeNudge;
 vmCvar_t	cg_latentSnaps;
 vmCvar_t	cg_latentCmds;
 vmCvar_t	cg_plOut;
@@ -344,7 +343,6 @@ static cvarTable_t cvarTable[] = { // bk001129
 	// { &sv_fps, "sv_fps", "20", CVAR_SYSTEMINFO },
 	{ &cg_projectileNudge, "cg_projectileNudge", "0", CVAR_ARCHIVE },
 	{ &cg_optimizePrediction, "cg_optimizePrediction", "1", CVAR_ARCHIVE },
-	{ &cl_timeNudge, "cl_timeNudge", "0", CVAR_ARCHIVE },
 	{ &cg_latentSnaps, "cg_latentSnaps", "0", CVAR_USERINFO | CVAR_CHEAT },
 	{ &cg_latentCmds, "cg_latentCmds", "0", CVAR_USERINFO | CVAR_CHEAT },
 	{ &cg_plOut, "cg_plOut", "0", CVAR_USERINFO | CVAR_CHEAT },
@@ -412,15 +410,8 @@ void CG_UpdateCvars( void ) {
 
 	for ( i = 0, cv = cvarTable ; i < cvarTableSize ; i++, cv++ ) {
 //unlagged - client options
-		// cl_timenudge less than -50 or greater than 50 doesn't actually
-		// do anything more than -50 or 50 (actually the numbers are probably
-		// closer to -30 and 30, but 50 is nice and round-ish)
-		// might as well not feed the myth, eh?
-		if ( cv->vmCvar == &cl_timeNudge ) {
-			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, -50, 50 );
-		}
 		// don't let this go too high - no point
-		else if ( cv->vmCvar == &cg_latentSnaps ) {
+		if ( cv->vmCvar == &cg_latentSnaps ) {
 			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, 0, 10 );
 		}
 //unlagged - client options
