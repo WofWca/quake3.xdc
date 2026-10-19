@@ -791,7 +791,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 //unlagged - lag simulation #3
 	// if the client wants to simulate outgoing packet loss
-	if ( client->pers.plOut ) {
+	if ( client->pers.plOut && g_cheats.integer ) {
 		// see if a random value is below the threshhold
 		float thresh = (float)client->pers.plOut / 100.0f;
 		if ( random() < thresh ) {
@@ -840,12 +840,17 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
 	// if the client wants latency in commands (client-to-server latency)
-	if ( client->pers.latentCmds ) {
+	if ( client->pers.latentCmds && g_cheats.integer ) {
 		// save the actual command time
 		int time = ucmd->serverTime;
+		int latentCmds = client->pers.latentCmds < 0
+			? 0
+			: client->pers.latentCmds > MAX_LATENT_CMDS - 1
+			? MAX_LATENT_CMDS - 1
+			: client->pers.latentCmds;
 
 		// find out which index in the queue we want
-		int cmdindex = client->pers.cmdhead - client->pers.latentCmds - 1;
+		int cmdindex = client->pers.cmdhead - latentCmds - 1;
 		while ( cmdindex < 0 ) {
 			cmdindex += MAX_LATENT_CMDS;
 		}
@@ -876,7 +881,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 //unlagged - lag simulation #1
 	// if the client is adding latency to received snapshots (server-to-client latency)
-	if ( client->pers.latentSnaps ) {
+	if ( client->pers.latentSnaps && g_cheats.integer ) {
 		// adjust the real ping
 		client->pers.realPing += client->pers.latentSnaps * (1000 / sv_fps.integer);
 		// adjust the attack time so backward reconciliation will work

@@ -686,6 +686,27 @@ static void ClientCleanName( const char *in, char *out, int outSize ) {
 }
 
 
+static int ClampAndWarn( int clientNum, const char *varName,
+	int value, int min, int max )
+{
+	int newValue = value;
+
+	if ( value < min ) {
+		newValue = min;
+	} else if ( value > max ) {
+		newValue = max;
+	}
+
+	if ( value != newValue ) {
+		trap_SendServerCommand( clientNum,
+			va("print \"%s is out of range [%i, %i], setting from %i to %i\n\"",
+				varName, min, max, value, newValue ) );
+	}
+
+	return newValue;
+}
+
+
 /*
 ===========
 ClientUserInfoChanged
@@ -746,7 +767,11 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	// see if the player is nudging his shots
 	s = Info_ValueForKey( userinfo, "cg_cmdTimeNudge" );
-	client->pers.cmdTimeNudge = atoi( s );
+	client->pers.cmdTimeNudge =
+		// clamp the value between 0 and 999
+		// negative values would suck - people could conceivably shoot other
+		// players *long* after they had left the area, on purpose
+		ClampAndWarn( clientNum, "cg_cmdTimeNudge", atoi( s ), 0, 999 );
 
 	// see if the player wants to debug the backward reconciliation
 	s = Info_ValueForKey( userinfo, "cg_debugDelag" );
@@ -754,20 +779,25 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->pers.debugDelag = qfalse;
 	}
 	else {
-		client->pers.debugDelag = qtrue;
+		client->pers.debugDelag =
+			ClampAndWarn( clientNum, "cg_debugDelag", atoi( s ), 0, 1 );
 	}
 
 	// see if the player is simulating incoming latency
 	s = Info_ValueForKey( userinfo, "cg_latentSnaps" );
-	client->pers.latentSnaps = atoi( s );
+	client->pers.latentSnaps =
+		ClampAndWarn( clientNum, "cg_latentSnaps", atoi( s ), 0, 99999 );
 
 	// see if the player is simulating outgoing latency
 	s = Info_ValueForKey( userinfo, "cg_latentCmds" );
-	client->pers.latentCmds = atoi( s );
+	client->pers.latentCmds =
+		ClampAndWarn( clientNum, "cg_latentCmds", atoi( s ), 0, MAX_LATENT_CMDS - 1 );
 
 	// see if the player is simulating outgoing packet loss
 	s = Info_ValueForKey( userinfo, "cg_plOut" );
-	client->pers.plOut = atoi( s );
+	client->pers.plOut =
+		// no more than 100% packet loss
+		ClampAndWarn( clientNum, "cg_plOut", atoi( s ), 0, 100 );
 //unlagged - client options
 
 	// set name

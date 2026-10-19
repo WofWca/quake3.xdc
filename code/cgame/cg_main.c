@@ -2,7 +2,7 @@
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
 Some portions Copyright (C) 2006 Neil Toronto.
-Some portions Copyright (C) 2025 WofWca.
+Some portions Copyright (C) 2025, 2026 WofWca.
 
 This file is part of Quake III Arena source code.
 
@@ -412,30 +412,16 @@ void CG_UpdateCvars( void ) {
 
 	for ( i = 0, cv = cvarTable ; i < cvarTableSize ; i++, cv++ ) {
 //unlagged - client options
-		// clamp the value between 0 and 999
-		// negative values would suck - people could conceivably shoot other
-		// players *long* after they had left the area, on purpose
-		if ( cv->vmCvar == &cg_cmdTimeNudge ) {
-			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, 0, 999 );
-		}
 		// cl_timenudge less than -50 or greater than 50 doesn't actually
 		// do anything more than -50 or 50 (actually the numbers are probably
 		// closer to -30 and 30, but 50 is nice and round-ish)
 		// might as well not feed the myth, eh?
-		else if ( cv->vmCvar == &cl_timeNudge ) {
+		if ( cv->vmCvar == &cl_timeNudge ) {
 			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, -50, 50 );
 		}
 		// don't let this go too high - no point
 		else if ( cv->vmCvar == &cg_latentSnaps ) {
 			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, 0, 10 );
-		}
-		// don't let this get too large
-		else if ( cv->vmCvar == &cg_latentCmds ) {
-			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, 0, MAX_LATENT_CMDS - 1 );
-		}
-		// no more than 100% packet loss
-		else if ( cv->vmCvar == &cg_plOut ) {
-			CG_Cvar_ClampInt( cv->cvarName, cv->vmCvar, 0, 100 );
 		}
 //unlagged - client options
 		trap_Cvar_Update( cv->vmCvar );

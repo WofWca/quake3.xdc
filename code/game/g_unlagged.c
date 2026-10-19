@@ -252,7 +252,8 @@ void G_TimeShiftAllClients( int time, gentity_t *skip ) {
 	int			i;
 	gentity_t	*ent;
 	qboolean debug = ( skip != NULL && skip->client && 
-			skip->client->pers.debugDelag && skip->s.weapon == WP_RAILGUN );
+			skip->client->pers.debugDelag && g_cheats.integer &&
+			skip->s.weapon == WP_RAILGUN );
 
 	// for every client
 	ent = &g_entities[0];
