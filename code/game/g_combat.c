@@ -839,7 +839,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, con
 		}
 
 		if ( ShouldPostponeDeathOrGib( meansOfDeath ) ) {
-			self->setDeathAnimScheduled = 1 + anim;
+			self->setDeathAnimScheduled = 1 + i;
 		} else {
 			self->client->ps.legsAnim = 
 				( ( self->client->ps.legsAnim & ANIM_TOGGLEBIT ) ^ ANIM_TOGGLEBIT ) | anim;
