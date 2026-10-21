@@ -179,7 +179,7 @@ CG_CVAR( cg_gibsNoLerpDelay, "cg_gibsNoLerpDelay", "1", 0,
 	"such as explosions, railgun trails, bullet hits, ahead of time.\n"
 	"Set bits 5 and up to play even more events ahead of time.\n"
 	"To get vanilla behavior, set to 0." )
-CG_CVAR( cg_gibsStopPlayerSounds, "cg_gibsStopPlayerSounds", "3", 0,
+CG_CVAR( cg_gibsStopPlayerSounds, "cg_gibsStopPlayerSounds", "1", 0,
 	"Stop player's sounds (pain, taunts) when they get gibbed.\n"
 	"Doesn't work for self as of writing. "
 	"Set 1st bit to apply this to other players. "
