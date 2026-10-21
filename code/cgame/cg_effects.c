@@ -26,6 +26,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "cg_local.h"
 
 
+#define	VectorLerp(v1, f, v2, o)	(\
+	(o)[0]=(v1)[0]+(f)*(v2[0]-v1[0]),\
+	(o)[1]=(v1)[1]+(f)*(v2[1]-v1[1]),\
+	(o)[2]=(v1)[2]+(f)*(v2[2]-v1[2])\
+)
+
+
 /*
 ==================
 CG_BubbleTrail
