@@ -488,6 +488,10 @@ void CopyToBodyQue( gentity_t *ent ) {
 
 	body->die = body_die;
 
+	if ( !g_oldGibs.integer ) {
+		// Not present in vanilla (probably just a bug).
+		body->health = ent->health;
+	}
 	// don't take more damage if already gibbed
 	if ( ent->health <= GIB_HEALTH ) {
 		body->takedamage = qfalse;
@@ -803,6 +807,9 @@ void ClientUserinfoChanged( int clientNum ) {
 	client->pers.cg_autoAttack =
 		atoi( Info_ValueForKey( userinfo, "cg_autoAttack" ) )
 		& 0x01;
+
+	client->pers.cg_gibsBetterCameraOnGib =
+		atoi( Info_ValueForKey( userinfo, "cg_gibsBetterCameraOnGib" ) );
 
 	// set name
 	Q_strncpyz ( oldname, client->pers.netname, sizeof( oldname ) );

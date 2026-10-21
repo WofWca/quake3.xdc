@@ -26,6 +26,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "cg_local.h"
 
 
+#define	VectorLerp(v1, f, v2, o)	(\
+	(o)[0]=(v1)[0]+(f)*(v2[0]-v1[0]),\
+	(o)[1]=(v1)[1]+(f)*(v2[1]-v1[1]),\
+	(o)[2]=(v1)[2]+(f)*(v2[2]-v1[2])\
+)
+
+
 /*
 ==================
 CG_BubbleTrail
@@ -524,21 +531,29 @@ void CG_Bleed( vec3_t origin, int entityNum ) {
 /*
 ==================
 CG_LaunchGib
+
+`randSeed` has no effect if `cg_oldGibs.integer == 1`
 ==================
 */
-void CG_LaunchGib( vec3_t origin, vec3_t velocity, qhandle_t hModel ) {
+void CG_LaunchGib( const vec3_t origin, const vec3_t angles,
+					const vec3_t velocity, const qhandle_t hModel,
+					const qboolean fireTrail,
+					const int randSeed ) {
 	localEntity_t	*le;
 	refEntity_t		*re;
+	int seed = randSeed;
 
 	le = CG_AllocLocalEntity();
 	re = &le->refEntity;
 
 	le->leType = LE_FRAGMENT;
 	le->startTime = cg.time;
-	le->endTime = le->startTime + 5000 + random() * 3000;
+	// Up to 60% extra, which is the vanilla 3000ms for the default 5000.
+	le->endTime = le->startTime +
+		(int)( cg_gibsDuration.integer * ( 1 + random() * 0.6f ) );
 
 	VectorCopy( origin, re->origin );
-	AxisCopy( axisDefault, re->axis );
+	AnglesToAxis( angles, re->axis );
 	re->hModel = hModel;
 
 	le->pos.trType = TR_GRAVITY;
@@ -547,35 +562,1159 @@ void CG_LaunchGib( vec3_t origin, vec3_t velocity, qhandle_t hModel ) {
 	le->pos.trTime = cg.time;
 
 	le->bounceFactor = 0.6f;
+	if ( !cg_oldGibs.integer ) {
+		// Same calculation as in `CG_ReflectVelocity`.
+		float r = ( Q_random(&seed) + Q_random(&seed) ) / 2;
+		le->bounceFactor = cg_gibsBounceFactor.value;
+		le->bounceFactor *= 1 - r * cg_gibsBounceFactorRandomness.value;
+	}
+
+	if (!cg_oldGibs.integer) {
+		// `VectorLength` would be more precise, but this is faster
+		// and good enough for randomness.
+		float speedIsh = fabs(velocity[0]) + fabs(velocity[1]) + fabs(velocity[2]);
+		int i;
+		int mainRotationAxis = Q_rand(&seed) % 3;
+
+		le->leFlags = LEF_TUMBLE;
+		le->angles.trType = TR_LINEAR;
+		le->angles.trTime = cg.time;
+		VectorCopy( angles, le->angles.trBase );
+		// Just a few degrees of randomness.
+		le->angles.trBase[PITCH] += Q_rand(&seed)&7;
+		le->angles.trBase[YAW] += Q_rand(&seed)&7;
+		le->angles.trBase[ROLL] += Q_rand(&seed)&7;
+		// TODO the tumble speed should probably depend on damage instead,
+		// or at least on random velocity.
+		for ( i = 0; i < 3; i++ ) {
+			// The numbers are not based on science, but it looks like
+			// having one axis be bigger than others makes rotation
+			// look natural (better preserve angular momentum).
+			float axisMul = mainRotationAxis == i ? 1 : 0.375;
+			le->angles.trDelta[i] = speedIsh * axisMul *
+				cg_gibsRotationFactor.value * Q_crandom(&seed);
+		}
+		if ( fireTrail ) {
+			le->light = LIGHT_GIB_FIRE_TRAIL;
+		}
+	}
 
 	le->leBounceSoundType = LEBS_BLOOD;
 	le->leMarkType = LEMT_BLOOD;
 }
 
+// If it's a dead body playing a death animation,
+// gradually transition the body position and angles from upright
+// to "lying flat on the ground".
+void AdjustPositionIfDeathAnimation( const lerpFrame_t *anim, vec3_t origin,
+	vec3_t bodyAngles, vec3_t lookDirAngles ) {
+	// 0 means that the body is fully erect,
+	// 1 means it's lying flat on the ground.
+	float deathAnimationProgress = 0;
+	if (
+		// Is this a death / dead animation?
+		(anim->animationNumber & ~ANIM_TOGGLEBIT) >= BOTH_DEATH1 &&
+		(anim->animationNumber & ~ANIM_TOGGLEBIT) <= BOTH_DEAD3 &&
+		// More sanity checks
+		anim->animation &&
+		anim->animation->numFrames > 0
+	) {
+		const int frameOfAnimation = anim->frame - anim->animation->firstFrame;
+		// Usually the body is already on the ground
+		// by the time ~half of the animation is played.
+		int numFramesFalling = anim->animation->numFrames * 5 / 8;
+		if ( numFramesFalling == 0 ) {
+			numFramesFalling = 1;
+		}
+
+		if (
+			frameOfAnimation < 0 ||
+			frameOfAnimation >= anim->animation->numFrames
+		) {
+			// Out of range. This seems to happen
+			// when we haven't yet managed to start the death animation.
+			// Maybe we're looking at the wrong things,
+			// but this works fine.
+			deathAnimationProgress = 0;
+		} else {
+			deathAnimationProgress =
+				(float)(frameOfAnimation + 1) / numFramesFalling;
+		}
+		if ( deathAnimationProgress > 1 ) {
+			deathAnimationProgress = 1;
+		}
+	}
+
+	// TODO fix: with body sinking, gibs get stuck in the floor.
+	origin[2] += deathAnimationProgress * (MINS_Z + PLAYER_WIDTH / 1.8f);
+	// From upright to facing up.
+	// TODO fix: but sometimes the "dead" animation is such that
+	// the player is facing down.
+	bodyAngles[PITCH] = 360 - deathAnimationProgress * 90;
+	lookDirAngles[PITCH] += - deathAnimationProgress * 90;
+	// Normalize. Doesn't seem to be necessary, but let's do it.
+	if (lookDirAngles[PITCH] < 0) {
+		lookDirAngles[PITCH] += 360;
+	}
+}
+static void AddKnockbackVelocity( const vec3_t gibOrigin,
+	const vec3_t explosionPoint, const vec3_t knockbackDir,
+	const float speed, vec3_t resVelocity )
+{
+	// May be a zero-vector, and actually not normalized
+	// (shorter than 1).
+	vec3_t dir;
+
+	if ( !speed ) {
+		return;
+	}
+
+	if ( explosionPoint ) {
+		VectorSubtract( gibOrigin, explosionPoint, dir );
+		VectorNormalize( dir );
+
+		VectorLerp( knockbackDir, cg_gibsVelocityFromExplosionFraction.value,
+			dir, dir );
+		// Note that we don't normalize the lerp result:
+		// with the two directions pointing away from each other
+		// the piece ends up slower,
+		// which is what "half of each" should feel like.
+	} else {
+		VectorCopy( knockbackDir, dir );
+	}
+
+	VectorMA( resVelocity, speed, dir, resVelocity );
+}
 /*
 ===================
 CG_GibPlayer
 
 Generated a bunch of gibs launching out from the bodies location
+
+`randSeed` should be the same for all players, and also preserved
+in demo playback, so that players see the same gibs
+(as long as they have the same `cg_gibs*` CVAR values).
 ===================
 */
-#define	GIB_VELOCITY	250
-#define	GIB_JUMP		250
-void CG_GibPlayer( vec3_t playerOrigin ) {
-	vec3_t	origin, velocity;
+#define	DEFAULT_NUM_GIBS	10
+#define	GIB_VELOCITY		250
+#define	GIB_JUMP			250
+void CG_GibPlayer( const vec3_t playerOrigin, const vec3_t playerAngles,
+					const vec3_t playerVelocityOriginal,
+					const vec3_t knockbackDir, const int knockbackSpeedOriginal,
+					const vec3_t explosionPointOriginal,
+					const lerpFrame_t *bodyAnimation, const clientInfo_t *ci,
+					const int randSeed ) {
+	int i;
+	vec3_t	baseOrigin, origin, velocity;
+	// Generally only the head should have pitch,
+	// the rest of the body is upright.
+	vec3_t	bodyAngles;
+	vec3_t	lookDirAngles, angles;
+	vec3_t	forward, right, up;
+	// See `playerMins`, `playerMaxs`.
+	// TODO we could try to check the actual `mins` and `maxs`
+	// (do we have them available on the client though?),
+	// to account for crounching.
+	float playerHeight = 32 - MINS_Z;
+	float playerRadius = PLAYER_WIDTH;
+	const int knockbackSpeed =
+		cg_gibsExtraKnockback.integer +
+		cg_gibsKnockback.value * knockbackSpeedOriginal;
+	float stoppingSpeed;
+	vec3_t		_explosionPoint;
+	vec_t		*explosionPoint = NULL;
+	float perPieceKnockback;
+	float baseRandomVelocity =
+		cg_gibsExtraRandomVelocity.value +
+		cg_gibsRandomVelocityFromKnockback.value * knockbackSpeed;
+	int seed = randSeed;
+
+	vec3_t playerVelocity;
+	// Note that this is not too accurate: we derive it based on knockback,
+	// so expect an error of up to ~100.
+	vec3_t pVelBeforeKnockback;
+	float jump =
+		cg_gibsExtraVerticalVelocity.value +
+		cg_gibsVerticalVelocityFromKnockback.value * knockbackSpeed;
+	const float numGibsFactor =
+		1 +
+		cg_gibsPiecesFromKnockback.value *
+		// Take 500 knockback (100 damage) as the basis, min value.
+		( (knockbackSpeed - 500) < 0 ? 0 : (knockbackSpeed - 500) ) /
+		1000.0f;
+	int numGibs = numGibsFactor * cg_gibs.value * DEFAULT_NUM_GIBS;
+	const qboolean fireTrail =
+		cg_gibsFireTrailMinKnockback.integer >= 0 &&
+		knockbackSpeed >= cg_gibsFireTrailMinKnockback.integer;
+	qboolean skullLaunched = qfalse; // launch only one skull.
 
 	if ( !cg_blood.integer ) {
 		return;
 	}
+
+	VectorCopy( playerOrigin, baseOrigin );
+	VectorCopy( playerAngles, lookDirAngles );
+	VectorCopy( playerAngles, bodyAngles );
+	if ( bodyAnimation ) {
+		AdjustPositionIfDeathAnimation( bodyAnimation, baseOrigin, bodyAngles, lookDirAngles );
+	} else {
+		bodyAngles[PITCH] = 0;
+	}
+	AngleVectors( bodyAngles, forward, right, up );
+
+	if ( knockbackDir ) {
+		VectorMA( playerVelocityOriginal, -knockbackSpeedOriginal, knockbackDir,
+			pVelBeforeKnockback );
+	} else {
+		VectorCopy( playerVelocityOriginal, pVelBeforeKnockback );
+	}
+	VectorCopy( playerVelocityOriginal, playerVelocity );
+
+	if ( explosionPointOriginal ) {
+		explosionPoint = _explosionPoint;
+		VectorCopy( explosionPointOriginal, explosionPoint );
+		// TODO we also may derive a more accurate `knockbackDir`
+		// based on the `explosionPoint`.
+		// But only as long as we know how the server makes the knockback.
+		// So maybe we can have a "tolerance" check,
+		// and keep using `knockbackDir` if the difference is too big.
+
+		{
+			// TODO maybe use actual center of the body
+			// (see `baseOrigin`, `up`, etc) instead of just `playerOrigin`.
+			vec3_t	toExplosion;
+			float	len;
+
+			VectorSubtract( explosionPointOriginal, playerOrigin, toExplosion );
+			len = VectorNormalize( toExplosion );
+			if ( len + cg_gibsExplosionDistanceOffset.value <= 0 ) {
+				VectorCopy( playerOrigin, explosionPoint );
+			} else {
+				VectorMA( explosionPoint, cg_gibsExplosionDistanceOffset.value,
+					toExplosion, explosionPoint );
+			}
+		}
+	}
+
+	if ( knockbackDir ) {
+		// `playerVelocity` already includes original knockback.
+		// Remove it: we add our own, scaled, per piece
+		// (see `AddKnockbackVelocity`).
+		//
+		// This also handles `knockbackDir` being a zero-vector.
+		VectorMA( playerVelocity, -knockbackSpeedOriginal, knockbackDir,
+			playerVelocity );
+	}
+
+	stoppingSpeed = -cg_gibsPlayerSpeedFromKnockback.value * knockbackSpeed;
+	if ( knockbackDir && !VectorCompare( knockbackDir, vec3_origin )
+		&& stoppingSpeed )
+	{
+		float speedBeforeKb = VectorLength( pVelBeforeKnockback );
+		float stoppingPower =
+			stoppingSpeed >= speedBeforeKb || speedBeforeKb == 0
+				? 1
+				: stoppingSpeed / speedBeforeKb;
+
+		if ( stoppingPower > -cg_gibsPlayerSpeedFromKnockbackMaxFraction.value ) {
+			stoppingPower = -cg_gibsPlayerSpeedFromKnockbackMaxFraction.value;
+		}
+
+		VectorMA( playerVelocity, -stoppingPower, pVelBeforeKnockback,
+			playerVelocity );
+		stoppingSpeed = speedBeforeKb * stoppingPower;
+	} else {
+		stoppingSpeed = 0;
+	}
+
+	VectorScale( playerVelocity, cg_gibsInheritPlayerVelocity.value, playerVelocity );
+
+	perPieceKnockback =
+		knockbackDir && !VectorCompare( knockbackDir, vec3_origin )
+			? cg_gibsLinearVelocityFromKnockback.value * knockbackSpeed
+				// `cg_gibsInheritPlayerVelocity` also scaled the knockback
+				// back when it was a part of `playerVelocity`,
+				// so keep doing that here.
+				* cg_gibsInheritPlayerVelocity.value
+			// We don't know where the damage came from
+			// (vanilla server, a crusher, lava, etc.).
+			: 0;
+
+	if ( cg_debugGibs.integer & 0x01 ) {
+		CG_Printf( "gib:" );
+		CG_Printf( " "S_COLOR_YELLOW"%i"S_COLOR_WHITE" pieces",
+			numGibs );
+		CG_Printf( ", speeds: " );
+		if ( !VectorCompare( playerVelocity, playerVelocityOriginal ) ) {
+			CG_Printf( "orig: "S_COLOR_YELLOW"%.1f, ",
+				VectorLength( playerVelocityOriginal ) );
+		}
+		CG_Printf( "result ps: "S_COLOR_YELLOW"%.1f",
+			VectorLength( playerVelocity ) );
+		CG_Printf( " (vertical "S_COLOR_YELLOW"%.1f"S_COLOR_WHITE")",
+			playerVelocity[2] );
+		CG_Printf( ", random: "S_COLOR_YELLOW"%.1f",
+			baseRandomVelocity );
+		CG_Printf( "\n" );
+	}
+	if ( cg_debugGibs.integer & 0x02 ) {
+		if ( explosionPoint ) {
+			vec3_t	toExplosion;
+			VectorSubtract( explosionPoint, playerOrigin, toExplosion );
+			CG_Printf( "     explosion dist: " );
+			CG_Printf( S_COLOR_GREEN"%.1f", VectorLength( toExplosion ) );
+			if ( Distance( explosionPoint, explosionPointOriginal ) > 0.01 ) {
+				VectorSubtract( explosionPointOriginal, playerOrigin, toExplosion );
+				CG_Printf( " (original: "S_COLOR_GREEN"%.1f", VectorLength( toExplosion ) );
+				CG_Printf(")");
+			}
+			CG_Printf( "\n" );
+		}
+
+		CG_Printf( "     body pitch "S_COLOR_YELLOW"%.1f",
+			AngleNormalize180( bodyAngles[PITCH] ) );
+		CG_Printf( " yaw "S_COLOR_YELLOW"%.1f",
+			AngleNormalize360( bodyAngles[YAW] ) );
+		CG_Printf( ", knockback speed "S_COLOR_YELLOW"%i", knockbackSpeed );
+		CG_Printf( ", before kb: "S_COLOR_YELLOW"%.1f",
+			VectorLength( pVelBeforeKnockback ) );
+		if ( stoppingSpeed != 0 ) {
+			CG_Printf( ", stopping: "S_COLOR_YELLOW"%.1f", stoppingSpeed );
+		}
+		CG_Printf( ", random seed "S_COLOR_YELLOW"%i", seed );
+		CG_Printf( "\n" );
+	}
+
+	do {
+		// Note that one gib will get launched even if `numGibs == 0`.
+		// This is in line with the original behavior of `CG_GibPlayer`.
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA(origin, MINS_Z + 0.95 * playerHeight, up, origin);
+		VectorClear( velocity );
+		VectorMA( velocity, 0.5*Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, 0.5*Q_crandom(&seed)*baseRandomVelocity, right, velocity );
+		// For the skull / brain we want the random velocity
+		// to never have downwards (inwards) component,
+		// so we use `Q_random` instead of `Q_crandom`
+		// (and less randomness overall).
+		// We also do the same for other gibs,
+		// but for the left / right velocity components.
+		VectorMA( velocity,
+			(0.25 + 0.5 * (Q_random(&seed) + Q_random(&seed))/2)
+				*baseRandomVelocity,
+			up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		if ( !skullLaunched && (Q_rand(&seed) & 1) ) {
+			CG_LaunchGib( origin, lookDirAngles, velocity, cgs.media.gibSkull, fireTrail, Q_rand(&seed) );
+			skullLaunched = qtrue;
+		} else {
+			CG_LaunchGib( origin, lookDirAngles, velocity, cgs.media.gibBrain, fireTrail, Q_rand(&seed) );
+		}
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		if ( ci && ci->infoValid && !Q_stricmp( ci->modelName, "klesk" ) ) {
+			// IDK exactly how many brains it has, but let's launch two
+			// (assuming that we're gonna run the loop just once).
+			if ( cg_debugGibs.integer & 0x10 ) {
+				CG_Printf("Launching extra brain gib because we're gibbing Klesk\n");
+			}
+			VectorCopy( baseOrigin, origin );
+			VectorMA( origin, MINS_Z + 0.75 * playerHeight, up, origin );
+			VectorClear( velocity );
+			velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+			velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+			velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+			VectorAdd( velocity, playerVelocity, velocity );
+			AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+				perPieceKnockback, velocity );
+			CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibBrain, fireTrail, Q_rand(&seed) );
+			// Don't decrement `numGibs`. This is extra.
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.65 * playerHeight, up, origin );
+		VectorClear( velocity );
+		velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibAbdomen, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.78 * playerHeight, up, origin );
+		VectorMA( origin, 0.8 * playerRadius, right, origin );
+		VectorMA( origin, -0.3 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, +(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[ROLL] += 70;
+		angles[PITCH] += 45;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibArm, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.80 * playerHeight, up, origin );
+		VectorClear( velocity );
+		// Chest is a more "central" and "heavier" piece,
+		// so it gets less random velocity.
+		velocity[0] = 0.5*Q_crandom(&seed)*baseRandomVelocity;
+		velocity[1] = 0.5*Q_crandom(&seed)*baseRandomVelocity;
+		velocity[2] = jump + 0.5*Q_crandom(&seed)*baseRandomVelocity;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibChest, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.66 * playerHeight, up, origin );
+		VectorMA( origin, 0.8 * playerRadius, right, origin );
+		VectorMA( origin, 0.2 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[PITCH] -= 80;
+		angles[YAW] += 50;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibFist, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.05 * playerHeight, up, origin );
+		VectorMA( origin, -0.5 * playerRadius, right, origin );
+		VectorMA( origin, -0.5 * playerRadius, forward, origin );
+		// This piece is offset relatively far back,
+		// and without this it might get stuck in the ground
+		// depending on `bodyAngles[PITCH]`,
+		// so let's ensure that it's high enough.
+		if ( origin[2] < playerOrigin[2] + MINS_Z + 2 ) {
+			origin[2] = playerOrigin[2] + MINS_Z + 2;
+		}
+		VectorClear( velocity );
+		velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibFoot, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.65 * playerHeight, up, origin );
+		VectorMA( origin, -0.6 * playerRadius, right, origin );
+		VectorMA( origin, +0.2 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, -(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[ROLL] -= 90;
+		angles[PITCH] -= 75;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibForearm, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.57 * playerHeight, up, origin );
+		VectorClear( velocity );
+		velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		CG_LaunchGib( origin, bodyAngles, velocity, cgs.media.gibIntestine, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.42 * playerHeight, up, origin );
+		VectorMA( origin, 0.5 * playerRadius, right, origin );
+		VectorMA( origin, 0.1 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, +(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[ROLL] -= 30;
+		angles[PITCH] -= 15;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibLeg, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.44 * playerHeight, up, origin );
+		VectorMA( origin, -0.5 * playerRadius, right, origin );
+		VectorMA( origin, -0.2 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, -(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[PITCH] += 15;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibLeg, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		// At this point all the "vanilla" gibs are placed,
+		// and the rest runs only if there are more gibs than normal.
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.78 * playerHeight, up, origin );
+		VectorMA( origin, -0.7 * playerRadius, right, origin );
+		VectorMA( origin, -0.2 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, -(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[ROLL] += 90;
+		angles[YAW] += 180;
+		angles[PITCH] -= 30;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibArm, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+		
+		// Use arm models as the lower legs
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.23 * playerHeight, up, origin );
+		VectorMA( origin, +0.5 * playerRadius, right, origin );
+		VectorMA( origin, +0.0 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, +(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[ROLL] += 90;
+		angles[PITCH] += 10;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibArm, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.25 * playerHeight, up, origin );
+		VectorMA( origin, -0.5 * playerRadius, right, origin );
+		VectorMA( origin, -0.5 * playerRadius, forward, origin );
+		// See another similar check above.
+		if ( origin[2] < playerOrigin[2] + MINS_Z + 3 ) {
+			origin[2] = playerOrigin[2] + MINS_Z + 3;
+		}
+		VectorClear( velocity );
+		VectorMA( velocity, -(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		// TODO seems not to be rotated well when bodyAngles is not upright
+		// (i.e. gib a dead player). Same for some other gibs.
+		angles[ROLL] += 90;
+		angles[YAW] += 180;
+		angles[PITCH] -= 30;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibArm, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.05 * playerHeight, up, origin );
+		VectorMA( origin, +0.5 * playerRadius, right, origin );
+		VectorMA( origin, +0.1 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+		velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[PITCH] -= 45;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibFoot, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		// In Vanilla Quake this is the left forearm,
+		// but let's also put it here upside down
+		VectorCopy( baseOrigin, origin );
+		VectorMA( origin, MINS_Z + 0.67 * playerHeight, up, origin );
+		VectorMA( origin, +0.9 * playerRadius, right, origin );
+		VectorMA( origin, -0.2 * playerRadius, forward, origin );
+		VectorClear( velocity );
+		VectorMA( velocity, +(0.25+0.5*Q_random(&seed))*baseRandomVelocity, right, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, forward, velocity );
+		VectorMA( velocity, Q_crandom(&seed)*baseRandomVelocity, up, velocity );
+		velocity[2] += jump;
+		VectorAdd( velocity, playerVelocity, velocity );
+		AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+			perPieceKnockback, velocity );
+		VectorCopy( bodyAngles, angles );
+		angles[ROLL] += 85;
+		angles[PITCH] += 90;
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibForearm, fireTrail, Q_rand(&seed) );
+		if (--numGibs <= 0) {
+			return;
+		}
+
+		for ( i = 0; i < 7; i++ ) {
+			VectorCopy( baseOrigin, origin );
+			VectorMA( origin, MINS_Z + 0.60 * playerHeight, up, origin );
+			origin[0] += Q_crandom(&seed) * playerRadius * 0.25;
+			origin[1] += Q_crandom(&seed) * playerRadius * 0.25;
+			origin[2] += Q_crandom(&seed) * playerRadius * 0.25;
+			VectorClear( velocity );
+			velocity[0] = Q_crandom(&seed)*baseRandomVelocity;
+			velocity[1] = Q_crandom(&seed)*baseRandomVelocity;
+			velocity[2] = jump + Q_crandom(&seed)*baseRandomVelocity;
+			VectorAdd( velocity, playerVelocity, velocity );
+			AddKnockbackVelocity( origin, explosionPoint, knockbackDir,
+				perPieceKnockback, velocity );
+			VectorCopy( bodyAngles, angles );
+			angles[0] += Q_random(&seed) * 360;
+			angles[1] += Q_random(&seed) * 360;
+			angles[2] += Q_random(&seed) * 360;
+			CG_LaunchGib( origin, angles, velocity, cgs.media.gibIntestine, fireTrail, Q_rand(&seed) );
+			if (--numGibs <= 0) {
+				return;
+			}
+		}
+	} while (numGibs > 0);
+}
+
+static int CG_MissileWeaponForMod( int mod ) {
+	switch ( mod ) {
+	case MOD_GRENADE:
+	case MOD_GRENADE_SPLASH:
+		return WP_GRENADE_LAUNCHER;
+	case MOD_ROCKET:
+	case MOD_ROCKET_SPLASH:
+		return WP_ROCKET_LAUNCHER;
+	case MOD_PLASMA:
+	case MOD_PLASMA_SPLASH:
+		return WP_PLASMAGUN;
+	case MOD_BFG:
+	case MOD_BFG_SPLASH:
+		return WP_BFG;
+	default:
+		// return WP_NONE;
+		return -1;
+	}
+}
+
+// Returns the obituary if it happened in `snap`
+// (and was missing in `prevSnap`).
+static const entityState_t *CG_FindObituaryForSnap(
+	const snapshot_t *snap, const snapshot_t *prevSnap, int victimNum )
+{
+	int	i;
+	for ( i = 0 ; i < snap->numEntities ; i++ ) {
+		const entityState_t	*es = &snap->entities[ i ];
+		const entityState_t	*prevEs;
+
+		if ( es->eType - ET_EVENTS != EV_OBITUARY ) {
+			continue;
+		}
+		if ( es->otherEntityNum != victimNum ) {
+			continue;
+		}
+		prevEs = CG_SnapEntity( prevSnap, es->number );
+		if ( prevEs != NULL
+			// Generally the `NULL` check should be enough
+			// as the server should avoid reusing temp entity numbers
+			// until the entity has been removed for long enough.
+			// But let's check for good measure.
+			&& prevEs->eType == es->eType
+			&& prevEs->otherEntityNum == es->otherEntityNum
+			&& prevEs->eventParm == es->eventParm )
+		{
+			// This is an old obituary still lingering around.
+			continue;
+		}
+
+		// Hypothetically there might be multuple obituaries per snap,
+		// but then things are going very bad anyway.
+		return es;
+	}
+
+	return NULL;
+}
+
+#define PLAYER_HEIGHT ( MAXS_Z - MINS_Z )
+static qboolean CG_GibsFindExplosion( int victimNum, const vec3_t victimOrigin,
+	vec3_t outExplosionPoint )
+{
+	int				i;
+	float			bestDamage = -1;
+	qboolean		found = qfalse;
+	const qboolean	debugLog = cg_debugGibs.integer & 0x20;
+	// `meansOfDeath` from `EV_OBITUARY`.
+	// If `-1` then it's probably a dead body getting gibbed.
+	int				obituaryMod = -1;
+
+	const snapshot_t	*snap = cg.transitioningNoLerpEvents
+		? cg.nextSnap
+		: cg.snap;
+	const snapshot_t	*prevSnap = snap == &cg.activeSnapshots[0]
+		? &cg.activeSnapshots[1]
+		: &cg.activeSnapshots[0];
+#ifdef BETTER_GIBS_SNAP_FROM_ENGINE_FALLBACK
+	snapshot_t	prevSnapFromEngine;
+#endif
+
+	// This should not happen. At least it doesn't happen as of writing.
+	// The other snap in `cg.activeSnapshots` seems to be always the prev snap.
+	if ( prevSnap->serverTime >= snap->serverTime ) {
+		if ( cg_debugGibs.integer ) {
+			CG_Printf(S_COLOR_YELLOW"gibs: find explosion: prev snap is not available\n");
+		}
+
+		// To be defensive, we could add code to get the prev snap
+		// from the engine, but this results in a compile error `Locals > 32k`:
+		// https://github.com/ioquake/ioq3/blob/f976711fb45bd15475ebcd02f57a4ce5819806b5/code/tools/asm/q3asm.c#L937
+#ifdef BETTER_GIBS_SNAP_FROM_ENGINE_FALLBACK
+		for ( i = 0; prevSnap->serverTime >= snap->serverTime; i++ ) {
+			qboolean r;
+
+			if ( i >= 4 ) {
+				if ( cg_debugGibs.integer ) {
+					CG_Printf(S_COLOR_YELLOW"could not get previous snapshot from engine: all snapshots are newer\n");
+				}
+
+				found = qfalse;
+				return found;
+			}
+
+			r = trap_GetSnapshot( cgs.processedSnapshotNum - i, &prevSnapFromEngine );
+			if ( !r ) {
+				if ( cg_debugGibs.integer ) {
+					CG_Printf(S_COLOR_YELLOW"could not get previous snapshot from engine: engine has no prev snapshot\n");
+				}
+
+				found = qfalse;
+				return found;
+			}
+
+			prevSnap = &prevSnapFromEngine;
+		}
+#else
+		found = qfalse;
+		return found;
+#endif
+	}
+
+	{
+		const entityState_t	*obituary =
+			CG_FindObituaryForSnap( snap, prevSnap, victimNum );
+		// Note that it's possible that we got killed by one thing
+		// but then got gibbed by another thing within the same snap,
+		// in which case we actually should not set `obituaryMod`,
+		// but it's good enough.
+		obituaryMod = obituary ? obituary->eventParm : -1;
+	}
+	if ( obituaryMod != -1 && CG_MissileWeaponForMod( obituaryMod ) == -1 ) {
+		if ( debugLog ) {
+			CG_Printf( "got gib-killed this snap, but not by a missile; obituaryMod: "S_COLOR_YELLOW"%i\n",
+				obituaryMod );
+		}
+
+		found = qfalse;
+		return found;
+	}
+
+	if ( debugLog ) {
+		CG_Printf( "obituaryMod: " );
+		if ( obituaryMod == -1 ) {
+			CG_Printf( S_COLOR_YELLOW"no relevant obituary" );
+		} else {
+			CG_Printf( S_COLOR_YELLOW"%i (weapon: %i)",
+				obituaryMod, CG_MissileWeaponForMod( obituaryMod ) );
+		}
+
+		CG_Printf( ", missiles:" );
+	}
+
+	for ( i = 0 ; i < snap->numEntities ; i++ ) {
+		const entityState_t	*es = &snap->entities[ i ];
+		const entityState_t	*prevEs;
+		const int			event = es->event & ~EV_EVENT_BITS;
+		float				distSquared;
+		int					damage;
+		vec3_t				explosionPoint;
+
+		// Missiles turn into `ET_GENERAL` when they explode.
+		if ( es->eType != ET_GENERAL ) {
+			continue;
+		}
+		if ( event != EV_MISSILE_HIT
+			&& event != EV_MISSILE_MISS
+			&& event != EV_MISSILE_MISS_METAL )
+		{
+			continue;
+		}
+
+		if ( obituaryMod != -1
+			&& CG_MissileWeaponForMod( obituaryMod ) != es->weapon )
+		{
+			if ( debugLog ) {
+				CG_Printf( S_COLOR_YELLOW" mod:%i", es->weapon );
+			}
+			continue;
+		}
+
+		prevEs = CG_SnapEntity( prevSnap, es->number );
+		// If the missile is found in the previous snap,
+		// it must be a missile that hasn't exploded yet.
+		// It could also be missing if it was fired and exploded in one snap.
+		if ( prevEs != NULL
+			&& (
+				prevEs->eType != ET_MISSILE
+				|| prevEs->event == es->event
+			) )
+		{
+			if ( debugLog ) {
+				CG_Printf( S_COLOR_YELLOW" old:%i", es->number );
+			}
+			continue;
+		}
+
+		// TODO maybe also require the direction
+		// to match the direction from the gib event?
+		// But it's a bit annoying with all the server-side
+		// direction adjustment logic.
+
+		BG_EvaluateTrajectory( &es->pos, snap->serverTime, explosionPoint );
+		distSquared = DistanceSquared( explosionPoint, victimOrigin );
+		if ( distSquared >= Square( PLAYER_HEIGHT * 5 ) ) {
+			// Even if it was actually a missile that gibbed us,
+			// if it's that far away then the radial velocity
+			// is anyway almost the same as the linear velocity.
+			if ( debugLog ) {
+				CG_Printf( S_COLOR_YELLOW" far:%.1f", sqrt( distSquared ) );
+			}
+			continue;
+		}
+
+		// Rough estimate, not the precise damage. See `G_RadiusDamage`.
+		// Also Quad is not taken into account.
+		damage = es->weapon == WP_PLASMAGUN ? 20 : 100;
+		if ( event == EV_MISSILE_HIT && es->otherEntityNum == victimNum ) {
+			// Direct hit.
+			// Note that in vanilla this never happens,
+			// because `EV_MISSILE_HIT` only happens
+			// if the target didn't get gibbed by impact.
+			damage = damage;
+		} else {
+			// We use a bigger radius than it is in reality
+			// (at most 150, for grenade launcher),
+			// for a bigger error margin.
+			// Also add player height for more margin,
+			// because the real damage calculation is based on
+			// bounding box edge, not just the origin.
+			const float weaponRadius = PLAYER_HEIGHT
+				+ ( es->weapon == WP_PLASMAGUN ? 20 : 150 ) * 1.25;
+			damage = damage * ( 1.0 - sqrt( distSquared ) / weaponRadius );
+		}
+		if ( debugLog ) {
+			CG_Printf( S_COLOR_GREEN" dmg:%i,dist:%.1f,weap:%i,event:%i",
+				damage, sqrt( distSquared ), es->weapon, event );
+		}
+
+		if ( damage <= bestDamage ) {
+			continue;
+		}
+
+		bestDamage = damage;
+		VectorCopy( explosionPoint, outExplosionPoint );
+		found = qtrue;
+	}
+
+	if ( debugLog ) {
+		CG_Printf( "\n" );
+	}
+	return found;
+}
+
+void CG_GibPlayer2( const centity_t *cent, const entityState_t *es,
+					const clientInfo_t *ci ) {
+	// With the new proto, `cent` is the temp event entity.
+	// We need to get the actual player or corpse.
+	const int targNum = cgs.g_gibsNewEvGibPlayerProtocol & 0x04
+		? es->otherEntityNum
+		: es->number;
+	const centity_t *targCent = targNum == cg.snap->ps.clientNum
+		? &cg.predictedPlayerEntity
+		: &cg_entities[ targNum ];
+	const entityState_t *targEs = &targCent->currentState;
+	const qboolean targEsValid = targCent->currentValid ||
+		targCent == &cg.predictedPlayerEntity;
+
+	const int killerNum = es->eventParm;
+	const centity_t *killerCent = killerNum == cg.snap->ps.clientNum
+		? &cg.predictedPlayerEntity
+		: &cg_entities[ killerNum ];
+	const entityState_t *killerEs = &killerCent->currentState;
+	const qboolean killerEsValid = ( killerCent->currentValid ||
+		killerCent == &cg.predictedPlayerEntity ) &&
+		// With vanilla servers `killer` is always 0
+		// when gibbing a dead body from the body queue.
+		!( targNum >= MAX_CLIENTS && killerNum == 0 );
+
+	vec3_t origin;
+
+	int knockbackSpeed = cgs.g_gibsNewEvGibPlayerProtocol & 0x02
+		? es->generic1 * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
+		// Also check the old Better Gibs mod protocol.
+		// This is to support servers and replays with the old version
+		// of the Better Gibs mod.
+		// Not super necessary but why not.
+		: cgs.g_gibsNewEvGibPlayerProtocol & 0x01
+		? es->eventParm * COMBAT_EV_GIB_PLAYER_ARG_DIVISOR
+		: killerEsValid && killerEs->powerups & ( 1 << PW_QUAD )
+		// Killer has quad: use `MAX_KNOCKBACK`.
+		// TODO fix: also check weapon,
+		// although this will not be always accurate, due to missiles.
+		? 200 * 1000 / COMBAT_PLAYER_MASS
+		// Just use the default knockback speed for 100 damage.
+		: 100 * 1000 / COMBAT_PLAYER_MASS;
+	vec3_t knockbackDir;
+	vec3_t explosionPoint;
+	qboolean explosionFound;
+
+	// Apparently at this point `targEs->pos.trDelta` doesn't yet have
+	// the knockback from the damage that gibbed us,
+	// so we have to differentiate between self and non-self
+	// during regular (non-demo non-spectator) gameplay.
+	const qboolean usePredictedPs =
+		targNum == cg.snap->ps.clientNum &&
+		!cg.demoPlayback &&
+		!(cg.snap->ps.pm_flags & PMF_FOLLOW);
+	// The new protocol has `trDelta` set to the player velocity
+	// at the time of gib.
+	// This is different from the velocity of the player or corpse (`targCent`),
+	// which might have changed (due to `Pmove()` or `BG_EvaluateTrajectory()`)
+	// between the gib event and the time when the snapshot was sent.
+	// This is especially important if the knockback moved the player
+	// against an obstacle such as a wall or the floor, clipping their velocity.
+	// See https://github.com/WofWca/quake3-better-gibs-mod/issues/3.
+	const vec3_t *vel =
+		!( cgs.g_gibsNewEvGibPlayerProtocol & 0x08 ) && usePredictedPs
+			? (const vec3_t*)&cg.predictedPlayerState.velocity
+			: &es->pos.trDelta;
+
+	// TODO: need to check `targEsValid`?
+	// Probably not a big deal though.
+	lerpFrame_t torsoAnimation = targCent->pe.torso;
+	vec3_t torsoAngles;
+
+	// TODO fix: things like `origin` and `angles`
+	// are not in complete sync between clients,
+	// so this seed is not always the same for all players.
+	int randSeed = es->number;
+	// Doing something like
+	// `randSeed = Q_rand(&randSeed) + newVal` for each value would be simpler,
+	// but `Q_rand` is not a good RNG, at least for the low bits,
+	// so doing `Q_rand() & 1` yields basically consistent results,
+	// in our case it was that for the same player
+	// the skull would either always spawn or never spawn.
+	randSeed = randSeed << 4;
+	randSeed ^= es->clientNum;
+	randSeed = randSeed << 5;
+	randSeed ^= es->eventParm;
+	randSeed = randSeed << 5;
+	randSeed ^= es->generic1;
+	randSeed = randSeed << 4;
+	randSeed ^= cgs.levelStartTime;
+	if ( cgs.g_gibsNewEvGibPlayerProtocol & 0x08 ) {
+		// With the new protocol the origin and velocity never change
+		// for the temp entity.
+		randSeed ^= (unsigned int)es->pos.trBase[0];
+		randSeed ^= (unsigned int)es->pos.trBase[1] << 10;
+		randSeed ^= (unsigned int)es->pos.trBase[2] << 20;
+		randSeed ^= (unsigned int)es->pos.trDelta[0];
+		randSeed ^= (unsigned int)es->pos.trDelta[1] << 10;
+		randSeed ^= (unsigned int)es->pos.trDelta[2] << 20;
+	} else {
+		// This varies from client to client, depending on the `snaps` CVAR
+		// and packet loss.
+		// So we round it to make it in sync ~95% of the time.
+		randSeed = randSeed << 6;
+		randSeed ^= cg.snap->serverTime / 2048;
+	}
+	if ( ci ) {
+		randSeed ^= ci->name[0];
+	}
+	// Apparently `Q_random` is only made supposed to work
+	// with positive numbers (see e.g. that `srand` takes `unsigned`).
+	randSeed = abs( randSeed );
+
+	// With the new protocol `cent->lerpOrigin` is always equal
+	// to `cent->pos.trBase`, which is the exact place where the player was
+	// when they got gibbed, same as with velocity.
+	// The difference is visible with
+	// `set sv_fps 10; set snaps 10; set cl_timeNudge 30; set g_knockback 3000;`
+	// and a quad shotgun.
+	if ( !targEsValid ) {
+		// Could happen if the gib event is in the PVS (potentially visible set)
+		// but the player is not.
+		// Just fall back to using the position of the gib event,
+		// as if `cg_gibsOriginalOrigin.value == 1.0f`.
+		VectorCopy( cent->lerpOrigin, origin );
+	} else {
+		// `targEs->pos` is better than `targCent->lerpOrigin`
+		// because `targCent->lerpOrigin` seems to be of the old frame,
+		// i.e. this code runs before `CG_CalcEntityLerpPositions()`,
+		// so `targCent->lerpOrigin` could also be invalid (zero vector).
+		// Especially noticeable when telefragging an enemy far away.
+		VectorLerp( targEs->pos.trBase, cg_gibsOriginalOrigin.value,
+			cent->lerpOrigin, origin );
+	}
+
+	if ( ( cgs.g_gibsNewEvGibPlayerProtocol & 0x10 ) && es->legsAnim != 0 ) {
+		ByteToDir( es->legsAnim - 1, knockbackDir );
+	} else {
+		VectorClear( knockbackDir );
+	}
+
+	explosionFound = CG_GibsFindExplosion( targNum, origin, explosionPoint );
+
+	// Torso animation angles seem to be in better sync
+	// between the local state and how others see us,
+	// and overall are closer to other player's viewangles
+	// than `cent->lerpAngles`.
+	// `cent->lerpAngles`, seems to sometimes be pointing
+	// in a completely different direction than the player's body
+	// at the time of death.
+	// Moreover, for non-self pitch seems to be always
+	// not very far from 0.
+	// This could be related to `LookAtKiller()`.
+	// Also see `CG_PlayerAngles`.
+	torsoAngles[PITCH] = torsoAnimation.pitchAngle;
+	torsoAngles[YAW] = torsoAnimation.yawAngle;
+	torsoAngles[ROLL] = 0;
+
+	if ( cg_debugGibs.integer & 0x04 ) {
+		vec3_t diff;
+		float l;
+
+		CG_Printf("EV_GIB_PLAYER:");
+		CG_Printf(" time "S_COLOR_GREEN"%i.%03is",
+			cg.time / 1000, cg.time % 1000 );
+		// If the server sets `EF_PLAYER_EVENT`, this is never `true`.
+		if ( targNum != es->number ) {
+			CG_Printf(", ent "S_COLOR_GREEN"%i",
+				es->number );
+		}
+		CG_Printf(", targ %s%i",
+			targEsValid ? S_COLOR_GREEN : S_COLOR_RED,
+			targNum );
+		CG_Printf(", killer %s%i",
+			killerEsValid ? S_COLOR_GREEN : S_COLOR_RED,
+			killerNum );
+
+		// Yellow means a big difference, but usually it means
+		// that it's an innacuracy that we fixed by using the new protocol,
+		// where the position and velocity are fixed at what they were
+		// the moment the player got gibbed on the server,
+		// i.e. they are not interpolated.
+		if ( cg_gibsOriginalOrigin.value != 0 ) {
+			VectorSubtract( targEs->pos.trBase, origin, diff );
+			l = VectorLength( diff );
+			CG_Printf(", pos diff %s%.1f",
+				l > 750 ? S_COLOR_RED : l > 100 ? S_COLOR_YELLOW : S_COLOR_GREEN,
+				VectorLength( diff ) );
+		}
+		VectorSubtract( targEs->pos.trDelta, *vel, diff );
+		l = VectorLength( diff );
+		CG_Printf(", vel diff %s%.1f",
+			l > 1500 ? S_COLOR_RED : l > 100 ? S_COLOR_YELLOW : S_COLOR_GREEN,
+			VectorLength( diff ) );
+
+		CG_Printf(", usePredictedPs %s%i\n",
+			usePredictedPs ? S_COLOR_GREEN : S_COLOR_CYAN,
+			usePredictedPs );
+	}
+
+	CG_GibPlayer( origin, torsoAngles, *vel, knockbackDir, knockbackSpeed,
+		explosionFound ? explosionPoint : NULL,
+		&torsoAnimation, ci, randSeed );
+}
+
+void CG_GibPlayerOld( vec3_t playerOrigin ) {
+	vec3_t	origin, angles, velocity;
+
+	if ( !cg_blood.integer ) {
+		return;
+	}
+
+	VectorClear(angles);
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
 	if ( rand() & 1 ) {
-		CG_LaunchGib( origin, velocity, cgs.media.gibSkull );
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibSkull, qfalse, 0 );
 	} else {
-		CG_LaunchGib( origin, velocity, cgs.media.gibBrain );
+		CG_LaunchGib( origin, angles, velocity, cgs.media.gibBrain, qfalse, 0 );
 	}
 
 	// allow gibs to be turned off for speed
@@ -587,55 +1726,55 @@ void CG_GibPlayer( vec3_t playerOrigin ) {
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibAbdomen );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibAbdomen, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibArm );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibArm, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibChest );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibChest, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibFist );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibFist, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibFoot );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibFoot, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibForearm );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibForearm, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibIntestine );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibIntestine, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibLeg );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibLeg, qfalse, 0 );
 
 	VectorCopy( playerOrigin, origin );
 	velocity[0] = crandom()*GIB_VELOCITY;
 	velocity[1] = crandom()*GIB_VELOCITY;
 	velocity[2] = GIB_JUMP + crandom()*GIB_VELOCITY;
-	CG_LaunchGib( origin, velocity, cgs.media.gibLeg );
+	CG_LaunchGib( origin, angles, velocity, cgs.media.gibLeg, qfalse, 0 );
 }
 
 /*

@@ -1223,7 +1223,7 @@ static void ObeliskRespawn( gentity_t *self ) {
 }
 
 
-static void ObeliskDie( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod ) {
+static void ObeliskDie( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int mod ) {
 	int			otherTeam;
 
 	otherTeam = OtherTeam( self->spawnflags );

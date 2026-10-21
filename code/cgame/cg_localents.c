@@ -122,12 +122,47 @@ void CG_BloodTrail( localEntity_t *le ) {
 	int		t;
 	int		t2;
 	int		step;
+	int		tBase;
+	int		tOffset;
 	vec3_t	newOrigin;
 	localEntity_t	*blood;
+	// Changes only when the gib collides with something.
+	int seed = le->startTime
+		+ le->pos.trTime
+		+ le->pos.trBase[0] * 0x100
+		+ le->pos.trBase[1] * 0x100
+		+ le->pos.trBase[2] * 0x100
+		// We could also use these, but we have enough randomness already.
+		// + le->pos.trDelta[0] * 0x100
+		// + le->pos.trDelta[1] * 0x100
+		// + le->pos.trDelta[2] * 0x100
+		;
 
-	step = 150;
-	t = step * ( (cg.time - cg.frametime + step ) / step );
-	t2 = step * ( cg.time / step );
+	// Comparing to 1 and not 0 because step randomness can result
+	// in step being 0.
+	// But anyways, anything below ~20 is not a sane value.
+	if ( cg_gibsBloodTrailPeriod.integer <= 1 ) {
+		return;
+	}
+
+	// Delay each puff for a bit, so that the initial trails
+	// are spread over a bigger volume, which looks more natural.
+	// At 1000 speed this is 63 units, i.e. a little more than player height
+	// (MAXS_Z - MINS_Z).
+	// Additionally this offsets all future puffs, so that they don't spawn
+	// at the same time for all gibs.
+	tOffset = 63 & Q_rand(&seed);
+
+	tBase = le->startTime + tOffset;
+	if ( cg.time < tBase ) {
+		return;
+	}
+
+	// Also a bit of randomness for the step looks more natural,
+	// doesn't give an impression that gib pieces are somehow "synced".
+	step = cg_gibsBloodTrailPeriod.integer * (1 + 0.125*Q_crandom(&seed));
+	t = tBase + step * ( ( cg.time - cg.frametime - tBase + step ) / step );
+	t2 = tBase + step * ( ( cg.time - tBase ) / step );
 
 	for ( ; t <= t2; t += step ) {
 		BG_EvaluateTrajectory( &le->pos, t, newOrigin );
@@ -146,6 +181,82 @@ void CG_BloodTrail( localEntity_t *le ) {
 		blood->pos.trDelta[2] = 40;
 	}
 }
+void CG_FireTrail( localEntity_t *le ) {
+	// Mostly copy-pasted from `CG_BloodTrail`
+
+	int		t;
+	int		t2;
+	int		step;
+	int		tBase;
+	int		tOffset;
+	vec3_t	newOrigin;
+	// Changes only when the gib collides with something.
+	int seed = le->startTime
+		+ le->pos.trTime
+		+ le->pos.trBase[0] * 0x100
+		+ le->pos.trBase[1] * 0x100
+		+ le->pos.trBase[2] * 0x100
+		// We could also use these, but we have enough randomness already.
+		// + le->pos.trDelta[0] * 0x100
+		// + le->pos.trDelta[1] * 0x100
+		// + le->pos.trDelta[2] * 0x100
+		;
+
+	if ( cg_gibsFireTrailPeriod.integer <= 0 ) {
+		return;
+	}
+
+	tOffset = 15 & Q_rand(&seed);
+
+	tBase = le->startTime + tOffset;
+	if ( cg.time < tBase ) {
+		return;
+	}
+
+	step = cg_gibsFireTrailPeriod.integer * (1 + 0.5*random());
+	t = tBase + step * ( ( cg.time - cg.frametime - tBase + step ) / step );
+	t2 = tBase + step * ( ( cg.time - tBase ) / step );
+
+	for ( ; t <= t2; t += step ) {
+		vec3_t vel;
+		const int decayStartTime =
+			le->startTime + cg_gibsFireTrailDuration.value / 8;
+		float sizeScale = 1;
+
+		if (t < decayStartTime) {
+			sizeScale = 1;
+		} else {
+			sizeScale = 1 - (t - decayStartTime) /
+				cg_gibsFireTrailDuration.value *
+				( 1 + 0.5*Q_crandom(&seed) );
+			if (sizeScale < 0.4) {
+				sizeScale = 0;
+				// Stop calling `CG_FireTrail()`, just for performance.
+				if ( le->light == LIGHT_GIB_FIRE_TRAIL) {
+					le->light = 0;
+				}
+				break;
+			}
+		}
+		sizeScale *= 1.5;
+		sizeScale *= 1 + 0.25*Q_crandom(&seed);
+
+		BG_EvaluateTrajectory( &le->pos, t, newOrigin );
+		newOrigin[0] += rand() & 15 - 8;
+		newOrigin[1] += rand() & 15 - 8;
+		newOrigin[2] += rand() & 15 - 8;
+
+		BG_EvaluateTrajectoryDelta( &le->pos, t, vel);
+		// Make the fire "trail behind".
+		VectorScale(vel, 0.5, vel);
+		vel[0] += rand() & 63 - 32;
+		vel[1] += rand() & 63 - 32;
+		vel[2] += rand() & 63 - 32;
+
+		CG_ParticleExplosion( "explode1", newOrigin, vel, 300,
+			sizeScale*10, sizeScale*3 );
+	}
+}
 
 
 /*
@@ -153,12 +264,37 @@ void CG_BloodTrail( localEntity_t *le ) {
 CG_FragmentBounceMark
 ================
 */
-void CG_FragmentBounceMark( localEntity_t *le, trace_t *trace ) {
+void CG_FragmentBounceMark( const localEntity_t *le, const trace_t *trace,
+	const vec3_t impactVelocityDiff ) {
 	int			radius;
 
 	if ( le->leMarkType == LEMT_BLOOD ) {
+		float radiusFactor = VectorLengthSquared( impactVelocityDiff )
+			/ Square( 800 );
+		if ( radiusFactor > 1 ) {
+			radiusFactor = 1;
+		}
+		// Smaller pieces make smaller marks.
+		if ( le->refEntity.hModel == cgs.media.gibIntestine ) {
+			radiusFactor *= 0.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibSkull ) {
+			radiusFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibFist ) {
+			radiusFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibAbdomen ) {
+			radiusFactor *= 1.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibChest ) {
+			radiusFactor *= 1.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibLeg ) {
+			radiusFactor *= 1.25;
+		}
 
-		radius = 16 + (rand()&31);
+		if ( cg_oldGibs.integer ) {
+			radius = 16 + (rand()&31);
+		} else {
+			radius = 16 + (radiusFactor + 0.25*crandom()) * 24;
+		}
+
 		CG_ImpactMark( cgs.media.bloodMarkShader, trace->endpos, trace->plane.normal, random()*360,
 			1,1,1,1, qtrue, radius, qfalse );
 	} else if ( le->leMarkType == LEMT_BURN ) {
@@ -169,9 +305,11 @@ void CG_FragmentBounceMark( localEntity_t *le, trace_t *trace ) {
 	}
 
 
-	// don't allow a fragment to make multiple marks, or they
-	// pile up while settling
-	le->leMarkType = LEMT_NONE;
+	// This is no longer needed, because we now decide whether to leave a mark
+	// purely based on impact velocity.
+	// // don't allow a fragment to make multiple marks, or they
+	// // pile up while settling
+	// le->leMarkType = LEMT_NONE;
 }
 
 /*
@@ -181,6 +319,37 @@ CG_FragmentBounceSound
 */
 void CG_FragmentBounceSound( localEntity_t *le, trace_t *trace ) {
 	if ( le->leBounceSoundType == LEBS_BLOOD ) {
+		// Limit simultaneous sounds, otherwise on some engines
+		// (e.g. ioquake3 with `s_useOpenAL 1`) lots of gibs hitting a wall
+		// at the same time make a ridiculously loud sound.
+		// On the vanilla engine there apparently is a limit,
+		// (see `S_Base_StartSound`),
+		// but applying the limit probably still makes sense either way.
+		static int soundsPlayedInWindow = 0;
+		static int windowStartTime = 0;
+		// static qboolean isOpenALChecked = qfalse;
+		// static qboolean isOpenAL = qfalse;
+		// if ( !isOpenALChecked ) {
+		// 	char var[ sizeof( "OpenAL" ) ];
+		// 	trap_Cvar_VariableStringBuffer( "s_backend", var, sizeof( var ) );
+		// 	isOpenAL = !Q_stricmp( var, "OpenAL" );
+		// 	isOpenALChecked = qtrue;
+		// 	// Yes, we don't do anything if the variable changes. Good enough.
+		// }
+		// if ( isOpenAL && !cg_oldGibs.integer ) {
+		if ( !cg_oldGibs.integer ) {
+			const int sinceWindowStart = cg.time - windowStartTime;
+			if ( sinceWindowStart > 75 * cg_timescale.value
+				|| sinceWindowStart < 0
+			) {
+				windowStartTime = cg.time;
+				soundsPlayedInWindow = 0;
+			}
+			if ( soundsPlayedInWindow >= cg_gibsMaxSimultaneousBounceSounds.integer ) {
+				return;
+			}
+		}
+
 		// half the gibs will make splat sounds
 		if ( rand() & 1 ) {
 			int r = rand()&3;
@@ -193,24 +362,29 @@ void CG_FragmentBounceSound( localEntity_t *le, trace_t *trace ) {
 			} else {
 				s = cgs.media.gibBounce3Sound;
 			}
+			soundsPlayedInWindow++;
 			trap_S_StartSound( trace->endpos, ENTITYNUM_WORLD, CHAN_AUTO, s );
 		}
 	} else if ( le->leBounceSoundType == LEBS_BRASS ) {
 
 	}
 
-	// don't allow a fragment to make multiple bounce sounds,
-	// or it gets too noisy as they settle
-	le->leBounceSoundType = LEBS_NONE;
+	// This is no longer needed, because we now decide whether to play a sound
+	// purely based on impact velocity.
+	// // don't allow a fragment to make multiple bounce sounds,
+	// // or it gets too noisy as they settle
+	// le->leBounceSoundType = LEBS_NONE;
 }
 
 
 /*
 ================
 CG_ReflectVelocity
+
+Modifies velocity of `le` and writes the difference to `velocityDifference`
 ================
 */
-void CG_ReflectVelocity( localEntity_t *le, trace_t *trace ) {
+void CG_ReflectVelocity( localEntity_t *le, trace_t *trace, vec3_t velocityDifference ) {
 	vec3_t	velocity;
 	float	dot;
 	int		hitTime;
@@ -221,7 +395,19 @@ void CG_ReflectVelocity( localEntity_t *le, trace_t *trace ) {
 	dot = DotProduct( velocity, trace->plane.normal );
 	VectorMA( velocity, -2*dot, trace->plane.normal, le->pos.trDelta );
 
+	if ( le->leBounceSoundType == LEBS_BLOOD && !cg_oldGibs.value ) {
+		int seed = le->bounceFactor * 0x1000000;
+		// Get a tighter distribution rather than uniform.
+		// Same calculation as in `CG_LaunchGib`.
+		float r = ( Q_random(&seed) + Q_random(&seed) ) / 2;
+		le->bounceFactor = cg_gibsBounceFactor.value;
+		le->bounceFactor *= 1 - r * cg_gibsBounceFactorRandomness.value;
+	}
 	VectorScale( le->pos.trDelta, le->bounceFactor, le->pos.trDelta );
+
+	if (velocityDifference) {
+		VectorSubtract( le->pos.trDelta, velocity, velocityDifference );
+	}
 
 	VectorCopy( trace->endpos, le->pos.trBase );
 	le->pos.trTime = cg.time;
@@ -237,29 +423,85 @@ void CG_ReflectVelocity( localEntity_t *le, trace_t *trace ) {
 	}
 }
 
+#define DEFAULT_GIB_SIZE 2
+static void GetFragmentMinsMaxs( const localEntity_t *le, vec3_t mins, vec3_t maxs ) {
+	VectorCopy( vec3_origin, mins );
+	VectorCopy( vec3_origin, maxs );
+
+	if ( le->leMarkType == LEMT_BLOOD ) {
+		float	sizeFactor = 1;
+		float	sizeFactor2;
+
+		if ( cg_oldGibs.integer ) {
+			return;
+		}
+
+		// Some gibs are visually not cubic, e.g. arms,
+		// but we can't be using a non-cubic physics box
+		// because the model is rotating inside of it (see `LEF_TUMBLE`).
+		VectorSet(mins, -DEFAULT_GIB_SIZE, -DEFAULT_GIB_SIZE, -DEFAULT_GIB_SIZE);
+		VectorSet(maxs, DEFAULT_GIB_SIZE, DEFAULT_GIB_SIZE, DEFAULT_GIB_SIZE);
+
+		// If you're gonna change these, make sure that gibs
+		// don't get stuck in the floor or walls when spawned.
+		if ( le->refEntity.hModel == cgs.media.gibIntestine ) {
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibSkull ) {
+			sizeFactor *= 2;
+		} else if ( le->refEntity.hModel == cgs.media.gibBrain ) {
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibFist ) {
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibForearm ) {
+			// Otherwise forearm kinda ends up standing upright sometimes.
+			sizeFactor *= 0.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibAbdomen ) {
+			sizeFactor *= 1.5;
+		} else if ( le->refEntity.hModel == cgs.media.gibChest ) {
+			sizeFactor *= 1.75;
+		} else if ( le->refEntity.hModel == cgs.media.gibLeg ) {
+			sizeFactor *= 1.25;
+		} else if ( le->refEntity.hModel == cgs.media.gibFoot ) {
+			sizeFactor *= 0.5;
+		}
+
+		VectorScale( mins, sizeFactor, mins );
+		VectorScale( maxs, sizeFactor, maxs );
+	}
+}
+
 /*
 ================
 CG_AddFragment
 ================
 */
 void CG_AddFragment( localEntity_t *le ) {
-	vec3_t	newOrigin;
+	vec3_t	newOrigin, impactVelocityDiff;
 	trace_t	trace;
+	vec3_t	mins;
+	vec3_t	maxs;
+
+	VectorCopy( vec3_origin, mins );
+	VectorCopy( vec3_origin, maxs );
 
 	if ( le->pos.trType == TR_STATIONARY ) {
 		// sink into the ground if near the removal time
 		int		t;
 		float	oldZ;
+		const int sinkTime = le->leMarkType == LEMT_BLOOD
+			// in vanilla the duraition is 5000ms and sink time is 1000ms.
+			? cg_gibsDuration.integer / 5
+			: SINK_TIME;
 		
 		t = le->endTime - cg.time;
-		if ( t < SINK_TIME ) {
+		if ( t < sinkTime ) {
 			// we must use an explicit lighting origin, otherwise the
 			// lighting would be lost as soon as the origin went
 			// into the ground
 			VectorCopy( le->refEntity.origin, le->refEntity.lightingOrigin );
 			le->refEntity.renderfx |= RF_LIGHTING_ORIGIN;
 			oldZ = le->refEntity.origin[2];
-			le->refEntity.origin[2] -= 16 * ( 1.0 - (float)t / SINK_TIME );
+			le->refEntity.origin[2] -= 16 * ( 1.0 - (float)t / sinkTime );
 			trap_R_AddRefEntityToScene( &le->refEntity );
 			le->refEntity.origin[2] = oldZ;
 		} else {
@@ -272,8 +514,9 @@ void CG_AddFragment( localEntity_t *le ) {
 	// calculate new position
 	BG_EvaluateTrajectory( &le->pos, cg.time, newOrigin );
 
+	GetFragmentMinsMaxs( le, mins, maxs );
 	// trace a line from previous position to new position
-	CG_Trace( &trace, le->refEntity.origin, NULL, NULL, newOrigin, -1, CONTENTS_SOLID );
+	CG_Trace( &trace, le->refEntity.origin, mins, maxs, newOrigin, -1, CONTENTS_SOLID );
 	if ( trace.fraction == 1.0 ) {
 		// still in free fall
 		VectorCopy( newOrigin, le->refEntity.origin );
@@ -290,6 +533,10 @@ void CG_AddFragment( localEntity_t *le ) {
 		// add a blood trail
 		if ( le->leBounceSoundType == LEBS_BLOOD ) {
 			CG_BloodTrail( le );
+
+			if ( le->light == LIGHT_GIB_FIRE_TRAIL && !cg_oldGibs.integer ) {
+				CG_FireTrail( le );
+			}
 		}
 
 		return;
@@ -303,14 +550,37 @@ void CG_AddFragment( localEntity_t *le ) {
 		return;
 	}
 
-	// leave a mark
-	CG_FragmentBounceMark( le, &trace );
-
-	// do a bouncy sound
-	CG_FragmentBounceSound( le, &trace );
-
 	// reflect the velocity on the trace plane
-	CG_ReflectVelocity( le, &trace );
+	CG_ReflectVelocity( le, &trace, impactVelocityDiff );
+
+	// Reduce (dampen) tumbling speed.
+	if ( le->leFlags & LEF_TUMBLE ) {
+		// Having angular velocity damping synchronized with
+		// linear velocity damping makes sure that they both decay
+		// at the same rate.
+		// Though having angular velocity damping a little smaller
+		// makes the fragment (gibs at least) look a little better
+		// when it stops, (as long as its angular velocity is not too big
+		// compared to its linear velocity).
+		float damping = (1 - le->bounceFactor) * 0.5;
+
+		// Make sure to set the current as the base before we update the delta,
+		// otherwise angles will suddenly jump on the next frame.
+		BG_EvaluateTrajectory( &le->angles, cg.time, le->angles.trBase );
+		le->angles.trTime = cg.time;
+
+		VectorScale( le->angles.trDelta, 1 - damping, le->angles.trDelta );
+	}
+
+	if ( VectorLengthSquared( impactVelocityDiff ) >= Square( cg_bounceMarksMinImpactSpeed.value ) ) {
+		// leave a mark
+		CG_FragmentBounceMark( le, &trace, impactVelocityDiff );
+	}
+
+	if ( VectorLengthSquared( impactVelocityDiff ) >= Square( cg_bounceSoundMinImpactSpeed.value ) ) {
+		// do a bouncy sound
+		CG_FragmentBounceSound( le, &trace );
+	}
 
 	trap_R_AddRefEntityToScene( &le->refEntity );
 }
@@ -687,7 +957,26 @@ void CG_AddInvulnerabilityJuiced( localEntity_t *le ) {
 	}
 	if ( t > 5000 ) {
 		le->endTime = 0;
-		CG_GibPlayer( le->refEntity.origin );
+		if (cg_oldGibs.integer) {
+			CG_GibPlayerOld( le->refEntity.origin );
+		} else {
+			vec3_t angles;
+			// Just use the default knockback speed for 200 damage.
+			int knockbackSpeed = 200 * 1000 / COMBAT_PLAYER_MASS;
+			int randSeed;
+			// Angles don't matter much here.
+			VectorClear( angles );
+			// Since the player with invulnerability is not moving,
+			// we expect its position to be the same for all players,
+			// so we can use it as a seed.
+			randSeed = le->refEntity.origin[0] * 1024;
+			randSeed = Q_rand(&randSeed) + le->refEntity.origin[1] * 1024;
+			randSeed = Q_rand(&randSeed) + le->refEntity.origin[2] * 1024;
+			randSeed = Q_rand(&randSeed) + cgs.levelStartTime;
+
+			CG_GibPlayer( le->refEntity.origin, angles, le->pos.trDelta,
+				NULL, knockbackSpeed, NULL, NULL, NULL, randSeed );
+		}
 	}
 	else {
 		trap_R_AddRefEntityToScene( &le->refEntity );
