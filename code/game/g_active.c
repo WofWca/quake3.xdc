@@ -79,13 +79,6 @@ void P_DamageFeedback( gentity_t *player ) {
 
 
 	client->ps.damageCount = count;
-
-	//
-	// clear totals
-	//
-	client->damage_blood = 0;
-	client->damage_armor = 0;
-	client->damage_knockback = 0;
 }
 
 
@@ -308,6 +301,42 @@ void	G_TouchTriggers( gentity_t *ent ) {
 		ent->client->ps.jumppad_frame = 0;
 		ent->client->ps.jumppad_ent = 0;
 	}
+}
+
+static void CheckCollisionDamage( gentity_t *ent, const vec3_t oldVelocity ) {
+	gclient_t	*client = ent->client;
+	vec3_t		velChange;
+	int			damage;
+	float		div;
+	float		baseDamage = g_gibsOnCollisionBaseDamage.value *
+		(client->ps.pm_type == PM_DEAD
+			? 1
+			: g_gibsOnCollisionAffectLivePlayers.value);
+
+	if ( baseDamage == 0 ) {
+		return;
+	}
+
+	VectorSubtract( client->ps.velocity, oldVelocity, velChange );
+
+	// Impact energy is proportional to the square of the speed.
+	// Also using `VectorLengthSquared` is computationally faster.
+	div = Square( g_gibsOnCollisionMinSpeed.value );
+	if ( div == 0 ) {
+		div = 1.0f / 0x10000;
+	}
+	damage = VectorLengthSquared( velChange )
+		/ div
+		* baseDamage;
+
+	// If the player already has -39 health,
+	// gibbing from a 2-centimeter fall would not look good.
+	// So we gotta have a threshold.
+	if ( damage < baseDamage ) {
+		return;
+	}
+
+	G_Damage (ent, NULL, NULL, NULL, NULL, damage, 0, MOD_FALLING);
 }
 
 /*
@@ -1045,6 +1074,7 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.autoAttackDelay = AUTOATTACK_DELAY_MS;
 
 	VectorCopy( client->ps.origin, client->oldOrigin );
+	VectorCopy( client->ps.velocity, client->oldVelocity );
 
 #ifdef MISSIONPACK
 		if (level.intermissionQueued != 0 && g_singlePlayer.integer) {
@@ -1103,6 +1133,18 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// execute client events
 	ClientEvents( ent, oldEventSequence );
+
+	// We run this _after_ `ClientEvents()` because that's where
+	// the normal fall damage is dealt.
+	// We want that because if a player has died from a high fall
+	// then we want to immediately gib them.
+	//
+	// On the other hand maybe we should run this
+	// before `BG_PlayerStateToEntityState`, which seems like a function
+	// that should be run when "finishing things up".
+	if ( !g_oldGibs.integer && g_gibsOnCollisionBaseDamage.integer ) {
+		CheckCollisionDamage( ent, client->oldVelocity );
+	}
 
 	// link entity now, after any personal teleporters have been used
 	trap_LinkEntity (ent);
@@ -1370,6 +1412,13 @@ void ClientEndFrame( gentity_t *ent ) {
 	// store the client's position for backward reconciliation later
 	G_StoreHistory( ent );
 //unlagged - backward reconciliation #1
+
+	//
+	// clear damage totals
+	//
+	ent->client->damage_blood = 0;
+	ent->client->damage_armor = 0;
+	ent->client->damage_knockback = 0;
 
 	// set the bit for the reachability area the client is currently in
 //	i = trap_AAS_PointReachabilityAreaIndex( ent->client->ps.origin );

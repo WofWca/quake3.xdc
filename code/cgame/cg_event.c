@@ -1266,9 +1266,35 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		// with the kamikaze sound, downside is that the gib sound will also
 		// not be played when someone is gibbed while just carrying the kamikaze
 		if ( !(es->eFlags & EF_KAMIKAZE) ) {
-			trap_S_StartSound( NULL, es->number, CHAN_BODY, cgs.media.gibSound );
+			if ( !cg_oldGibs.integer
+				&& ( es->number == cg.snap->ps.clientNum
+					? cg_gibsStopPlayerSounds.integer & 0x2
+					: cg_gibsStopPlayerSounds.integer & 0x1
+				) )
+			{
+				// Might be different from `cent` if this is a `G_TempEntity`.
+				//
+				// Maybe we should DRY this with the stuff in `CG_GibPlayer`,
+				// but good enough.
+				centity_t *targCent = &cg_entities[ es->number ];
+
+				// If we were to attach the sound to the entity,
+				// then this sound would also get muted.
+				trap_S_StartSound( position, ENTITYNUM_WORLD, CHAN_BODY, cgs.media.gibSound );
+
+				targCent->soundsMuted = qtrue;
+				// Ensure `soundsMuted` takes effect immediately
+				// and not on next snap or something.
+				CG_SetEntitySoundPosition( targCent );
+			} else {
+				trap_S_StartSound( NULL, es->number, CHAN_BODY, cgs.media.gibSound );
+			}
 		}
-		CG_GibPlayer( cent->lerpOrigin );
+		if (cg_oldGibs.integer) {
+			CG_GibPlayerOld( cent->lerpOrigin );
+		} else {
+			CG_GibPlayer2( cent, es, ci );
+		}
 		break;
 
 	case EV_STOPLOOPINGSOUND:

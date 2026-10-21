@@ -40,9 +40,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define	CARNAGE_REWARD_TIME	3000
 #define REWARD_SPRITE_TIME	2000
 
-#define	INTERMISSION_DELAY_TIME	1000
-#define	SP_INTERMISSION_DELAY_TIME	5000
-
 // gentity->flags
 #define	FL_GODMODE				0x00000010
 #define	FL_NOTARGET				0x00000020
@@ -136,7 +133,7 @@ struct gentity_s {
 	void		(*touch)(gentity_t *self, gentity_t *other, trace_t *trace);
 	void		(*use)(gentity_t *self, gentity_t *other, gentity_t *activator);
 	void		(*pain)(gentity_t *self, gentity_t *attacker, int damage);
-	void		(*die)(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod);
+	void		(*die)(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int mod);
 
 	int			pain_debounce_time;
 	int			fly_sound_debounce_time;	// wind tunnel
@@ -145,6 +142,15 @@ struct gentity_s {
 	int			health;
 
 	qboolean	takedamage;
+	// Whether to change `legsAnim` and `torsoAnim`,
+	// and fire a `EV_DEATH*` event
+	// after applying all the pellets of a shotgun shot.
+	// 0 means "nothing is scheduled",
+	// otherwise this represents (animation index + 1),
+	// where animation index is [0, 2]
+	int			setDeathAnimScheduled;
+	// Whether to `GibEntity` after applying all the pellets of a shotgun shot.
+	qboolean	gibScheduled;
 
 	int			damage;
 	int			splashDamage;	// quad will increase this without increasing radius
@@ -244,6 +250,7 @@ typedef struct {
 	qboolean	initialSpawn;		// the first spawn should be at a cool location
 	qboolean	predictItemPickup;	// based on cg_predictItems userinfo
 	qboolean	pmoveFixed;			//
+	int			cg_gibsBetterCameraOnGib;
 	char		netname[MAX_NETNAME];
 	int			maxHealth;			// for handicapping
 	int			enterTime;			// level.time the client entered the game
@@ -313,6 +320,8 @@ struct gclient_s {
 	int			latched_buttons;
 
 	vec3_t		oldOrigin;
+	// The `ps.velocity` before the latest `Pmove()`.
+	vec3_t		oldVelocity;
 
 	// sum up damage over an entire frame, so
 	// shotgun blasts give a single big kick
@@ -334,6 +343,7 @@ struct gclient_s {
 
 	// timers
 	int			respawnTime;		// can respawn when time > this, force after g_forcerespwan
+	int			deathTime;			// 0 if alive
 	int			inactivityTime;		// kick players when time > this
 	qboolean	inactivityWarning;	// qtrue if the five seoond warning has been given
 	int			rewardTime;			// clear the EF_AWARD_IMPRESSIVE, etc when time > this
@@ -452,7 +462,7 @@ typedef struct {
 
 	// intermission state
 	int			intermissionQueued;		// intermission was qualified, but
-										// wait INTERMISSION_DELAY_TIME before
+										// wait g_intermissionDelay before
 										// actually going there so the last
 										// frag can be watched.  Disable future
 										// kills during this delay
@@ -558,9 +568,24 @@ const char *BuildShaderStateConfig( void );
 //
 qboolean CanDamage (gentity_t *targ, vec3_t origin);
 void G_Damage (gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_t dir, vec3_t point, int damage, int dflags, int mod);
+void GibEntity( gentity_t *self, int killer, const vec3_t dir, const int damageBloodFallback );
+// The shotgun does `G_Damage` multiple times, per each pellet.
+// Normally that would mean that if the target is at 1 HP,
+// only one pellet would hit them.
+// But that would mean that the shotgun cannot gib. We don't want that,
+// so we postpone some of the effects of `G_Damage` until after
+// all the pellets have done their thing, in `ShotgunPattern`.
+// See
+// - https://github.com/ioquake/ioq3/issues/794.
+// - https://github.com/ec-/baseq3a/pull/49.
+// - https://github.com/WofWca/quake3-better-gibs-mod/issues/12.
+// - Also `glcient_s.damage_knockback`.
+#define ShouldPostponeDeathOrGib( mod ) (mod == MOD_SHOTGUN)
+#define SetDeadHeight( ent ) {ent->r.maxs[2] = DEAD_MAXS_Z;}
+#define SetFlNoKnockback( ent ) {ent->flags |= FL_NO_KNOCKBACK;}
 qboolean G_RadiusDamage (vec3_t origin, gentity_t *attacker, float damage, float radius, gentity_t *ignore, int mod);
 int G_InvulnerabilityEffect( gentity_t *targ, vec3_t dir, vec3_t point, vec3_t impactpoint, vec3_t bouncedir );
-void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath );
+void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int meansOfDeath );
 void TossClientItems( gentity_t *self );
 #ifdef MISSIONPACK
 void TossClientPersistantPowerups( gentity_t *self );
@@ -651,7 +676,7 @@ void ClientRespawn(gentity_t *ent);
 void BeginIntermission (void);
 void InitBodyQue (void);
 void ClientSpawn( gentity_t *ent );
-void player_die (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod);
+void player_die (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t dir, int damage, int mod);
 void AddScore( gentity_t *ent, vec3_t origin, int score );
 void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
@@ -775,69 +800,9 @@ extern	gentity_t		g_entities[MAX_GENTITIES];
 
 #define	FOFS(x) ((size_t)&(((gentity_t *)0)->x))
 
-extern	vmCvar_t	g_gametype;
-extern	vmCvar_t	g_dedicated;
-extern	vmCvar_t	g_cheats;
-extern	vmCvar_t	g_maxclients;			// allow this many total, including spectators
-extern	vmCvar_t	g_maxGameClients;		// allow this many active
-extern	vmCvar_t	g_restarted;
-
-extern	vmCvar_t	g_dmflags;
-extern	vmCvar_t	g_fraglimit;
-extern	vmCvar_t	g_timelimit;
-extern	vmCvar_t	g_capturelimit;
-extern	vmCvar_t	g_friendlyFire;
-extern	vmCvar_t	g_password;
-extern	vmCvar_t	g_needpass;
-extern	vmCvar_t	g_gravity;
-extern	vmCvar_t	g_speed;
-extern	vmCvar_t	g_knockback;
-extern	vmCvar_t	g_quadfactor;
-extern	vmCvar_t	g_forcerespawn;
-extern	vmCvar_t	g_inactivity;
-extern	vmCvar_t	g_debugMove;
-extern	vmCvar_t	g_debugAlloc;
-extern	vmCvar_t	g_debugDamage;
-extern	vmCvar_t	g_weaponRespawn;
-extern	vmCvar_t	g_weaponTeamRespawn;
-extern	vmCvar_t	g_synchronousClients;
-extern	vmCvar_t	g_motd;
-extern	vmCvar_t	g_warmup;
-extern	vmCvar_t	g_doWarmup;
-extern	vmCvar_t	g_blood;
-extern	vmCvar_t	g_allowVote;
-extern	vmCvar_t	g_teamAutoJoin;
-extern	vmCvar_t	g_teamForceBalance;
-extern	vmCvar_t	g_banIPs;
-extern	vmCvar_t	g_filterBan;
-extern	vmCvar_t	g_obeliskHealth;
-extern	vmCvar_t	g_obeliskRegenPeriod;
-extern	vmCvar_t	g_obeliskRegenAmount;
-extern	vmCvar_t	g_obeliskRespawnDelay;
-extern	vmCvar_t	g_cubeTimeout;
-extern	vmCvar_t	g_redteam;
-extern	vmCvar_t	g_blueteam;
-extern	vmCvar_t	g_smoothClients;
-extern	vmCvar_t	g_autoAttack;
-extern	vmCvar_t	pmove_fixed;
-extern	vmCvar_t	pmove_msec;
-extern	vmCvar_t	g_rankings;
-extern	vmCvar_t	g_enableDust;
-extern	vmCvar_t	g_enableBreath;
-extern	vmCvar_t	g_singlePlayer;
-extern	vmCvar_t	g_proxMineTimeout;
-extern	vmCvar_t	g_localTeamPref;
-//unlagged - server options
-// some new server-side variables
-extern	vmCvar_t	g_delagHitscan;
-extern	vmCvar_t	g_unlaggedVersion;
-extern	vmCvar_t	g_truePing;
-// server admins can adjust this if they *believe* the lightning 
-// gun is too powerful with lag compensation
-extern	vmCvar_t	g_lightningDamage;
-// this is for convenience - using "sv_fps.integer" is nice :)
-extern	vmCvar_t	sv_fps;
-//unlagged - server options
+#define G_CVAR_EXTERN
+#include "g_cvar.h"
+#undef G_CVAR_EXTERN
 
 void	trap_Print( const char *text );
 void	trap_Error( const char *text ) __attribute__((noreturn));
